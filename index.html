@@ -1436,8 +1436,10 @@ window.pinKey=function(k){
 function completarEntradaJugador(id){
   APP.rol='jugador'; APP.jugadorId=id;
   document.getElementById('hdr-sala').textContent='CAMPAÑA';
+  // Mostrar shell pero con contenido de carga mientras espera Firebase
   buildTabs();
   showScreen('shell');
+  document.getElementById('main-content').innerHTML='<div style="padding:40px;text-align:center;font-family:VT323,monospace;font-size:18px;color:var(--pip-dim);">⟳ CONECTANDO...</div>';
   if(!FB_MOCK&&db){
     db.ref('salas/'+APP.salaId).once('value', function(snap){
       const data=snap.val();
@@ -1869,7 +1871,7 @@ function saveJ(){
 function renderJEstado(){
   const j=myFicha();
   if(!j||!j.attrs) return '<div class="empty" style="padding:30px;text-align:center;">Cargando ficha...</div>';
-  if(!j.confirmada) return '<div class="empty" style="padding:30px;text-align:center;">Ficha pendiente de creación</div>';
+  if(!j.confirmada) return '<div style="padding:30px;text-align:center;">'    +'<div style="font-family:VT323,monospace;font-size:24px;color:var(--pip-warn);margin-bottom:12px;">⚠ FICHA PENDIENTE</div>'    +'<div style="font-size:11px;color:var(--pip-dim);margin-bottom:16px;">Tu personaje aún no ha sido creado.</div>'    +'<button class="btn" onclick="abrirWizard()">▸ CREAR PERSONAJE</button>'    +'</div>';
   const pvPct=Math.round((j.pvAct/j.pvMax)*100);
   const radPct=Math.min(100,Math.round((j.rads/1000)*100));
   const pvColor=pvPct<25?'var(--pip-danger)':pvPct<50?'var(--pip-warn)':'var(--pip)';
@@ -3188,6 +3190,15 @@ window.wizardNext=function(){
 /* ═══════════════════════════════════════════
    NIVEL UP
    ═══════════════════════════════════════════ */
+window.abrirWizard=function(){
+  const j=myFicha();
+  if(!j) return;
+  APP.wizardStep=0;
+  APP.wizardData=JSON.parse(JSON.stringify(j));
+  renderWizard();
+  document.getElementById('wizard').style.display='flex';
+};
+
 function checkLevelUp(){
   const j=myFicha();
   if(puedeSubirNivel(j))renderApp(); // muestra banner
