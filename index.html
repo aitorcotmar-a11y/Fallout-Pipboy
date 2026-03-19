@@ -319,6 +319,12 @@ input:focus,select:focus{border-color:var(--pip);box-shadow:0 0 4px rgba(74,254,
 .obj-equip-btn:hover{background:rgba(74,254,130,.1)}
 .obj-equip-btn.equipped{border-color:var(--pip-warn);color:var(--pip-warn)}
 </style>
+  <!-- PWA / Pantalla completa -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Pip-Boy">
+  <meta name="theme-color" content="#0a1a0a">
 </head>
 <body>
 
@@ -471,14 +477,14 @@ function initFB(){
 }
 
 // Listener en tiempo real para la sala — sincroniza cambios de otros usuarios
+var _heartbeatInterval=null;
+
 function startRealtime(salaId){
   if(FB_MOCK||!db) return;
   db.ref('salas/'+salaId).on('value', function(snap){
     const data=snap.val();
     if(!data) return;
-    // Actualizar MOCK con datos de Firebase
     MOCK.salas[salaId]=Object.assign(getMockSala(salaId), data);
-    // Sincronizar APP
     const s=MOCK.salas[salaId];
     APP.jugadores=s.jugadores||{};
     APP.tienda=s.tienda||[];
@@ -488,6 +494,17 @@ function startRealtime(salaId){
     APP.notificaciones=s.notificaciones||{};
     if(APP.rol) renderApp();
   });
+  // Heartbeat cada 10s para mantener la sesión activa
+  if(_heartbeatInterval) clearInterval(_heartbeatInterval);
+  _heartbeatInterval=setInterval(function(){
+    if(!APP.rol) return;
+    var ts=Date.now();
+    if(APP.rol==='jugador'&&APP.jugadorId){
+      db.ref('salas/'+salaId+'/jugadores/'+APP.jugadorId+'/heartbeat').set(ts);
+    } else if(APP.rol==='master'){
+      db.ref('salas/'+salaId+'/config/masterHeartbeat').set(ts);
+    }
+  }, 10000);
 }
 
 // Guardar sala completa en Firebase
@@ -1149,6 +1166,7 @@ function fichaVacia(nombre,clase){
    NAVEGACION
    ═══════════════════════════════════════════ */
 function salirApp(){
+  if(_heartbeatInterval){ clearInterval(_heartbeatInterval); _heartbeatInterval=null; }
   // Marcar offline
   if(APP.jugadorId&&APP.salaId){
     const j=myFicha();
@@ -1274,16 +1292,21 @@ function entrarMaster(){
       APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[];
       APP.enemigos=s.enemigos||[]; APP.combate=s.combate||[];
       APP.tiendas=s.tiendas||[]; APP.notificaciones=s.notificaciones||{};
-      // Comprobar si master ya está conectado
+      // Comprobar si master ya está conectado (con tolerancia de 15s)
       const cfg=getMockSala(APP.salaId).config||{};
-      if(cfg.masterOnline){
+      var ahoraMaster=Date.now();
+      var ultimoHBMaster=cfg.masterHeartbeat||0;
+      var masterActivo=cfg.masterOnline&&(ahoraMaster-ultimoHBMaster)<15000;
+      if(masterActivo){
         showScreen('login-screen');
         setTimeout(function(){ alert('⚠ El Master ya está conectado en otro dispositivo.'); },100);
         return;
       }
-      // Marcar master online
+      // Marcar master online con timestamp
       db.ref('salas/'+APP.salaId+'/config/masterOnline').set(true);
+      db.ref('salas/'+APP.salaId+'/config/masterHeartbeat').set(ahoraMaster);
       getMockSala(APP.salaId).config.masterOnline=true;
+      getMockSala(APP.salaId).config.masterHeartbeat=ahoraMaster;
       renderApp();
       startRealtime(APP.salaId);
     });
@@ -1406,8 +1429,11 @@ function completarEntradaJugador(id){
       APP.tiendas=s.tiendas||[]; APP.notificaciones=s.notificaciones||{};
       const j=APP.jugadores[id];
       if(!j){ showNotif('Error: jugador no encontrado'); return; }
-      // Comprobar si ya está conectado
-      if(j.online){
+      // Comprobar si ya está conectado (con tolerancia de 15s por si el heartbeat falló)
+      var ahora=Date.now();
+      var ultimoHB=j.heartbeat||0;
+      var sesionActiva=j.online&&(ahora-ultimoHB)<15000;
+      if(sesionActiva){
         showScreen('selector-screen');
         renderSelector();
         setTimeout(function(){
@@ -1415,9 +1441,11 @@ function completarEntradaJugador(id){
         }, 100);
         return;
       }
-      // Marcar online
+      // Marcar online con timestamp
       j.online=true;
+      j.heartbeat=ahora;
       db.ref('salas/'+APP.salaId+'/jugadores/'+id+'/online').set(true);
+      db.ref('salas/'+APP.salaId+'/jugadores/'+id+'/heartbeat').set(ahora);
       document.getElementById('hdr-badge').innerHTML='<span class="rbadge jugador">'+j.nombre+'</span>';
       if(!j.confirmada){
         APP.wizardStep=0; APP.wizardData=JSON.parse(JSON.stringify(j));
