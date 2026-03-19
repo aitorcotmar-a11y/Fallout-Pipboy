@@ -469,8 +469,13 @@ const FB_CONFIG = {
 let db=null, FB_MOCK=true;
 function initFB(){
   try{
-    firebase.initializeApp(FB_CONFIG);
-    db=firebase.database();
+    // Evitar reinicializar si ya existe una app
+    if(firebase.apps && firebase.apps.length>0){
+      db=firebase.app().database();
+    } else {
+      firebase.initializeApp(FB_CONFIG);
+      db=firebase.database();
+    }
     FB_MOCK=false;
     console.log('Firebase conectado');
   }catch(e){
@@ -1298,7 +1303,12 @@ function entrarMaster(){
   showScreen('shell');
   if(!FB_MOCK&&db){
     // Cargar datos de Firebase y arrancar listener
+    var masterFbTimeout=setTimeout(function(){
+      console.warn('Firebase timeout master — modo local');
+      entrarMasterLocal();
+    }, 8000);
     db.ref('salas/'+APP.salaId).once('value', function(snap){
+      clearTimeout(masterFbTimeout);
       const data=snap.val();
       if(data){
         MOCK.salas[APP.salaId]=Object.assign(getMockSala(APP.salaId), data);
@@ -1327,14 +1337,22 @@ function entrarMaster(){
       getMockSala(APP.salaId).config.masterHeartbeat=ahoraMaster;
       renderApp();
       startRealtime(APP.salaId);
+    }, function(err){
+      clearTimeout(fbTimeout);
+      console.error('Firebase error:', err);
+      entrarJugadorLocal(id);
     });
   } else {
-    const s=getMockSala(APP.salaId);
-    APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[];
-    APP.enemigos=s.enemigos||[]; APP.combate=s.combate||[];
-    APP.tiendas=s.tiendas||[]; APP.notificaciones=s.notificaciones||{};
-    renderApp();
+    entrarMasterLocal();
   }
+}
+
+function entrarMasterLocal(){
+  const s=getMockSala(APP.salaId);
+  APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[];
+  APP.enemigos=s.enemigos||[]; APP.combate=s.combate||[];
+  APP.tiendas=s.tiendas||[]; APP.notificaciones=s.notificaciones||{};
+  renderApp();
 }
 
 function renderSelector(){
@@ -1441,7 +1459,13 @@ function completarEntradaJugador(id){
   showScreen('shell');
   document.getElementById('main-content').innerHTML='<div style="padding:40px;text-align:center;font-family:VT323,monospace;font-size:18px;color:var(--pip-dim);">⟳ CONECTANDO...</div>';
   if(!FB_MOCK&&db){
+    // Timeout de seguridad: si Firebase tarda más de 8s, entrar en modo local
+    var fbTimeout=setTimeout(function(){
+      console.warn('Firebase timeout — modo local');
+      entrarJugadorLocal(id);
+    }, 8000);
     db.ref('salas/'+APP.salaId).once('value', function(snap){
+      clearTimeout(fbTimeout);
       const data=snap.val();
       if(data) MOCK.salas[APP.salaId]=Object.assign(getMockSala(APP.salaId), data);
       const s=getMockSala(APP.salaId);
@@ -1474,16 +1498,21 @@ function completarEntradaJugador(id){
       startRealtime(APP.salaId);
     });
   } else {
-    const s=getMockSala(APP.salaId);
-    APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[];
-    APP.tiendas=s.tiendas||[]; APP.notificaciones=s.notificaciones||{};
-    const j=APP.jugadores[id];
-    document.getElementById('hdr-badge').innerHTML='<span class="rbadge jugador">'+j.nombre+'</span>';
-    if(!j.confirmada){
-      APP.wizardStep=0; APP.wizardData=JSON.parse(JSON.stringify(j));
-      renderWizard(); document.getElementById('wizard').style.display='flex';
-    } else { renderApp(); checkLevelUp(); }
+    entrarJugadorLocal(id);
   }
+}
+
+function entrarJugadorLocal(id){
+  const s=getMockSala(APP.salaId);
+  APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[];
+  APP.tiendas=s.tiendas||[]; APP.notificaciones=s.notificaciones||{};
+  const j=APP.jugadores[id];
+  if(!j){ showNotif('Error: jugador no encontrado'); showScreen('selector-screen'); return; }
+  document.getElementById('hdr-badge').innerHTML='<span class="rbadge jugador">'+j.nombre+'</span>';
+  if(!j.confirmada){
+    APP.wizardStep=0; APP.wizardData=JSON.parse(JSON.stringify(j));
+    renderWizard(); document.getElementById('wizard').style.display='flex';
+  } else { renderApp(); checkLevelUp(); }
 }
 
 // alias para compatibilidad
