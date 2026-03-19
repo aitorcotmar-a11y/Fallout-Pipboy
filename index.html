@@ -1185,7 +1185,14 @@ function salirApp(){
     if(!FB_MOCK&&db) db.ref('salas/'+APP.salaId+'/config/masterOnline').set(false);
     getMockSala(APP.salaId).config.masterOnline=false;
   }
+  // Desconectar listener Firebase
+  if(!FB_MOCK&&db&&APP.salaId) db.ref('salas/'+APP.salaId).off();
+  // Reset completo del estado
   APP.rol=null; APP.jugadorId=null; APP.salaId=null;
+  APP.masterTab='fichas'; APP.fichaInner='estado';
+  APP.jugadores={}; APP.tienda=[]; APP.enemigos=[]; APP.combate=[];
+  APP.tiendas=[]; APP.notificaciones={}; APP._gruposAbiertos={};
+  MOCK.salas={};
   showScreen('login-screen');
 }
 
@@ -1263,6 +1270,9 @@ window.masterPinKey=function(k){
 
 window.goSelector=function(){
   APP.salaId=SALA_ID;
+  // Limpiar estado de sesión anterior
+  APP.rol=null; APP.jugadorId=null;
+  APP.masterTab='fichas'; APP.fichaInner='estado';
   showScreen('selector-screen');
   if(!FB_MOCK&&db){
     db.ref('salas/'+APP.salaId+'/jugadores').once('value', function(snap){
