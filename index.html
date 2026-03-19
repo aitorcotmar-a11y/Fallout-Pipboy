@@ -366,6 +366,38 @@ input:focus,select:focus{border-color:var(--pip);box-shadow:0 0 4px rgba(74,254,
   <button class="btn btn-sm" onclick="showScreen('login-screen')" style="margin-top:12px;">◄ VOLVER</button>
 </div>
 
+<!-- PIN JUGADOR -->
+<div id="pin-screen" style="display:none;width:100%;max-width:480px;height:100vh;margin:0 auto;background:var(--pip-dark);border-left:1px solid var(--pip-border);border-right:1px solid var(--pip-border);flex-direction:column;align-items:center;justify-content:center;padding:30px 24px;">
+  <div style="font-family:'VT323',monospace;font-size:34px;color:var(--pip-bright);text-shadow:var(--glow-s);letter-spacing:3px;margin-bottom:6px;animation:flicker 8s infinite;" id="pin-title">ACCESO JUGADOR</div>
+  <div style="font-size:10px;color:var(--pip-dim);letter-spacing:2px;margin-bottom:24px;" id="pin-jugador-name"></div>
+  <div class="login-box" style="width:100%;">
+    <div class="login-title" id="pin-box-title">INTRODUCE TU PIN</div>
+    <div style="font-size:10px;color:var(--pip-dim);margin-bottom:12px;" id="pin-hint"></div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px;" id="pin-display-row">
+      <div id="pd0" class="pin-dot"></div>
+      <div id="pd1" class="pin-dot"></div>
+      <div id="pd2" class="pin-dot"></div>
+      <div id="pd3" class="pin-dot"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">
+      <button class="btn pin-key" onclick="pinKey('1')">1</button>
+      <button class="btn pin-key" onclick="pinKey('2')">2</button>
+      <button class="btn pin-key" onclick="pinKey('3')">3</button>
+      <button class="btn pin-key" onclick="pinKey('4')">4</button>
+      <button class="btn pin-key" onclick="pinKey('5')">5</button>
+      <button class="btn pin-key" onclick="pinKey('6')">6</button>
+      <button class="btn pin-key" onclick="pinKey('7')">7</button>
+      <button class="btn pin-key" onclick="pinKey('8')">8</button>
+      <button class="btn pin-key" onclick="pinKey('9')">9</button>
+      <button class="btn pin-key btn-danger" onclick="pinKey('C')" style="font-size:12px;">BORRAR</button>
+      <button class="btn pin-key" onclick="pinKey('0')">0</button>
+      <button class="btn pin-key" onclick="pinKey('OK')" style="background:rgba(74,254,130,.08);">OK</button>
+    </div>
+    <div id="pin-err" class="login-err" style="margin-top:8px;text-align:center;"></div>
+  </div>
+  <button class="btn btn-sm" onclick="showScreen('selector-screen')" style="margin-top:12px;">◄ VOLVER</button>
+</div>
+
 <!-- SELECTOR JUGADOR -->
 <div id="selector-screen">
   <div style="padding:20px 16px 10px;">
