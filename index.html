@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="VAULT-TEC">
@@ -21,7 +21,9 @@
   --glow-s:0 0 18px rgba(74,254,130,.6);
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;padding:0;background:#000}
+html,body{
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);margin:0;padding:0;background:#000}
 body{color:var(--pip);font-family:'Share Tech Mono',monospace;}
 body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,.06) 3px,rgba(0,0,0,.06) 4px);pointer-events:none;z-index:9999}
 
@@ -325,6 +327,7 @@ input:focus,select:focus{border-color:var(--pip);box-shadow:0 0 4px rgba(74,254,
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Pip-Boy">
   <meta name="theme-color" content="#0a1a0a">
+  <link rel="manifest" href="data:application/json;base64,eyJuYW1lIjogIlBpcC1Cb3kgUlBHIiwgInNob3J0X25hbWUiOiAiUGlwLUJveSIsICJkZXNjcmlwdGlvbiI6ICJHZXN0b3IgZGUgY2FtcGFcdTAwZjFhIEZhbGxvdXQgRDIwIiwgInN0YXJ0X3VybCI6ICIuIiwgImRpc3BsYXkiOiAic3RhbmRhbG9uZSIsICJiYWNrZ3JvdW5kX2NvbG9yIjogIiMwYTFhMGEiLCAidGhlbWVfY29sb3IiOiAiIzBhMWEwYSIsICJvcmllbnRhdGlvbiI6ICJwb3J0cmFpdCIsICJpY29ucyI6IFt7InNyYyI6ICJkYXRhOmltYWdlL3N2Zyt4bWwsPHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHZpZXdCb3g9JzAgMCAxMDAgMTAwJz48cmVjdCB3aWR0aD0nMTAwJyBoZWlnaHQ9JzEwMCcgZmlsbD0nJTIzMGExYTBhJy8+PHRleHQgeT0nLjllbScgZm9udC1zaXplPSc4MCcgeD0nMTAnPlx1MjYyMjwvdGV4dD48L3N2Zz4iLCAic2l6ZXMiOiAiMTkyeDE5MiIsICJ0eXBlIjogImltYWdlL3N2Zyt4bWwifV19">
 </head>
 <body>
 
@@ -492,7 +495,12 @@ function startRealtime(salaId){
     APP.combate=s.combate||[];
     APP.tiendas=s.tiendas||[];
     APP.notificaciones=s.notificaciones||{};
-    if(APP.rol) renderApp();
+    // No rerenderizar si el wizard o lvlup están abiertos
+    const wizEl=document.getElementById('wizard');
+    const lvlEl=document.getElementById('lvlup-modal');
+    const wizAbierto=wizEl&&wizEl.style.display!=='none';
+    const lvlAbierto=lvlEl&&lvlEl.style.display!=='none';
+    if(APP.rol&&!wizAbierto&&!lvlAbierto) renderApp();
   });
   // Heartbeat cada 10s para mantener la sesión activa
   if(_heartbeatInterval) clearInterval(_heartbeatInterval);
@@ -1850,6 +1858,8 @@ function saveJ(){
 
 function renderJEstado(){
   const j=myFicha();
+  if(!j||!j.attrs) return '<div class="empty" style="padding:30px;text-align:center;">Cargando ficha...</div>';
+  if(!j.confirmada) return '<div class="empty" style="padding:30px;text-align:center;">Ficha pendiente de creación</div>';
   const pvPct=Math.round((j.pvAct/j.pvMax)*100);
   const radPct=Math.min(100,Math.round((j.rads/1000)*100));
   const pvColor=pvPct<25?'var(--pip-danger)':pvPct<50?'var(--pip-warn)':'var(--pip)';
