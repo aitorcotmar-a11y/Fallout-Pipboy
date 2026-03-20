@@ -591,19 +591,19 @@ const EXTRAS_COMUNES=[
 const EXTRAS_AVANZADOS=[
   {id:'blindaje_nat',n:'Blindaje natural',d:'+2 a la defensa'},
   {id:'canibal',n:'Caníbal',d:'Sangre y carne humana como agua y comida purificadas'},
-  {id:'crit_sup',n:'Crítico superior',d:'+2 al crítico de una categoría de armas'},
+  {id:'crit_sup',n:'Crítico superior',d:'+2 al umbral de crítico con el arma: '},
   {id:'currante',n:'Currante',d:'La mitad de tiempo en fabricar cosas'},
-  {id:'efic_ener',n:'Eficiencia energética',d:'Armas de energía consumen la mitad'},
+  {id:'efic_ener',n:'Eficiencia energética',d:'Armas de energía consumen la mitad de batería'},
   {id:'fiesteo',n:'Fiesteo',d:'Inmune a adicciones y sobredosis'},
   {id:'francotirador',n:'Francotirador',d:'Duplica el alcance de armas a distancia'},
   {id:'fuerza_imp',n:'Fuerza imparable',d:'+4 al daño en CaC'},
   {id:'heisenberg',n:'Heisenberg',d:'Drogas fabricadas duran el doble, -2 toxicidad'},
-  {id:'instruido',n:'Instruido',d:'+2 puntos en tres habilidades diferentes'},
+  {id:'instruido',n:'Instruido',d:'+2 en habilidades elegidas: '},
   {id:'maestro_c',n:'Maestro en combate',d:'Repite 1 tirada de daño por turno con un tipo de arma'},
   {id:'perforante',n:'Perforante',d:'+2 CaC vs. protec. intermedias / +4 vs. pesadas'},
-  {id:'profesional',n:'Profesional',d:'+4 al daño en CaD'},
+  {id:'profesional',n:'Profesional',d:'+4 al daño con el arma: '},
   {id:'radioactivo',n:'Radioactivo',d:'Ignora la mitad de tus Rads para efectos negativos'},
-  {id:'refinamiento_av',n:'Refinamiento',d:'+1 a tres atributos diferentes'},
+  {id:'refinamiento_av',n:'Refinamiento',d:'+1 a los atributos elegidos: '},
 ];
 const EXTRAS_LEGENDARIOS=[
   {id:'adamantio',n:'Esqueleto de Adamantio',d:'-5 PV de cada ataque recibido'},
@@ -954,6 +954,8 @@ function calcDEF(j){
   // blindaje
   const info=calcBlinjajeInfo(j);
   if(info.fueOk) d+=info.defBonus;
+  // Blindaje natural
+  if((j.extras||[]).includes('Blindaje natural')) d+=2;
   // penalizador
   d+=(j.penMod||0);
   return d;
@@ -966,7 +968,21 @@ function calcFUEefectiva(j){
   return j.attrs.fue+(setBonus.fue||0);
 }
 function calcMOV(j){return 10+getMod(j.attrs.agi)}
-function calcCRIT(j){if((j.rasgos||[]).includes('disparo')) return null;const m=getMod(j.attrs.sue);return 20-(m>0?m:0);}
+function calcCRIT(j){
+  if((j.rasgos||[]).includes('disparo')) return null;
+  const m=getMod(j.attrs.sue);
+  var base=20-(m>0?m:0);
+  // Crítico superior: -2 al umbral con el arma equipada
+  if((j.extras||[]).includes('Crítico superior')&&j.critSuperiorArma){
+    var eq=j.equipo||{};
+    var armaEq=eq.arma?getObjById(eq.arma):null;
+    if(armaEq){
+      var subcatMap={corta:'Armas cortas',media:'Armas medias',grande:'Armas grandes',energia:'Armas de energía',cac:'Combate'};
+      if(subcatMap[armaEq.subcat]===j.critSuperiorArma) base=Math.max(2,base-2);
+    }
+  }
+  return base;
+}
 function calcPIF(j){var base=j.attrs.sue<=7?3:j.attrs.sue<=8?2:1;var br=calcBonusRasgos(j);return base+(br.pifia||0);}
 function calcSPts(j){const m=getMod(j.attrs.sue);return m>0?m:0}
 function calcCuadroValor(j,c){
@@ -1633,6 +1649,10 @@ function normalizarFicha(j){
   if(!j.extraArma)     j.extraArma='';
   if(!j.talAtributo)   j.talAtributo='';
   if(!j.talHabilidad)  j.talHabilidad='';
+  if(!j.critSuperiorArma)  j.critSuperiorArma='';
+  if(!j.profesionalArma)   j.profesionalArma='';
+  if(!j.refinamientoAttrs) j.refinamientoAttrs=[];
+  if(!j.instruidoHabs)     j.instruidoHabs=[];
   return j;
 }
 
@@ -1852,6 +1872,118 @@ window.elegirTalHabilidad=function(hab, origen){
   showNotif('Talento: '+hab+' elegido');
 };
 
+// ── Modal Crítico Superior ──
+window.abrirModalCritSuperior=function(origen){
+  const d=origen==='wizard'?APP.wizardData:origen==='lvlup'?APP.lvlupData:myFicha();
+  if(!d) return;
+  const modal=document.getElementById('obj-detail-modal');
+  const box=document.getElementById('obj-detail-box');
+  const actual=d.critSuperiorArma||'';
+  const tipos=['Armas cortas','Armas medias','Armas grandes','Armas de energía','Combate'];
+  box.innerHTML='<div style="padding:20px;">'    +'<div style="font-family:VT323,monospace;font-size:18px;color:var(--pip-bright);margin-bottom:6px;">🎯 CRÍTICO SUPERIOR</div>'    +'<div style="font-size:10px;color:var(--pip-dim);margin-bottom:14px;">Elige el tipo de arma · -2 al umbral de crítico</div>'    +tipos.map(function(t){
+      const sel=actual===t;
+      return '<button class="_critsup-pick" data-t="'+t+'" data-or="'+origen+'" style="display:block;width:100%;padding:8px 12px;margin-bottom:4px;border:1px solid '+(sel?'var(--pip-warn)':'var(--pip-border)')+';background:'+(sel?'rgba(245,185,66,.1)':'none')+';color:'+(sel?'var(--pip-warn)':'var(--pip-bright)')+';font-family:VT323,monospace;font-size:14px;cursor:pointer;text-align:left;">'+t+(sel?' ✓':'')+'</button>';
+    }).join('')    +'<button style="margin-top:10px;width:100%;padding:8px;border:1px solid rgba(74,254,130,.3);background:none;color:var(--pip-dim);font-family:VT323,monospace;font-size:13px;cursor:pointer;" onclick="cerrarDetalle()">CANCELAR</button>'    +'</div>';
+  modal.style.display='flex';
+  setTimeout(function(){
+    box.querySelectorAll('._critsup-pick').forEach(function(btn){
+      btn.onclick=function(){ elegirCritSuperior(this.dataset.t,this.dataset.or); };
+    });
+  },0);
+};
+window.elegirCritSuperior=function(t,origen){
+  const d=origen==='wizard'?APP.wizardData:origen==='lvlup'?APP.lvlupData:myFicha();
+  d.critSuperiorArma=t; cerrarDetalle();
+  if(origen==='wizard') document.getElementById('wizard-body').innerHTML=renderWizardStep(APP.wizardStep,APP.wizardData);
+  else if(origen==='lvlup') document.getElementById('lvlup-body').innerHTML=renderLvlupPaso('extra',APP.lvlupData,myFicha());
+  else { saveJ(); renderApp(); }
+  showNotif('Crítico Superior: '+t);
+};
+
+// ── Modal Profesional ──
+window.abrirModalProfesional=function(origen){
+  const d=origen==='wizard'?APP.wizardData:origen==='lvlup'?APP.lvlupData:myFicha();
+  if(!d) return;
+  const modal=document.getElementById('obj-detail-modal');
+  const box=document.getElementById('obj-detail-box');
+  const actual=d.profesionalArma||'';
+  const tipos=['Armas cortas','Armas medias','Armas grandes','Armas de energía'];
+  box.innerHTML='<div style="padding:20px;">'    +'<div style="font-family:VT323,monospace;font-size:18px;color:var(--pip-bright);margin-bottom:6px;">🏆 PROFESIONAL</div>'    +'<div style="font-size:10px;color:var(--pip-dim);margin-bottom:14px;">Elige el tipo de arma a distancia · +4 al daño</div>'    +tipos.map(function(t){
+      const sel=actual===t;
+      return '<button class="_prof-pick" data-t="'+t+'" data-or="'+origen+'" style="display:block;width:100%;padding:8px 12px;margin-bottom:4px;border:1px solid '+(sel?'var(--pip-warn)':'var(--pip-border)')+';background:'+(sel?'rgba(245,185,66,.1)':'none')+';color:'+(sel?'var(--pip-warn)':'var(--pip-bright)')+';font-family:VT323,monospace;font-size:14px;cursor:pointer;text-align:left;">'+t+(sel?' ✓':'')+'</button>';
+    }).join('')    +'<button style="margin-top:10px;width:100%;padding:8px;border:1px solid rgba(74,254,130,.3);background:none;color:var(--pip-dim);font-family:VT323,monospace;font-size:13px;cursor:pointer;" onclick="cerrarDetalle()">CANCELAR</button>'    +'</div>';
+  modal.style.display='flex';
+  setTimeout(function(){
+    box.querySelectorAll('._prof-pick').forEach(function(btn){
+      btn.onclick=function(){ elegirProfesional(this.dataset.t,this.dataset.or); };
+    });
+  },0);
+};
+window.elegirProfesional=function(t,origen){
+  const d=origen==='wizard'?APP.wizardData:origen==='lvlup'?APP.lvlupData:myFicha();
+  d.profesionalArma=t; cerrarDetalle();
+  if(origen==='wizard') document.getElementById('wizard-body').innerHTML=renderWizardStep(APP.wizardStep,APP.wizardData);
+  else if(origen==='lvlup') document.getElementById('lvlup-body').innerHTML=renderLvlupPaso('extra',APP.lvlupData,myFicha());
+  else { saveJ(); renderApp(); }
+  showNotif('Profesional: '+t+' +4 daño');
+};
+
+// ── Modal Refinamiento avanzado (3 atributos) ──
+window.abrirModalRefinamientoAv=function(origen){
+  const d=origen==='wizard'?APP.wizardData:origen==='lvlup'?APP.lvlupData:myFicha();
+  if(!d) return;
+  if(!d.refinamientoAttrs) d.refinamientoAttrs=[];
+  const modal=document.getElementById('obj-detail-modal');
+  const box=document.getElementById('obj-detail-box');
+  box.innerHTML='<div style="padding:20px;">'    +'<div style="font-family:VT323,monospace;font-size:18px;color:var(--pip-bright);margin-bottom:6px;">⭐ REFINAMIENTO</div>'    +'<div style="font-size:10px;color:var(--pip-dim);margin-bottom:14px;">Elige 3 atributos · +1 a cada uno</div>'    +ATTRS.map(function(a){
+      const sel=d.refinamientoAttrs.includes(a.k);
+      const dis=!sel&&d.refinamientoAttrs.length>=3;
+      return '<button class="_ref-pick" data-k="'+a.k+'" data-or="'+origen+'" style="display:block;width:100%;padding:8px 12px;margin-bottom:4px;border:1px solid '+(sel?'var(--pip-warn)':dis?'rgba(74,254,130,.1)':'var(--pip-border)')+';background:'+(sel?'rgba(245,185,66,.1)':'none')+';color:'+(sel?'var(--pip-warn)':dis?'var(--pip-dim)':'var(--pip-bright)')+';font-family:VT323,monospace;font-size:14px;cursor:pointer;text-align:left;"'+(dis?' disabled':'')+'>'+a.n+(sel?' ✓':'')+'</button>';
+    }).join('')    +'<div style="font-size:10px;color:var(--pip-dim);margin-top:8px;">Seleccionados: <span id="ref-count">'+d.refinamientoAttrs.length+'</span>/3</div>'    +'<button style="margin-top:10px;width:100%;padding:8px;border:1px solid rgba(74,254,130,.3);background:none;color:var(--pip-dim);font-family:VT323,monospace;font-size:13px;cursor:pointer;" onclick="cerrarDetalle()">CERRAR</button>'    +'</div>';
+  modal.style.display='flex';
+  setTimeout(function(){
+    box.querySelectorAll('._ref-pick').forEach(function(btn){
+      btn.onclick=function(){ if(!this.disabled) elegirRefinamientoAv(this.dataset.k,this.dataset.or); };
+    });
+  },0);
+};
+window.elegirRefinamientoAv=function(k,origen){
+  const d=origen==='wizard'?APP.wizardData:origen==='lvlup'?APP.lvlupData:myFicha();
+  if(!d.refinamientoAttrs) d.refinamientoAttrs=[];
+  var idx=d.refinamientoAttrs.indexOf(k);
+  if(idx>=0) d.refinamientoAttrs.splice(idx,1);
+  else if(d.refinamientoAttrs.length<3) d.refinamientoAttrs.push(k);
+  abrirModalRefinamientoAv(origen);
+};
+
+// ── Modal Instruido (3 habilidades generales) ──
+window.abrirModalInstruido=function(origen){
+  const d=origen==='wizard'?APP.wizardData:origen==='lvlup'?APP.lvlupData:myFicha();
+  if(!d) return;
+  if(!d.instruidoHabs) d.instruidoHabs=[];
+  const modal=document.getElementById('obj-detail-modal');
+  const box=document.getElementById('obj-detail-box');
+  box.innerHTML='<div style="padding:20px;">'    +'<div style="font-family:VT323,monospace;font-size:18px;color:var(--pip-bright);margin-bottom:6px;">📚 INSTRUIDO</div>'    +'<div style="font-size:10px;color:var(--pip-dim);margin-bottom:14px;">Elige 3 habilidades generales · +2 a cada una</div>'    +HAB_HABS.map(function(h){
+      const sel=d.instruidoHabs.includes(h);
+      const dis=!sel&&d.instruidoHabs.length>=3;
+      return '<button class="_inst-pick" data-h="'+h+'" data-or="'+origen+'" style="display:block;width:100%;padding:8px 12px;margin-bottom:4px;border:1px solid '+(sel?'var(--pip-warn)':dis?'rgba(74,254,130,.1)':'var(--pip-border)')+';background:'+(sel?'rgba(245,185,66,.1)':'none')+';color:'+(sel?'var(--pip-warn)':dis?'var(--pip-dim)':'var(--pip-bright)')+';font-family:VT323,monospace;font-size:14px;cursor:pointer;text-align:left;"'+(dis?' disabled':'')+'>'+h+(sel?' ✓':'')+'</button>';
+    }).join('')    +'<div style="font-size:10px;color:var(--pip-dim);margin-top:8px;">Seleccionadas: '+d.instruidoHabs.length+'/3</div>'    +'<button style="margin-top:10px;width:100%;padding:8px;border:1px solid rgba(74,254,130,.3);background:none;color:var(--pip-dim);font-family:VT323,monospace;font-size:13px;cursor:pointer;" onclick="cerrarDetalle()">CERRAR</button>'    +'</div>';
+  modal.style.display='flex';
+  setTimeout(function(){
+    box.querySelectorAll('._inst-pick').forEach(function(btn){
+      btn.onclick=function(){ if(!this.disabled) elegirInstruido(this.dataset.h,this.dataset.or); };
+    });
+  },0);
+};
+window.elegirInstruido=function(h,origen){
+  const d=origen==='wizard'?APP.wizardData:origen==='lvlup'?APP.lvlupData:myFicha();
+  if(!d.instruidoHabs) d.instruidoHabs=[];
+  var idx=d.instruidoHabs.indexOf(h);
+  if(idx>=0) d.instruidoHabs.splice(idx,1);
+  else if(d.instruidoHabs.length<3) d.instruidoHabs.push(h);
+  abrirModalInstruido(origen);
+};
+
 window.recargarArma=function(){
   const j=myFicha();
   const eq=j.equipo||{};
@@ -1907,7 +2039,9 @@ window.dispararArma=function(modo,coste){
     }
     // Energía: coste en %
     if(armaObj.muniId==='muni_fusion'){
-      j.cargadorActual=Math.max(0,cargAct-coste);
+      var costeEfic=coste;
+      if((j.extras||[]).includes('Eficiencia energética')) costeEfic=Math.max(1,Math.floor(coste/2));
+      j.cargadorActual=Math.max(0,cargAct-costeEfic);
     } else {
       j.cargadorActual=cargAct-coste;
     }
@@ -2014,7 +2148,11 @@ function renderJEstado(){
   var dañoAdicExtra=0;
   if(armaObj){
     var subcatLabel={corta:'Armas cortas',media:'Armas medias',grande:'Armas grandes',energia:'Armas de energía',cac:'Combate'}[armaObj.subcat]||'';
-    if(j.extraArma&&j.extraArma===subcatLabel&&(j.extras||[]).some(function(e){return e==='Daño adicional';})) dañoAdicExtra=2;
+    if(j.extraArma&&j.extraArma===subcatLabel&&(j.extras||[]).some(function(e){return e==='Daño adicional';})) dañoAdicExtra+=2;
+    // Fuerza imparable: +4 daño CaC
+    if(armaObj.subcat==='cac'&&(j.extras||[]).includes('Fuerza imparable')) dañoAdicExtra+=4;
+    // Profesional: +4 daño con arma elegida (distancia)
+    if(j.profesionalArma&&j.profesionalArma===subcatLabel&&(j.extras||[]).includes('Profesional')) dañoAdicExtra+=4;
   }
   var bonDañoTotal=bonDañoCaCTotal+bonDañoDistTotal+dañoAdicExtra;
   var bonDañoDroga=bonDañoTotal>0?'+'+bonDañoTotal:'';
@@ -2328,6 +2466,23 @@ function renderJEstado(){
       if(ex.includes('Sangre Fría'))         msgs.push('❄ SANGRE FRÍA · Sin penalizadores por disparar a cobertura parcial');
       if(ex.includes('Talento con atributo'))msgs.push('🌟 TALENTO CON ATRIBUTO · +1 a tiradas de '+(j.talAtributo?(ATTRS.find(function(a){return a.k===j.talAtributo;})||{n:j.talAtributo}).n:'atributo no elegido'));
       if(ex.includes('Talento con habilidad'))msgs.push('🌟 TALENTO CON HABILIDAD · +1 a tiradas de '+(j.talHabilidad||'habilidad no elegida'));
+      // Extras avanzados
+      if(ex.includes('Blindaje natural'))       msgs.push('🛡 BLINDAJE NATURAL · +2 DEF permanente');
+      if(ex.includes('Crítico superior'))       msgs.push('🎯 CRÍTICO SUPERIOR · -2 umbral crit con '+(j.critSuperiorArma||'arma no elegida'));
+      if(ex.includes('Eficiencia energética'))  msgs.push('⚡ EFICIENCIA ENERGÉTICA · Armas energía consumen la mitad');
+      if(ex.includes('Francotirador'))          msgs.push('🔭 FRANCOTIRADOR · Alcance de armas a distancia ×2');
+      if(ex.includes('Fuerza imparable'))       msgs.push('💪 FUERZA IMPARABLE · +4 daño CaC');
+      if(ex.includes('Profesional'))            msgs.push('🏆 PROFESIONAL · +4 daño con '+(j.profesionalArma||'arma no elegida'));
+      if(ex.includes('Refinamiento'))           msgs.push('⭐ REFINAMIENTO · +1 a '+(j.refinamientoAttrs&&j.refinamientoAttrs.length?(j.refinamientoAttrs.map(function(k){return ATTRS.find(function(a){return a.k===k;})||{n:k};}).map(function(a){return a.n;}).join(', ')):'atributos no elegidos'));
+      if(ex.includes('Instruido'))              msgs.push('📚 INSTRUIDO · +2 en '+(j.instruidoHabs&&j.instruidoHabs.length?j.instruidoHabs.join(', '):'habilidades no elegidas'));
+      if(ex.includes('Caníbal'))                msgs.push('🥩 CANÍBAL · Carne y sangre humana como comida/agua purificada');
+      if(ex.includes('Currante'))               msgs.push('🔨 CURRANTE · Fabricas en la mitad de tiempo');
+      if(ex.includes('Fiesteo'))                msgs.push('🎉 FIESTEO · Inmune a adicciones y sobredosis');
+      if(ex.includes('Francotirador'))          ; // ya puesto arriba
+      if(ex.includes('Heisenberg'))             msgs.push('🧪 HEISENBERG · Drogas fabricadas duran ×2, -2 toxicidad');
+      if(ex.includes('Maestro en combate'))     msgs.push('⚔ MAESTRO EN COMBATE · Repite 1 tirada de daño/turno');
+      if(ex.includes('Perforante'))             msgs.push('🗡 PERFORANTE · +2 vs intermedias / +4 vs pesadas');
+      if(ex.includes('Radioactivo'))            msgs.push('☢ RADIOACTIVO · Ignora la mitad de Rads para efectos');
       if(!msgs.length) return '';
       return '<div class="card" style="margin-top:6px;border-color:rgba(74,254,130,.2);">'        +'<div class="card-hdr" style="font-size:10px;">📋 RASGOS PASIVOS</div>'        +'<div style="padding:6px 10px;">'        +msgs.map(function(m){return '<div style="font-size:11px;color:var(--pip-bright);padding:3px 0;border-bottom:1px solid rgba(74,254,130,.1);">'+m+'</div>';}).join('')        +'</div></div>';
     })()
@@ -2507,7 +2662,8 @@ function renderJHabs(){
       const bonSet=(h==='Sigilo'&&sb.sigilo)?sb.sigilo:(h==='Supervivencia'&&sb.supervivencia)?sb.supervivencia:(h==='Ganzúa'&&sb.ganzua)?sb.ganzua:0;
       const radEfH=calcEfectosRad(j);
       const penRadH=radEfH.reduce(function(s,e){return s+(e.penHab||0);},0);
-      const vef=v+bonSet+penRadH; // bonachón ya incluido en v (puntos base fijados)
+      var bonInstruido=(j.instruidoHabs&&j.instruidoHabs.includes(h)&&(j.extras||[]).includes('Instruido'))?2:0;
+      const vef=v+bonSet+penRadH+bonInstruido; // bonachón ya incluido en v (puntos base fijados)
       return`<div class="skill-row">
       <span class="skill-name">${h}${(bonSet)>0?`<span style="font-size:8px;color:var(--pip-warn);"> +${bonSet}</span>`:''}</span>
       <div class="skill-dots">${[1,2,3,4,5,6,7,8,9,10].map(i=>`<div class="dot ${vef>=i?'on':''} ro"></div>`).join('')}</div>
@@ -3529,11 +3685,19 @@ window.lvlExtra=function(n){
     if(n==='Daño adicional') APP.lvlupData.extraArma='';
     if(n==='Talento con atributo') APP.lvlupData.talAtributo='';
     if(n==='Talento con habilidad') APP.lvlupData.talHabilidad='';
+    if(n==='Crítico superior') APP.lvlupData.critSuperiorArma='';
+    if(n==='Profesional') APP.lvlupData.profesionalArma='';
+    if(n==='Refinamiento') APP.lvlupData.refinamientoAttrs=[];
+    if(n==='Instruido') APP.lvlupData.instruidoHabs=[];
   } else {
     if(n==='Entrenamiento intensivo'){ document.getElementById('lvlup-body').innerHTML=renderLvlupPaso('extra',APP.lvlupData,myFicha()); abrirModalEntrenamiento('lvlup'); return; }
     if(n==='Daño adicional'){ document.getElementById('lvlup-body').innerHTML=renderLvlupPaso('extra',APP.lvlupData,myFicha()); abrirModalDañoAdic('lvlup'); return; }
     if(n==='Talento con atributo'){ document.getElementById('lvlup-body').innerHTML=renderLvlupPaso('extra',APP.lvlupData,myFicha()); abrirModalTalAtributo('lvlup'); return; }
     if(n==='Talento con habilidad'){ document.getElementById('lvlup-body').innerHTML=renderLvlupPaso('extra',APP.lvlupData,myFicha()); abrirModalTalHabilidad('lvlup'); return; }
+    if(n==='Crítico superior'){ document.getElementById('lvlup-body').innerHTML=renderLvlupPaso('extra',APP.lvlupData,myFicha()); abrirModalCritSuperior('lvlup'); return; }
+    if(n==='Profesional'){ document.getElementById('lvlup-body').innerHTML=renderLvlupPaso('extra',APP.lvlupData,myFicha()); abrirModalProfesional('lvlup'); return; }
+    if(n==='Refinamiento'){ document.getElementById('lvlup-body').innerHTML=renderLvlupPaso('extra',APP.lvlupData,myFicha()); abrirModalRefinamientoAv('lvlup'); return; }
+    if(n==='Instruido'){ document.getElementById('lvlup-body').innerHTML=renderLvlupPaso('extra',APP.lvlupData,myFicha()); abrirModalInstruido('lvlup'); return; }
   }
   document.getElementById('lvlup-body').innerHTML=renderLvlupPaso('extra',APP.lvlupData,myFicha());
 };
@@ -3561,8 +3725,16 @@ window.lvlupNext=function(){
     }
     if(d.extraAtributo) j.extraAtributo=d.extraAtributo;
     if(d.extraArma)     j.extraArma=d.extraArma;
-    if(d.talAtributo)   j.talAtributo=d.talAtributo;
-    if(d.talHabilidad)  j.talHabilidad=d.talHabilidad;
+    if(d.talAtributo)      j.talAtributo=d.talAtributo;
+    if(d.talHabilidad)     j.talHabilidad=d.talHabilidad;
+    if(d.critSuperiorArma) j.critSuperiorArma=d.critSuperiorArma;
+    if(d.profesionalArma)  j.profesionalArma=d.profesionalArma;
+    if(d.refinamientoAttrs&&d.refinamientoAttrs.length){
+      j.refinamientoAttrs=d.refinamientoAttrs;
+      // Aplicar +1 a cada atributo elegido
+      d.refinamientoAttrs.forEach(function(k){ if(j.attrs[k]!==undefined) j.attrs[k]+=1; });
+    }
+    if(d.instruidoHabs&&d.instruidoHabs.length) j.instruidoHabs=d.instruidoHabs;
     j.levelUpPendiente=false;
     saveJ();
     showNotif('¡Nivel '+j.nivel+' alcanzado!');
