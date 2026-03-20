@@ -4130,8 +4130,16 @@ window.tiendaDraftDesc=function(v){
 function renderMObjetos(){
   const editId=APP._editObjId||null;
   const editObj=editId!=null?APP.tienda.find(function(o){return o.id===editId;}):null;
-  function fv(f,d){ return editObj?(editObj[f]!=null?editObj[f]:d):d; }
-  const esArma=fv('tipo','misc')==='arma';
+  function fv(f,d){ 
+    if(f==='tipo') return tipoActual;
+    return editObj?(editObj[f]!=null?editObj[f]:d):d; 
+  }
+  // Preservar tipo seleccionado entre renders
+  if(APP._objTipoSelected&&!editObj) APP._currentFormTipo=APP._objTipoSelected;
+  else if(editObj) APP._currentFormTipo=editObj.tipo||'misc';
+  else if(!APP._currentFormTipo) APP._currentFormTipo='misc';
+  const tipoActual=APP._currentFormTipo;
+  const esArma=tipoActual==='arma';
 
   const s='style="font-family:VT323,monospace;font-size:15px;padding:4px 6px;background:var(--pip-dark);border:1px solid var(--pip-border);color:var(--pip-bright);width:100%;"';
   const sm='style="font-family:VT323,monospace;font-size:15px;padding:4px 6px;background:var(--pip-dark);border:1px solid var(--pip-border);color:var(--pip-bright);width:65px;"';
@@ -4214,6 +4222,7 @@ function renderMObjetos(){
 }
 
 window.toggleArmaFields=function(tipo){
+  APP._objTipoSelected=tipo; // persistir entre renders
   const el=document.getElementById('arma-extra-fields');
   if(el) el.style.display=tipo==='arma'?'block':'none';
 };
@@ -4256,6 +4265,7 @@ window.masterSaveObj=function(){
     const o=Object.assign({id:Date.now(),n:n.trim(),tipo,val,pc,desc},extraArma);
     APP.tienda.push(o); sala.tienda=APP.tienda; showNotif(n+' añadido');
   }
+  APP._currentFormTipo=null; APP._objTipoSelected=null;
   fbSet('salas/'+APP.salaId+'/tienda',APP.tienda); renderApp();
 };
 ;
@@ -4512,6 +4522,8 @@ window.masterEditObj=function(oid){
 
 window.cancelarEditObj=function(){
   APP._editObjId=null;
+  APP._currentFormTipo=null;
+  APP._objTipoSelected=null;
   renderApp();
 };
 window.masterDelObj=function(id){APP.tienda=APP.tienda.filter(o=>o.id!==id);APP.enVenta=APP.enVenta.filter(i=>i!==id);getMockSala(APP.salaId).tienda=APP.tienda;renderApp()};
