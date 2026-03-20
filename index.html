@@ -494,7 +494,9 @@ function startRealtime(salaId){
     if(!data) return;
     MOCK.salas[salaId]=Object.assign(getMockSala(salaId), data);
     const s=MOCK.salas[salaId];
-    APP.jugadores=s.jugadores||{};
+    var jugsRaw=s.jugadores||{};
+    Object.keys(jugsRaw).forEach(function(k){ normalizarFicha(jugsRaw[k]); });
+    APP.jugadores=jugsRaw;
     APP.tienda=s.tienda||[];
     APP.enemigos=s.enemigos||[];
     APP.combate=s.combate||[];
@@ -1492,7 +1494,7 @@ function completarEntradaJugador(id){
       db.ref('salas/'+APP.salaId+'/jugadores/'+id+'/heartbeat').set(ahora);
       document.getElementById('hdr-badge').innerHTML='<span class="rbadge jugador">'+j.nombre+'</span>';
       if(!j.confirmada){
-        APP.wizardStep=0; APP.wizardData=JSON.parse(JSON.stringify(j));
+        APP.wizardStep=0; APP.wizardData=normalizarFicha(JSON.parse(JSON.stringify(j)));
         renderWizard(); document.getElementById('wizard').style.display='flex';
       } else { renderApp(); checkLevelUp(); }
       startRealtime(APP.salaId);
@@ -1604,9 +1606,38 @@ function renderApp(){
 /* ═══════════════════════════════════════════
    JUGADOR – VISTAS
    ═══════════════════════════════════════════ */
+function normalizarFicha(j){
+  if(!j) return j;
+  if(!j.rasgos)        j.rasgos=[];
+  if(!j.extras)        j.extras=[];
+  if(!j.attrs)         j.attrs={fue:7,agi:7,res:7,int:7,per:7,car:7,sue:7};
+  if(!j.habArmas)      j.habArmas={'Armas cortas':0,'Armas medias':0,'Armas grandes':0,'Armas de energía':0,'Explosivos':0,'Combate':0};
+  if(!j.habHabs)       j.habHabs={'Atletismo':0,'Ciencia':0,'Conversación':0,'Ganzúa':0,'Medicina':0,'Reparación':0,'Sigilo':0,'Supervivencia':0};
+  if(!j.equipo)        j.equipo={arma:null,casco:null,pecho:null,extremidades:null};
+  if(!j.inventario)    j.inventario=[];
+  if(!j.municion)      j.municion={};
+  if(!j.efectosActivos)j.efectosActivos=[];
+  if(!j.cuadros)       j.cuadros=[];
+  if(j.penMod===undefined)    j.penMod=0;
+  if(j.fatiga===undefined)    j.fatiga=0;
+  if(j.rads===undefined)      j.rads=0;
+  if(j.chapas===undefined)    j.chapas=250;
+  if(j.karma===undefined)     j.karma=0;
+  if(j.puntossuerte===undefined) j.puntossuerte=0;
+  if(j.online===undefined)    j.online=false;
+  if(j.fusion_carga===undefined) j.fusion_carga=100;
+  if(j.fusion_total===undefined) j.fusion_total=0;
+  if(j.cargadorActual===undefined) j.cargadorActual=0;
+  if(j.dosManos===undefined)  j.dosManos=false;
+  if(!j.extraAtributo) j.extraAtributo='';
+  if(!j.extraArma)     j.extraArma='';
+  if(!j.talAtributo)   j.talAtributo='';
+  if(!j.talHabilidad)  j.talHabilidad='';
+  return j;
+}
+
 function myFicha(){
-  const j=APP.jugadores[APP.jugadorId]||null;
-  if(j&&j.penMod===undefined) j.penMod=0;
+  const j=normalizarFicha(APP.jugadores[APP.jugadorId]||null);
   return j;
 }
 // Centralizar añadir items (normal o munición)
@@ -3223,7 +3254,7 @@ window.abrirWizard=function(){
   const j=myFicha();
   if(!j) return;
   APP.wizardStep=0;
-  APP.wizardData=JSON.parse(JSON.stringify(j));
+  APP.wizardData=normalizarFicha(JSON.parse(JSON.stringify(j)));
   renderWizard();
   document.getElementById('wizard').style.display='flex';
 };
