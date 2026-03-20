@@ -338,7 +338,8 @@ input:focus,select:focus{border-color:var(--pip);box-shadow:0 0 4px rgba(74,254,
   <div class="login-box">
     <div class="login-title">¿QUIÉN ERES?</div>
     <button class="btn btn-block" onclick="goMasterPW()" style="margin-bottom:8px;font-size:16px;">▸ SOY EL MASTER</button>
-    <button class="btn btn-block" onclick="goSelector()" style="font-size:16px;">▸ SOY UN JUGADOR</button>
+    <button class="btn btn-block" onclick="goSelector()" style="margin-bottom:8px;font-size:16px;">▸ SOY UN JUGADOR</button>
+    <button class="btn btn-block" onclick="entrarTest()" style="font-size:14px;border-color:rgba(245,185,66,.4);color:var(--pip-warn);">⚗ MODO TEST</button>
   </div>
   <div style="font-size:9px;color:var(--pip-dim);text-align:center;margin-top:8px;letter-spacing:1px;">VAULT-TEC DOCUMENTATION DEPT. · ENERO 2077</div>
 </div>
@@ -630,7 +631,7 @@ const TABLA_NIVELES=[
   {n:7,  pe:60,  especial:null},
   {n:8,  pe:70,  especial:['extra'],              catExtra:'avanzado'},
   {n:9,  pe:80,  especial:['+atributo']},
-  {n:10, pe:90,  especial:null},
+  {n:10, pe:90,  especial:['extra'],              catExtra:'avanzado'},
   {n:11, pe:100, especial:null},
   {n:12, pe:110, especial:['extra','+atributo'],  catExtra:'legendario'},
 ];
@@ -1199,7 +1200,7 @@ function fichaVacia(nombre,clase){
 function salirApp(){
   if(_heartbeatInterval){ clearInterval(_heartbeatInterval); _heartbeatInterval=null; }
   // Marcar offline
-  if(APP.jugadorId&&APP.salaId){
+  if(APP.jugadorId&&APP.salaId&&APP.rol!=='test'){
     const j=myFicha();
     if(j){ j.online=false; saveJ(); }
     if(!FB_MOCK&&db) db.ref('salas/'+APP.salaId+'/jugadores/'+APP.jugadorId+'/online').set(false);
@@ -1290,6 +1291,62 @@ window.masterPinKey=function(k){
   ps.buffer+=String(k);
   updateMasterPinDots();
 };
+
+// ══ MODO TEST ══
+var TEST_FICHA_ID='__test__';
+
+function crearFichaTest(){
+  var j=normalizarFicha(fichaVacia('TEST','heroe'));
+  j.id=TEST_FICHA_ID;
+  j.nombre='TEST';
+  j.confirmada=true; j.bloqueada=false;
+  j.nivel=1; j.pe=0;
+  j.attrs={fue:10,agi:10,res:10,int:10,per:10,car:10,sue:10};
+  j.pvMax=20; j.pvAct=20;
+  j.chapas=9999;
+  j.rasgos=[];
+  j.extras=[];
+  // Todos los objetos en inventario
+  OBJETOS_EJEMPLO.filter(function(o){return o!=null;}).forEach(function(o){
+    if(o.tipo==='municion'&&o.muniId){
+      if(o.muniId==='muni_fusion') j.fusion_total+=10;
+      else j.municion[o.muniId]=(j.municion[o.muniId]||0)+50;
+    } else {
+      j.inventario.push({objId:o.id,qty:5});
+    }
+  });
+  j.cuadros=[
+    {id:'atk',label:'ATAQUE',valor:'',auto:true},
+    {id:'ini',label:'INIC.',valor:'',auto:true},
+    {id:'crit',label:'CRIT',valor:'',auto:true},
+    {id:'mov',label:'MOV',valor:'',auto:true},
+    {id:'pif',label:'PIFIA',valor:'',auto:true},
+    {id:'c1',label:'—',valor:'',auto:false},
+    {id:'c2',label:'—',valor:'',auto:false},
+    {id:'c3',label:'—',valor:'',auto:false},
+    {id:'c4',label:'—',valor:'',auto:false},
+  ];
+  return j;
+}
+
+window.entrarTest=function(){
+  APP.rol='test'; APP.jugadorId=TEST_FICHA_ID; APP.salaId='__test__';
+  var j=crearFichaTest();
+  APP.jugadores={};
+  APP.jugadores[TEST_FICHA_ID]=j;
+  APP.tienda=OBJETOS_EJEMPLO.filter(function(o){return o!=null;});
+  APP.tiendas=[]; APP.enemigos=[]; APP.combate=[]; APP.notificaciones={};
+  document.getElementById('hdr-sala').textContent='MODO TEST';
+  document.getElementById('hdr-badge').innerHTML='<span class="rbadge jugador" style="color:var(--pip-warn);">⚗ TEST</span>';
+  buildTabs(); showScreen('shell'); renderApp();
+};
+
+// saveJ en modo test — solo en memoria
+var _origSaveJ=null;
+function saveJTest(){
+  var j=myFicha(); if(!j) return;
+  APP.jugadores[j.id]=j;
+}
 
 window.goSelector=function(){
   APP.salaId=SALA_ID;
@@ -1541,6 +1598,13 @@ function entrarJugador(id){ entrarJugadorConPin(id); }
    ═══════════════════════════════════════════ */
 function buildTabs(){
   const el=document.getElementById('main-tabs');
+  if(APP.rol==='test'){
+    const fi=APP.fichaInner;
+    const at=fi==='estado'?'estado':fi==='armas'||fi==='habs'||fi==='special'||fi==='creacion'?'habs':fi==='inv'?'inv':fi==='municion'?'municion':'test_config';
+    el.innerHTML=[{k:'estado',l:'ESTADO'},{k:'habs',l:'HABILID.'},{k:'inv',l:'EQUIPO'},{k:'municion',l:'MUNICIÓN'},{k:'test_config',l:'⚗ TEST'}]
+      .map(function(t){return '<button class="tab '+(at===t.k?'active':'')+'" data-k="'+t.k+'" onclick="switchJT(this.dataset.k)">'+t.l+'</button>';}).join('');
+    return;
+  }
   if(APP.rol==='master'){
     el.innerHTML=[{k:'fichas',l:'FICHAS'},{k:'modif',l:'MODIF.'},{k:'objetos',l:'OBJETOS'},{k:'tiendas',l:'TIENDAS'},{k:'combate',l:'COMBATE'}]
       .map(function(t){return '<button class="tab '+(APP.masterTab===t.k?'active':'')+'" data-k="'+t.k+'" onclick="switchMT(this.dataset.k)">'+t.l+'</button>';}).join('');
@@ -1552,7 +1616,7 @@ function buildTabs(){
   }
 }
 window.switchMT=function(t){APP.masterTab=t;APP._gruposAbiertos={};buildTabs();renderApp();};
-window.switchJT=function(t){var m={estado:'estado',habs:'armas',inv:'inv',municion:'municion',tienda:'tienda'};APP.fichaInner=m[t]||t;buildTabs();renderApp();};
+window.switchJT=function(t){var m={estado:'estado',habs:'armas',inv:'inv',municion:'municion',tienda:'tienda',test_config:'test_config'};APP.fichaInner=m[t]||t;buildTabs();renderApp();};
 window.switchFI=function(t){APP.fichaInner=t;renderApp()};
 
 /* ═══════════════════════════════════════════
@@ -1615,6 +1679,7 @@ function renderApp(){
       case 'inv':      el.innerHTML=renderJInv(); break;
       case 'municion': el.innerHTML=renderJMunicion(); break;
       case 'tienda':   el.innerHTML=renderJTienda(); break;
+      case 'test_config': el.innerHTML=renderTestConfig(); break;
     }
   }
 }
@@ -2058,6 +2123,7 @@ window.dispararArma=function(modo,coste){
 
 function saveJ(){
   const j=myFicha();
+  if(APP.rol==='test'){ APP.jugadores[j.id]=j; return; }
   getMockSala(APP.salaId).jugadores[j.id]=j;
   if(!FB_MOCK&&db) db.ref('salas/'+APP.salaId+'/jugadores/'+j.id).set(j);
 }
@@ -2483,6 +2549,16 @@ function renderJEstado(){
       if(ex.includes('Maestro en combate'))     msgs.push('⚔ MAESTRO EN COMBATE · Repite 1 tirada de daño/turno');
       if(ex.includes('Perforante'))             msgs.push('🗡 PERFORANTE · +2 vs intermedias / +4 vs pesadas');
       if(ex.includes('Radioactivo'))            msgs.push('☢ RADIOACTIVO · Ignora la mitad de Rads para efectos');
+      // Extras legendarios
+      if(ex.includes('Esqueleto de Adamantio')) msgs.push('🦴 ESQUELETO DE ADAMANTIO · -5 PV de cada ataque recibido');
+      if(ex.includes('Evolución perfecta'))     msgs.push('🌟 EVOLUCIÓN PERFECTA · +2 a todos los atributos (aplicado)');
+      if(ex.includes('Flipado de...'))          msgs.push('🔮 FLIPADO DE... · Develops 1 mejora única por semana');
+      if(ex.includes('Leyenda viva'))           msgs.push('👑 LEYENDA VIVA · Ventaja social · PNJ neutrales favorables');
+      if(ex.includes('Líder legendario'))       msgs.push('⚔ LÍDER LEGENDARIO · Aliados +2 tiradas · 1 acción extra/sesión');
+      if(ex.includes('Mcgiver'))                msgs.push('🔧 MCGIVER · Fabrica 2 cosas a la vez con mitad de recursos');
+      if(ex.includes('The Wanderer'))           msgs.push('🌅 THE WANDERER · Primera muerte de sesión: vuelves con 1 PV');
+      if(ex.includes('Uranium Fever'))          msgs.push('☢ URANIUM FEVER · Inmune a radiación, enfermedades y efectos extremos');
+      if(ex.includes('Vitalidad'))              msgs.push('❤ VITALIDAD · +30 PV máximos (aplicado)');
       if(!msgs.length) return '';
       return '<div class="card" style="margin-top:6px;border-color:rgba(74,254,130,.2);">'        +'<div class="card-hdr" style="font-size:10px;">📋 RASGOS PASIVOS</div>'        +'<div style="padding:6px 10px;">'        +msgs.map(function(m){return '<div style="font-size:11px;color:var(--pip-bright);padding:3px 0;border-bottom:1px solid rgba(74,254,130,.1);">'+m+'</div>';}).join('')        +'</div></div>';
     })()
@@ -3406,6 +3482,68 @@ window.wizardNext=function(){
 /* ═══════════════════════════════════════════
    NIVEL UP
    ═══════════════════════════════════════════ */
+function renderTestConfig(){
+  var j=myFicha(); if(!j) return '';
+  var todosRasgos=RASGOS;
+  var todosExtras=[...EXTRAS_COMUNES,...EXTRAS_AVANZADOS,...EXTRAS_LEGENDARIOS];
+
+  // Rasgos activos
+  var rasgosHtml=todosRasgos.map(function(r){
+    var sel=(j.rasgos||[]).includes(r.id);
+    return '<div style="display:flex;align-items:center;padding:6px 10px;border-bottom:1px solid rgba(74,254,130,.07);gap:8px;">'      +'<div style="flex:1;"><div style="font-size:11px;color:var(--pip-bright);">'+r.n+'</div><div style="font-size:9px;color:var(--pip-dim);">'+r.d+'</div></div>'      +'<button class="btn btn-sm '+(sel?'btn-danger':'')+'" data-rid="'+r.id+'" onclick="testToggleRasgo(this.dataset.rid)">'+(sel?'QUITAR':'AÑADIR')+'</button>'      +'</div>';
+  }).join('');
+
+  // Extras activos
+  var extrasHtml=todosExtras.map(function(e){
+    var sel=(j.extras||[]).includes(e.n);
+    var cat=EXTRAS_COMUNES.some(function(x){return x.id===e.id;})?'COMÚN':EXTRAS_AVANZADOS.some(function(x){return x.id===e.id;})?'AVANZADO':'LEGENDARIO';
+    return '<div style="display:flex;align-items:center;padding:6px 10px;border-bottom:1px solid rgba(74,254,130,.07);gap:8px;">'      +'<div style="flex:1;"><div style="font-size:11px;color:var(--pip-bright);">'+e.n+' <span style="font-size:8px;color:var(--pip-dim);">'+cat+'</span></div><div style="font-size:9px;color:var(--pip-dim);">'+e.d+'</div></div>'      +'<button class="btn btn-sm '+(sel?'btn-danger':'')+'" data-en="'+e.n.replace(/"/g,'&quot;')+'" onclick="testToggleExtra(this.dataset.en)">'+(sel?'QUITAR':'AÑADIR')+'</button>'      +'</div>';
+  }).join('');
+
+  return '<div class="card" style="border-color:rgba(245,185,66,.4);">'    +'<div class="card-hdr" style="color:var(--pip-warn);">⚗ PANEL DE PRUEBAS</div>'    +'<div style="padding:8px 12px;display:grid;grid-template-columns:1fr 1fr;gap:6px;">'    +'<button class="btn btn-sm" onclick="testSubirNivel()">⬆ SUBIR NIVEL ('+j.nivel+'→'+(j.nivel<12?j.nivel+1:12)+')</button>'    +'<button class="btn btn-sm btn-danger" onclick="testReset()">↺ RESET FICHA</button>'    +'<button class="btn btn-sm" onclick="testDarPE(10)">+10 PE ('+j.pe+')</button>'    +'<button class="btn btn-sm" onclick="testDarChapas()">+1000 Chapas</button>'    +'</div>'    +'</div>'    +'<div class="card"><div class="card-hdr">RASGOS ('+j.rasgos.length+'/2)</div><div style="padding:0;">'+rasgosHtml+'</div></div>'    +'<div class="card"><div class="card-hdr">EXTRAS ('+j.extras.length+')</div><div style="padding:0;">'+extrasHtml+'</div></div>';
+}
+
+window.testToggleRasgo=function(rid){
+  var j=myFicha();
+  var idx=(j.rasgos||[]).indexOf(rid);
+  if(idx>=0) j.rasgos.splice(idx,1);
+  else if(j.rasgos.length<2) j.rasgos.push(rid);
+  else { showNotif('Máximo 2 rasgos'); return; }
+  saveJ(); renderApp();
+};
+
+window.testToggleExtra=function(nombre){
+  var j=myFicha();
+  var idx=(j.extras||[]).indexOf(nombre);
+  if(idx>=0) j.extras.splice(idx,1);
+  else j.extras.push(nombre);
+  saveJ(); renderApp();
+};
+
+window.testSubirNivel=function(){
+  var j=myFicha();
+  if(j.nivel>=12){ showNotif('Nivel máximo'); return; }
+  j.nivel++;
+  j.pvMax+=Math.floor(Math.random()*10)+1;
+  j.pvAct=j.pvMax;
+  j.pe=j.nivel*10;
+  saveJ(); renderApp();
+  showNotif('Nivel '+j.nivel+' · ¡Ficha actualizada!');
+};
+
+window.testDarPE=function(n){
+  var j=myFicha(); j.pe+=n; saveJ(); renderApp();
+};
+
+window.testDarChapas=function(){
+  var j=myFicha(); j.chapas+=1000; saveJ(); renderApp();
+};
+
+window.testReset=function(){
+  APP.jugadores[TEST_FICHA_ID]=crearFichaTest();
+  renderApp(); showNotif('Ficha TEST reseteada');
+};
+
 window.abrirWizard=function(){
   const j=myFicha();
   if(!j) return;
@@ -3735,6 +3873,14 @@ window.lvlupNext=function(){
       d.refinamientoAttrs.forEach(function(k){ if(j.attrs[k]!==undefined) j.attrs[k]+=1; });
     }
     if(d.instruidoHabs&&d.instruidoHabs.length) j.instruidoHabs=d.instruidoHabs;
+    // Evolución perfecta: +2 a todos los atributos
+    if(d.extraElegido==='Evolución perfecta'){
+      ATTRS.forEach(function(a){ j.attrs[a.k]=(j.attrs[a.k]||7)+2; });
+    }
+    // Vitalidad: +30 PVmax
+    if(d.extraElegido==='Vitalidad'){
+      j.pvMax+=30; j.pvAct=Math.min(j.pvAct+30,j.pvMax);
+    }
     j.levelUpPendiente=false;
     saveJ();
     showNotif('¡Nivel '+j.nivel+' alcanzado!');
@@ -4286,9 +4432,30 @@ window.masterMod=function(tipo){
   if(!sel.length)return showNotif('Selecciona jugadores primero');
   sel.forEach(id=>{
     const j=s.jugadores[id];if(!j)return;
-    if(tipo==='daño'){const v=parseInt(document.getElementById('m-pv').value)||0;const vM=v+((j.rasgos||[]).includes('masacre')&&v>0?1:0);j.pvAct=Math.max(0,j.pvAct-vM);if(j.pvAct===0)showNotif(`${j.nombre}: INCAPACITADO`);if(vM>v)showNotif(j.nombre+': Masacre · -'+vM+' PV');}
+    if(tipo==='daño'){
+      const v=parseInt(document.getElementById('m-pv').value)||0;
+      var vM=v+((j.rasgos||[]).includes('masacre')&&v>0?1:0);
+      // Esqueleto de Adamantio: -5 al daño recibido
+      if((j.extras||[]).includes('Esqueleto de Adamantio')&&vM>0){
+        var redAdamantio=Math.min(5,vM);
+        vM=Math.max(0,vM-5);
+        if(vM<v) showNotif(j.nombre+': Adamantio · -'+redAdamantio+' daño reducido');
+      }
+      j.pvAct=Math.max(0,j.pvAct-vM);
+      if(j.pvAct===0)showNotif(j.nombre+': INCAPACITADO');
+      if((j.rasgos||[]).includes('masacre')&&v>0&&vM>v)showNotif(j.nombre+': Masacre · -'+vM+' PV');
+    }
     else if(tipo==='cura'){const v=parseInt(document.getElementById('m-pv').value)||0;j.pvAct=Math.min(j.pvMax,j.pvAct+v);}
-    else if(tipo==='rad+'){const v=parseInt(document.getElementById('m-rad').value)||0;const vR=(j.rasgos||[]).includes('iridiscente')?Math.floor(v/2):v;j.rads=Math.min(1000,j.rads+vR);if(vR<v)showNotif(j.nombre+': Iridiscente · +'+vR+' rads (÷2)');}
+    else if(tipo==='rad+'){
+      const v=parseInt(document.getElementById('m-rad').value)||0;
+      // Uranium Fever: inmune a radiación
+      if((j.extras||[]).includes('Uranium Fever')){
+        showNotif(j.nombre+': Uranium Fever · Inmune a radiación'); return;
+      }
+      const vR=(j.rasgos||[]).includes('iridiscente')?Math.floor(v/2):v;
+      j.rads=Math.min(1000,j.rads+vR);
+      if(vR<v)showNotif(j.nombre+': Iridiscente · +'+vR+' rads (÷2)');
+    }
     else if(tipo==='rad-'){const v=parseInt(document.getElementById('m-rad').value)||0;j.rads=Math.max(0,j.rads-v);}
     else if(tipo==='pen'){j.penMod=parseInt(document.getElementById('m-pen').value)||0;}
     else if(tipo==='pen0'){j.penMod=0;}
