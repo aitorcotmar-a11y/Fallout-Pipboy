@@ -503,12 +503,14 @@ function startRealtime(salaId){
     APP.combate=s.combate||[];
     APP.tiendas=s.tiendas||[];
     APP.notificaciones=s.notificaciones||{};
-    // No rerenderizar si el wizard o lvlup están abiertos
+    // No rerenderizar si el wizard, lvlup están abiertos
+    // o si el master está editando un formulario de objetos
     const wizEl=document.getElementById('wizard');
     const lvlEl=document.getElementById('lvlup-modal');
     const wizAbierto=wizEl&&wizEl.style.display!=='none';
     const lvlAbierto=lvlEl&&lvlEl.style.display!=='none';
-    if(APP.rol&&!wizAbierto&&!lvlAbierto) renderApp();
+    const masterEditando=APP.rol==='master'&&APP.masterTab==='objetos';
+    if(APP.rol&&!wizAbierto&&!lvlAbierto&&!masterEditando) renderApp();
   });
   // Heartbeat cada 10s para mantener la sesión activa
   if(_heartbeatInterval) clearInterval(_heartbeatInterval);
@@ -623,17 +625,17 @@ const EXTRAS_LEGENDARIOS=[
 // Tabla exacta del manual PDF pág.9
 const TABLA_NIVELES=[
   {n:1,  pe:0,   especial:null},
-  {n:2,  pe:10,  especial:['extra'],              catExtra:'comun'},
-  {n:3,  pe:20,  especial:['+atributo']},
-  {n:4,  pe:30,  especial:['extra'],              catExtra:'comun'},
-  {n:5,  pe:40,  especial:null},
-  {n:6,  pe:50,  especial:['extra','+atributo'],  catExtra:'comun'},
-  {n:7,  pe:60,  especial:null},
-  {n:8,  pe:70,  especial:['extra'],              catExtra:'avanzado'},
-  {n:9,  pe:80,  especial:['+atributo']},
-  {n:10, pe:90,  especial:['extra'],              catExtra:'avanzado'},
-  {n:11, pe:100, especial:null},
-  {n:12, pe:110, especial:['extra','+atributo'],  catExtra:'legendario'},
+  {n:2,  pe:11,  especial:['extra'],              catExtra:'comun'},
+  {n:3,  pe:23,  especial:['+atributo']},
+  {n:4,  pe:36,  especial:['extra'],              catExtra:'comun'},
+  {n:5,  pe:50,  especial:null},
+  {n:6,  pe:65,  especial:['extra','+atributo'],  catExtra:'comun'},
+  {n:7,  pe:81,  especial:null},
+  {n:8,  pe:98,  especial:['extra'],              catExtra:'avanzado'},
+  {n:9,  pe:116, especial:['+atributo']},
+  {n:10, pe:135, especial:['extra'],              catExtra:'avanzado'},
+  {n:11, pe:155, especial:null},
+  {n:12, pe:176, especial:['extra','+atributo'],  catExtra:'legendario'},
 ];
 
 function nivelesDisponibles(j){
@@ -649,7 +651,10 @@ function nivelesDisponibles(j){
 
 function getEspecialNivel(n){return (TABLA_NIVELES.find(t=>t.n===n)||{especial:null}).especial}
 function getCatExtraNivel(n){return (TABLA_NIVELES.find(t=>t.n===n)||{catExtra:'comun'}).catExtra||'comun'}
-function getPEparaSubir(n){return n>=12?null:n*10;}
+function getPEparaSubir(n){
+  var t=TABLA_NIVELES.find(function(x){return x.n===n+1;});
+  return t?t.pe:null;
+}
 function puedeSubirNivel(j){var pe=getPEparaSubir(j.nivel);return pe!==null&&j.pe>=pe;}
 function getListaExtrasNivel(nivel){
   const cat=getCatExtraNivel(nivel);
