@@ -4969,6 +4969,44 @@ document.addEventListener('click',function(e){
 initFB();
 showScreen('login-screen');
 
+// ── Bloquear botón atrás del móvil ──
+(function(){
+  // Añadir un estado inicial al historial
+  history.pushState({pip:true}, '');
+
+  window.addEventListener('popstate', function(e){
+    // Al pulsar atrás, siempre volver a añadir el estado para no salir
+    history.pushState({pip:true}, '');
+
+    // Comportamiento contextual según pantalla activa
+    const modal=document.getElementById('obj-detail-modal');
+    const wizard=document.getElementById('wizard');
+    const lvlup=document.getElementById('lvlup-modal');
+
+    if(modal&&modal.style.display!=='none'){
+      cerrarDetalle(); return;
+    }
+    if(wizard&&wizard.style.display!=='none'){
+      wizardBack(); return;
+    }
+    if(lvlup&&lvlup.style.display!=='none'){
+      lvlupBack(); return;
+    }
+    // Si está en una subpantalla (pin, selector, master-pw), volver al login
+    const screens=['master-pw-screen','pin-screen','selector-screen'];
+    for(var i=0;i<screens.length;i++){
+      var el=document.getElementById(screens[i]);
+      if(el&&el.style.display!=='none'){
+        showScreen('login-screen'); return;
+      }
+    }
+    // Si está dentro de la app con tabs de jugador, ir a ESTADO
+    if(APP.rol==='jugador'&&APP.fichaInner!=='estado'){
+      switchJT('estado'); return;
+    }
+  });
+})();
+
 window.addEventListener('beforeunload', function(){
   if(APP.jugadorId&&APP.salaId&&!FB_MOCK&&db){
     db.ref('salas/'+APP.salaId+'/jugadores/'+APP.jugadorId+'/online').set(false);
