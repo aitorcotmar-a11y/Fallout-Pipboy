@@ -512,8 +512,12 @@ function startRealtime(salaId){
     const lvlEl=document.getElementById('lvlup-modal');
     const wizAbierto=wizEl&&wizEl.style.display!=='none';
     const lvlAbierto=lvlEl&&lvlEl.style.display!=='none';
-    const masterEditando=APP.rol==='master'&&APP.masterTab==='objetos';
-    if(APP.rol&&!wizAbierto&&!lvlAbierto&&!masterEditando) renderApp();
+    // No rerenderizar si hay un input/select/textarea con foco activo
+    const focusedEl=document.activeElement;
+    const inputActivo=focusedEl&&(focusedEl.tagName==='INPUT'||focusedEl.tagName==='SELECT'||focusedEl.tagName==='TEXTAREA');
+    // Tampoco rerenderizar si el master está en pestañas con formularios
+    const masterEditando=APP.rol==='master'&&(APP.masterTab==='objetos'||APP.masterTab==='tiendas'||APP.masterTab==='modif');
+    if(APP.rol&&!wizAbierto&&!lvlAbierto&&!masterEditando&&!inputActivo) renderApp();
   });
   // Heartbeat cada 10s para mantener la sesión activa
   if(_heartbeatInterval) clearInterval(_heartbeatInterval);
@@ -876,10 +880,10 @@ function calcSetArmadura(j){
 }
 
 function calcSetBonus(j){
-  // Devuelve objeto con bonos activos del set completo
   var set=calcSetArmadura(j);
   if(!set) return {};
   var bonos={};
+  // Sets hardcodeados
   if(set==='bandido')       { bonos.ataqueCaC=1; bonos.dañoCaC=1; }
   if(set==='explorador')    { bonos.sigilo=2; bonos.iniciativa=2; }
   if(set==='saqueador')     { bonos.supervivencia=2; bonos.ganzua=2; }
@@ -889,6 +893,10 @@ function calcSetBonus(j){
   if(set==='combate')       { bonos.defExtra=1; }
   if(set==='servotraje')    { bonos.defExtra=1; }
   if(set==='servo')         { bonos.fue=4; bonos.reduceDañoFisico=true; bonos.radReduc=10; }
+  // Sets personalizados del master
+  var setsCustom=APP.setsArmadura||[];
+  var setCustom=setsCustom.find(function(s){return s.id===set;});
+  if(setCustom&&setCustom.efecto) bonos.msgSet='Set '+setCustom.n+': '+setCustom.efecto;
   return bonos;
 }
 
@@ -4135,14 +4143,16 @@ function renderMObjetos(){
   const editObj=editId!=null?APP.tienda.find(function(o){return o.id===editId;}):null;
   function fv(f,d){ 
     if(f==='tipo') return tipoActual;
+    if(f==='subcat'&&APP._objSubcatSelected&&!editObj) return APP._objSubcatSelected;
     return editObj?(editObj[f]!=null?editObj[f]:d):d; 
   }
   // Preservar tipo seleccionado entre renders
-  if(APP._objTipoSelected&&!editObj) APP._currentFormTipo=APP._objTipoSelected;
+  if(APP._objTipoSelected) APP._currentFormTipo=APP._objTipoSelected;
   else if(editObj) APP._currentFormTipo=editObj.tipo||'misc';
   else if(!APP._currentFormTipo) APP._currentFormTipo='misc';
   const tipoActual=APP._currentFormTipo;
   const esArma=tipoActual==='arma';
+  const esArmadura=tipoActual==='armadura';
 
   const s='style="font-family:VT323,monospace;font-size:15px;padding:4px 6px;background:var(--pip-dark);border:1px solid var(--pip-border);color:var(--pip-bright);width:100%;"';
   const sm='style="font-family:VT323,monospace;font-size:15px;padding:4px 6px;background:var(--pip-dark);border:1px solid var(--pip-border);color:var(--pip-bright);width:65px;"';
@@ -4178,27 +4188,19 @@ function renderMObjetos(){
       }).join('')+'</select>')
     +row2({l:'PRECIO (¢)',h:'<input type="number" id="no-v" value="'+fv('val',0)+'" min="0" '+sm+'>'},
           {l:'PESO (pc)', h:'<input type="number" id="no-pc" value="'+fv('pc',5)+'" min="1" '+sm+'>'})
-    +'<div id="arma-extra-fields" style="display:'+(esArma?'block':'none')+';">'
-    +row1('SUBCATEGORÍA','<select id="no-subcat" '+s+'>'+
-      ARMA_SUBCATS.map(function(sc){
-        return '<option value="'+sc.id+'"'+(fv('subcat','corta')===sc.id?' selected':'')+'>'+sc.n+'</option>';
-      }).join('')+'</select>')
-    +row1('MUNICIÓN','<select id="no-muni" '+s+'>'
-      +'<option value="">— Ninguna —</option>'
-      +MUNICION_TIPOS.map(function(m){return '<option value="'+m.id+'"'+(fv('muniId','')===m.id?' selected':'')+'>'+m.n+'</option>';}).join('')
-      +'</select>')
-    +row2({l:'CARGADOR (balas)',h:'<input type="number" id="no-carg" value="'+fv('cargador',0)+'" min="0" '+sm+'>'},
-          {l:'ALCANCE (m)',    h:'<input type="number" id="no-alc"  value="'+fv('alcance',20)+'" min="0" '+sm+'>'})
-    +'<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin-bottom:5px;">DADOS DE DAÑO</div>'
-    +row3({l:'TT',h:'<input type="text" id="no-daño"  value="'+fv('daño','1D6')+'" placeholder="1D6" '+sm+'>'},
-          {l:'RF',h:'<input type="text" id="no-rfdaño" value="'+fv('rf','')+'"     placeholder="2D6" '+sm+'>'},
-          {l:'FA',h:'<input type="text" id="no-fadaño" value="'+fv('fa','')+'"     placeholder="3D6" '+sm+'>'})
-    +'<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin-bottom:5px;">BALAS CONSUMIDAS</div>'
-    +row3({l:'Coste TT',h:'<input type="number" id="no-tt" value="'+fv('ttCost',1)+'" min="0" '+sm+'>'},
-          {l:'Coste RF',h:'<input type="number" id="no-rf" value="'+fv('rfCost',0)+'" min="0" '+sm+'>'},
-          {l:'Coste FA',h:'<input type="number" id="no-fa" value="'+fv('faCost',0)+'" min="0" '+sm+'>'})
-    +'</div>'
-    +row1('NOTAS / DESCRIPCIÓN','<input type="text" id="no-d" value="'+fv('desc','')+'" placeholder="Efectos, notas..." '+s+'>')
+    +'<div id="arma-extra-fields" style="display:'+(esArma?'block':'none')+';">'    +row1('SUBCATEGORÍA','<select id="no-subcat" onchange="toggleSubcatFields(this.value)" '+s+'>'+      ARMA_SUBCATS.map(function(sc){        return '<option value="'+sc.id+'"'+(fv('subcat','corta')===sc.id?' selected':'')+'>'+sc.n+'</option>';      }).join('')+'</select>')    +(function(){      var sc=fv('subcat','corta');      var esCaC=sc==='cac';      var campos='';      if(!esCaC){        campos+=row1('MUNICIÓN','<select id="no-muni" '+s+'>'          +'<option value="">— Ninguna —</option>'          +MUNICION_TIPOS.map(function(m){return '<option value="'+m.id+'"'+(fv('muniId','')===m.id?' selected':'')+'>'+m.n+'</option>';}).join('')          +'</select>');        campos+=row2({l:'CARGADOR (balas)',h:'<input type="number" id="no-carg" value="'+fv('cargador',0)+'" min="0" '+sm+'>'},                     {l:'ALCANCE (m)',h:'<input type="number" id="no-alc" value="'+fv('alcance',20)+'" min="0" '+sm+'>'});      } else {        campos+='<input type="hidden" id="no-muni" value=""><input type="hidden" id="no-carg" value="0"><input type="hidden" id="no-alc" value="0">';      }      campos+='<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin-bottom:5px;">'+(esCaC?'DADO DE DAÑO':'DADOS DE DAÑO')+'</div>';      if(esCaC){        campos+=row1('Daño TT','<input type="text" id="no-daño" value="'+fv('daño','1D6')+'" placeholder="1D6" '+sm+'>');        campos+='<input type="hidden" id="no-rfdaño" value=""><input type="hidden" id="no-fadaño" value="">';        campos+='<input type="hidden" id="no-tt" value="0"><input type="hidden" id="no-rf" value="0"><input type="hidden" id="no-fa" value="0">';      } else {        campos+=row3({l:'TT',h:'<input type="text" id="no-daño" value="'+fv('daño','1D6')+'" placeholder="1D6" '+sm+'>'},                     {l:'RF',h:'<input type="text" id="no-rfdaño" value="'+fv('rf','')+'" placeholder="2D6" '+sm+'>'},                     {l:'FA',h:'<input type="text" id="no-fadaño" value="'+fv('fa','')+'" placeholder="3D6" '+sm+'>'});        campos+='<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin-bottom:5px;">BALAS CONSUMIDAS</div>';        campos+=row3({l:'Coste TT',h:'<input type="number" id="no-tt" value="'+fv('ttCost',1)+'" min="0" '+sm+'>'},                     {l:'Coste RF',h:'<input type="number" id="no-rf" value="'+fv('rfCost',0)+'" min="0" '+sm+'>'},                     {l:'Coste FA',h:'<input type="number" id="no-fa" value="'+fv('faCost',0)+'" min="0" '+sm+'>'});      }      return campos;    })()    +'</div>'
+    // Campos extra para armadura
+    +(esArmadura?(function(){
+      var sets=APP.setsArmadura||[];
+      var TIPOS_BLINDAJE=['ligera','intermedia','combate','pesada','servo-adaptado'];
+      var SLOTS_ARM=['casco','pecho','extremidades'];
+      var defB=fv('defBonus',1);
+      var tipB=fv('tipoBlinaje','ligera');
+      var setV=fv('set','');
+      var slotV=fv('slotTipo','casco');
+      var fueMinV=fv('fueMin',0);
+      var radReducV=fv('radReduc',0);
+      return row2({l:'BONUS DEF',h:'<input type="number" id="no-defbonus" value="'+defB+'" min="0" max="15" '+sm+'>'},             {l:'SLOT',h:'<select id="no-slotarm" '+s+'>'+SLOTS_ARM.map(function(sl){return '<option value="'+sl+'"'+(slotV===sl?' selected':'')+'>'+sl.toUpperCase()+'</option>';}).join('')+'</select>'})        +row1('CATEGORÍA','<select id="no-tipoblinaje" '+s+'>'+TIPOS_BLINDAJE.map(function(t){return '<option value="'+t+'"'+(tipB===t?' selected':'')+'>'+t+'</option>';}).join('')+'</select>')        +row2({l:'FUE mínima',h:'<input type="number" id="no-fuemin" value="'+fueMinV+'" min="0" max="20" '+sm+'>'},              {l:'Rads/h reducción',h:'<input type="number" id="no-radreduc" value="'+radReducV+'" min="0" '+sm+'>'})        +'<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin-bottom:5px;">SET DE ARMADURA</div>'        +'<div style="display:grid;grid-template-columns:1fr auto;gap:5px;margin-bottom:5px;">'        +'<select id="no-set" '+s+'>'        +'<option value="">— Sin set —</option>'        +sets.map(function(s2){return '<option value="'+s2.id+'"'+(setV===s2.id?' selected':'')+'>'+s2.n+' ('+s2.tipo+')</option>';}).join('')        +'</select>'        +'<button class="btn btn-sm" onclick="abrirCrearSet()" style="white-space:nowrap;">+ NUEVO</button>'        +'</div>'        +(setV?(function(){var s2=sets.find(function(x){return x.id===setV;});return s2?'<div style="font-size:9px;color:var(--pip-warn);padding:4px 8px;border:1px solid rgba(245,185,66,.3);margin-bottom:5px;">Set: '+s2.n+' · '+s2.efecto+'</div>':'';})():'')        ;    })():'')    +row1('NOTAS / DESCRIPCIÓN','<input type="text" id="no-d" value="'+fv('desc','')+'" placeholder="Efectos, notas..." '+s+'>')
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:4px;">'
     +(editObj
       ?'<button class="btn btn-warn" onclick="cancelarEditObj()">✕ CANCELAR</button><button class="btn" onclick="masterSaveObj()">▸ GUARDAR</button>'
@@ -4225,9 +4227,28 @@ function renderMObjetos(){
 }
 
 window.toggleArmaFields=function(tipo){
-  APP._objTipoSelected=tipo; // persistir entre renders
-  const el=document.getElementById('arma-extra-fields');
-  if(el) el.style.display=tipo==='arma'?'block':'none';
+  APP._objTipoSelected=tipo;
+  APP._currentFormTipo=tipo;
+  APP._objSubcatSelected=null; // reset subcat al cambiar tipo
+  // Rerenderizar para mostrar/ocultar campos de armadura/arma
+  var mc=document.getElementById('main-content');
+  if(mc) mc.innerHTML=renderMObjetos();
+};
+
+window.toggleSubcatFields=function(sc){
+  APP._objSubcatSelected=sc;
+  // Rerender solo el bloque interior sin perder foco
+  var esCaC=sc==='cac';
+  // Mostrar/ocultar campos según subcat
+  ['no-muni','no-carg','no-alc','no-rfdaño','no-fadaño','no-tt','no-rf','no-fa'].forEach(function(id){
+    var el=document.getElementById(id);
+    if(!el) return;
+    var row=el.closest('div[style]')||el.parentElement;
+    if(esCaC) el.value=''; // limpiar valores CaC
+  });
+  // Rerenderizar solo la pestaña objetos para actualizar los campos
+  var mc=document.getElementById('main-content');
+  if(mc) mc.innerHTML=renderMObjetos();
 };
 
 // Labels de subcategoría
@@ -4258,17 +4279,26 @@ window.masterSaveObj=function(){
     rfCost:parseInt((document.getElementById('no-rf')||{}).value)||0,
     faCost:parseInt((document.getElementById('no-fa')||{}).value)||0,
   }:{};
+  const extraArmadura=tipo==='armadura'?{
+    equipable:true,
+    slotTipo:(document.getElementById('no-slotarm')||{}).value||'casco',
+    tipoBlinaje:(document.getElementById('no-tipoblinaje')||{}).value||'ligera',
+    defBonus:parseInt((document.getElementById('no-defbonus')||{}).value)||0,
+    fueMin:parseInt((document.getElementById('no-fuemin')||{}).value)||0,
+    radReduc:parseInt((document.getElementById('no-radreduc')||{}).value)||0,
+    set:(document.getElementById('no-set')||{}).value||'',
+  }:{};
   const sala=getMockSala(APP.salaId);
   const editId=APP._editObjId;
   if(editId!=null){
     const idx=APP.tienda.findIndex(function(o){return o.id===editId;});
-    if(idx>=0){ APP.tienda[idx]=Object.assign({},APP.tienda[idx],{n:n.trim(),tipo,val,pc,desc},extraArma); sala.tienda=APP.tienda; showNotif(n+' actualizado'); }
+    if(idx>=0){ APP.tienda[idx]=Object.assign({},APP.tienda[idx],{n:n.trim(),tipo,val,pc,desc},extraArma,extraArmadura); sala.tienda=APP.tienda; showNotif(n+' actualizado'); }
     APP._editObjId=null;
   } else {
-    const o=Object.assign({id:Date.now(),n:n.trim(),tipo,val,pc,desc},extraArma);
+    const o=Object.assign({id:Date.now(),n:n.trim(),tipo,val,pc,desc},extraArma,extraArmadura);
     APP.tienda.push(o); sala.tienda=APP.tienda; showNotif(n+' añadido');
   }
-  APP._currentFormTipo=null; APP._objTipoSelected=null;
+  APP._currentFormTipo=null; APP._objTipoSelected=null; APP._objSubcatSelected=null;
   fbSet('salas/'+APP.salaId+'/tienda',APP.tienda); renderApp();
 };
 ;
@@ -4527,6 +4557,7 @@ window.cancelarEditObj=function(){
   APP._editObjId=null;
   APP._currentFormTipo=null;
   APP._objTipoSelected=null;
+  APP._objSubcatSelected=null;
   renderApp();
 };
 window.masterDelObj=function(id){APP.tienda=APP.tienda.filter(o=>o.id!==id);APP.enVenta=APP.enVenta.filter(i=>i!==id);getMockSala(APP.salaId).tienda=APP.tienda;renderApp()};
@@ -4541,6 +4572,13 @@ window.masterEnviarAJugador=function(jid,oid){
 };
 ;
 
+window.abrirCrearSet=function(){
+  const modal=document.getElementById('obj-detail-modal');
+  const box=document.getElementById('obj-detail-box');
+  const s='style="font-family:VT323,monospace;font-size:15px;padding:4px 6px;background:var(--pip-dark);border:1px solid var(--pip-border);color:var(--pip-bright);width:100%;"';
+  const TIPOS=['ligera','intermedia','combate','pesada','servo-adaptado'];
+  box.innerHTML='<div style="padding:20px;">'    +'<div style="font-family:VT323,monospace;font-size:18px;color:var(--pip-bright);margin-bottom:12px;">+ NUEVO SET DE ARMADURA</div>'    +'<div style="margin-bottom:8px;"><label style="font-size:9px;color:var(--pip-dim);display:block;margin-bottom:3px;">NOMBRE DEL SET</label><input type="text" id="ns-nombre" placeholder="Ej: Raider" '+s+'></div>'    +'<div style="margin-bottom:8px;"><label style="font-size:9px;color:var(--pip-dim);display:block;margin-bottom:3px;">TIPO DE BLINDAJE</label><select id="ns-tipo" '+s+'>'+TIPOS.map(function(t){return '<option value="'+t+'">'+t+'</option>';}).join('')+'</select></div>'    +'<div style="margin-bottom:12px;"><label style="font-size:9px;color:var(--pip-dim);display:block;margin-bottom:3px;">EFECTO SET COMPLETO</label><input type="text" id="ns-efecto" placeholder="Ej: +2 Atletismo" '+s+'></div>'    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">'    +'<button class="btn btn-warn" onclick="cerrarDetalle()">CANCELAR</button>'    +'<button class="btn" onclick="guardarNuevoSet()">▸ CREAR</button>'    +'</div></div>';  modal.style.display='flex';};
+window.guardarNuevoSet=function(){  const nombre=(document.getElementById('ns-nombre')||{}).value||'';  if(!nombre.trim()){showNotif('Escribe un nombre');return;}  const tipo=(document.getElementById('ns-tipo')||{}).value||'ligera';  const efecto=(document.getElementById('ns-efecto')||{}).value||'';  const id=nombre.toLowerCase().replace(/[^a-z0-9]/g,'');  const sala=getMockSala(APP.salaId);  if(!sala.setsArmadura) sala.setsArmadura=[];  if(sala.setsArmadura.find(function(s){return s.id===id;})){showNotif('Ya existe un set con ese nombre');return;}  sala.setsArmadura.push({id:id,n:nombre.trim(),efecto:efecto,tipo:tipo});  APP.setsArmadura=sala.setsArmadura;  fbSet('salas/'+APP.salaId+'/setsArmadura',sala.setsArmadura);  cerrarDetalle();  showNotif('Set '+nombre+' creado');  renderApp();};
 window.abrirEnviarMaster=function(oid){
   const sala=getMockSala(APP.salaId);
   const o=getObjById(oid)||APP.tienda.find(function(x){return x.id===oid||x.id===parseInt(oid);});
