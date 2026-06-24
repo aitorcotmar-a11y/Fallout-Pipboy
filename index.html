@@ -598,6 +598,20 @@ const EXTRAS_COMUNES=[
   {id:'tal_atributo',n:'Talento con atributo',d:'+1 a tiradas con el atributo: '},
   {id:'tal_habilidad',n:'Talento con habilidad',d:'+1 a tiradas con la habilidad: '},
 ];
+// Extras iniciales de creación de personaje (manual pág.6) — distintos de los EXTRAS_COMUNES de nivel
+const EXTRAS_INICIALES=[
+  {id:'accion_heroica',n:'Acción heroica',d:'1 vez por sesión, ventaja en una tirada a tu elección'},
+  {id:'duro',n:'Duro',d:'Comienzas con 10 puntos más de vida'},
+  {id:'entereza',n:'Entereza',d:'Ventaja en las pruebas relacionadas con RES'},
+  {id:'lumbreras',n:'Lumbreras',d:'Ventaja en las pruebas relacionadas con INT'},
+  {id:'presencia_inf',n:'Presencia influyente',d:'Ventaja en las pruebas relacionadas con CAR'},
+  {id:'pro_en_x',n:'Pro en X',d:'2 rangos en una habilidad a elegir, supera el límite de 2 pts en creación'},
+  {id:'resist_natural',n:'Resistencia natural',d:'Recuperas el doble de PV cuando descansas'},
+  {id:'vista_aguila',n:'Vista de águila',d:'Ventaja en las pruebas relacionadas con PER'},
+  {id:'cazador_eng',n:'Cazador de engendros',d:'+1 a las tiradas y al daño contra bestias mutantes y otros engendros'},
+  {id:'cazador',n:'Cazador',d:'+1 a las tiradas de ataque con armas medias no automáticas'},
+  {id:'luchador',n:'Luchador',d:'+1 a las tiradas de ataque cuando empleas armas'},
+];
 const EXTRAS_AVANZADOS=[
   {id:'blindaje_nat',n:'Blindaje natural',d:'+2 a la defensa'},
   {id:'canibal',n:'Caníbal',d:'Sangre y carne humana como agua y comida purificadas'},
@@ -864,7 +878,17 @@ const APP={
 /* ═══════════════════════════════════════════
    CALCULOS
    ═══════════════════════════════════════════ */
-function getMod(v){return Math.floor((v-10)/2);}
+function getMod(v){
+  // Tabla oficial del manual D20 Fallout (Valor -> Modificador)
+  if(v<=7) return -2-Math.ceil((7-v)/2); // extrapolación simétrica por debajo de 7
+  if(v===8) return -1;
+  if(v<=12) return 0;
+  if(v<=15) return 1;
+  if(v<=17) return 2;
+  if(v<=19) return 3;
+  if(v<=22) return 4;
+  return 5+Math.floor((v-23)/3); // extrapolación simétrica por encima de 23 (cada 3 puntos +1)
+}
 function calcPVMax(j){return CLASES[j.clase].dadoN+j.attrs.res}
 function getObjById(id){ var nid=typeof id==='string'?parseInt(id):id; return OBJETOS_EJEMPLO.find(function(o){return o!=null&&(o.id===nid||o.id===id);})||null; }
 
@@ -3152,7 +3176,7 @@ window.acabarEfecto=function(idx){
 /* ═══════════════════════════════════════════
    WIZARD – CREACIÓN DE FICHA
    ═══════════════════════════════════════════ */
-const WIZARD_STEPS=['S.P.E.C.I.A.L.','CLASE','RASGOS','HABILIDADES','EXTRA','TRASFONDO','RESUMEN'];
+const WIZARD_STEPS=['S.P.E.C.I.A.L.','EXTRA','CLASE','RASGOS','HABILIDADES','TRASFONDO','RESUMEN'];
 
 function renderWizard(){
   const wz=document.getElementById('wizard');
@@ -3178,10 +3202,10 @@ function renderWizard(){
 function renderWizardStep(step,d){
   switch(step){
     case 0: return renderWS_Special(d);
-    case 1: return renderWS_Clase(d);
-    case 2: return renderWS_Rasgos(d);
-    case 3: return renderWS_Habilidades(d);
-    case 4: return renderWS_Extra(d);
+    case 1: return renderWS_Extra(d);
+    case 2: return renderWS_Clase(d);
+    case 3: return renderWS_Rasgos(d);
+    case 4: return renderWS_Habilidades(d);
     case 5: return renderWS_Trasfondo(d);
     case 6: return renderWS_Resumen(d);
   }
@@ -3287,11 +3311,11 @@ function renderWS_Habilidades(d){
 
 function renderWS_Extra(d){
   return`
-  <div style="font-size:10px;color:var(--pip-dim);margin-bottom:10px;">Elige 1 extra inicial. Los extras comunes son los únicos disponibles en creación.</div>
-  ${EXTRAS_COMUNES.map(e=>{
+  <div style="font-size:10px;color:var(--pip-dim);margin-bottom:10px;">Elige 1 extra inicial entre los disponibles para la creación de personaje.</div>
+  ${EXTRAS_INICIALES.map(e=>{
     const sel=d.extraInicial===e.n;
     const safeNm=e.n.replace(/'/g,'&#39;'); return`<div class="extra-item ${sel?'sel':''}" onclick="wzExtra('${safeNm}')">
-      <div><span class="extra-name">${e.n}</span><span class="extra-cat">COMÚN</span></div>
+      <div><span class="extra-name">${e.n}</span><span class="extra-cat">INICIAL</span></div>
       <div class="extra-desc">${e.d}</div>
       ${sel?'<span class="extra-check">✓</span>':''}
     </div>`;
@@ -3363,7 +3387,7 @@ window.wzAttr=function(k,d){
   }
   document.getElementById('wizard-body').innerHTML=renderWizardStep(APP.wizardStep,dat);
 };
-window.wzClase=function(k){APP.wizardData.clase=k;document.getElementById('wizard-body').innerHTML=renderWizardStep(1,APP.wizardData)};
+window.wzClase=function(k){APP.wizardData.clase=k;document.getElementById('wizard-body').innerHTML=renderWizardStep(2,APP.wizardData)};
 window.wzRasgo=function(id){
   const r=APP.wizardData.rasgos;
   const teniaCap=r.includes('capacitado');
@@ -3391,14 +3415,14 @@ window.wzRasgo=function(id){
     APP.wizardData.habHabs['Medicina']=Math.max(0,(APP.wizardData.habHabs['Medicina']||0)-2);
     APP.wizardData.habHabs['Conversación']=Math.max(0,(APP.wizardData.habHabs['Conversación']||0)-2);
   }
-  document.getElementById('wizard-body').innerHTML=renderWizardStep(2,APP.wizardData);
+  document.getElementById('wizard-body').innerHTML=renderWizardStep(3,APP.wizardData);
 };
 window.wzHabArma=function(h,v){
   const d=APP.wizardData;const actual=d.habArmas[h];
   const u=Object.values(d.habArmas).reduce((s,x)=>s+x,0);const max=getPtsArm(d);
   if(v>actual){if(u>=max)return showNotif('Sin puntos de armas');if(v>2)return showNotif('Máx. 2 pts en creación');d.habArmas[h]=v;}
   else d.habArmas[h]=actual===v?v-1:v;
-  document.getElementById('wizard-body').innerHTML=renderWizardStep(3,APP.wizardData);
+  document.getElementById('wizard-body').innerHTML=renderWizardStep(4,APP.wizardData);
 };
 window.wzHabHab=function(h,v){
   const d=APP.wizardData;
@@ -3424,24 +3448,12 @@ window.wzHabHab=function(h,v){
     if(nuevo<minVal) return showNotif('Bonachón: mínimo '+minVal+' en '+h);
     d.habHabs[h]=nuevo;
   }
-  document.getElementById('wizard-body').innerHTML=renderWizardStep(3,APP.wizardData);
+  document.getElementById('wizard-body').innerHTML=renderWizardStep(4,APP.wizardData);
 };
 window.wzExtra=function(n){
   const deselect=APP.wizardData.extraInicial===n;
   APP.wizardData.extraInicial=deselect?'':n;
-  if(deselect){
-    // Al deseleccionar, borrar elección guardada
-    if(n==='Entrenamiento intensivo') APP.wizardData.extraAtributo='';
-    if(n==='Daño adicional') APP.wizardData.extraArma='';
-    if(n==='Talento con atributo') APP.wizardData.talAtributo='';
-    if(n==='Talento con habilidad') APP.wizardData.talHabilidad='';
-  } else {
-    if(n==='Entrenamiento intensivo'){ document.getElementById('wizard-body').innerHTML=renderWizardStep(4,APP.wizardData); abrirModalEntrenamiento('wizard'); return; }
-    if(n==='Daño adicional'){ document.getElementById('wizard-body').innerHTML=renderWizardStep(4,APP.wizardData); abrirModalDañoAdic('wizard'); return; }
-    if(n==='Talento con atributo'){ document.getElementById('wizard-body').innerHTML=renderWizardStep(4,APP.wizardData); abrirModalTalAtributo('wizard'); return; }
-    if(n==='Talento con habilidad'){ document.getElementById('wizard-body').innerHTML=renderWizardStep(4,APP.wizardData); abrirModalTalHabilidad('wizard'); return; }
-  }
-  document.getElementById('wizard-body').innerHTML=renderWizardStep(4,APP.wizardData);
+  document.getElementById('wizard-body').innerHTML=renderWizardStep(APP.wizardStep,APP.wizardData);
 };
 window.wzTrasfondo=function(v){APP.wizardData.trasfondo=v};
 
