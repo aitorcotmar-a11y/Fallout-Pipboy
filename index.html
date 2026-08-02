@@ -501,7 +501,7 @@ function startRealtime(salaId){
     var jugsRaw=s.jugadores||{};
     Object.keys(jugsRaw).forEach(function(k){ normalizarFicha(jugsRaw[k]); });
     APP.jugadores=jugsRaw;
-    APP.tienda=s.tienda||[];
+    APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[];
     APP.enemigos=s.enemigos||[];
     APP.combate=s.combate||[];
     APP.tiendas=s.tiendas||[];
@@ -555,6 +555,39 @@ const ATTRS=[
 ];
 const HAB_ARMAS=['Armas cortas','Armas medias','Armas grandes','Armas de energía','Explosivos','Combate'];
 const HAB_HABS=['Atletismo','Ciencia','Conversación','Ganzúa','Medicina','Reparación','Sigilo','Supervivencia'];
+
+/* ── Catálogo cerrado de parámetros para el motor de efectos (Rasgos/Extras/Objetos) ── */
+const CATEGORIAS_EFECTO=[
+  {k:'atributo',n:'ATRIBUTO (SPECIAL)'},
+  {k:'hab_arma',n:'HABILIDAD DE ARMA'},
+  {k:'hab_general',n:'HABILIDAD GENERAL'},
+  {k:'derivado',n:'DERIVADO / COMBATE'},
+];
+const CATALOGO_PARAMS={
+  atributo:ATTRS.map(function(a){return{k:a.k,n:a.n};}),
+  hab_arma:HAB_ARMAS.map(function(h){return{k:h,n:h};}),
+  hab_general:HAB_HABS.map(function(h){return{k:h,n:h};}),
+  derivado:[
+    {k:'def',n:'Defensa (DEF)'},
+    {k:'pv',n:'Puntos de Vida (PV)'},
+    {k:'iniciativa',n:'Iniciativa'},
+    {k:'carga',n:'Carga máxima'},
+    {k:'rads',n:'Rads/hora'},
+    {k:'critico',n:'Umbral de crítico'},
+    {k:'ataque_tt',n:'Ataque TT'},
+    {k:'ataque_rf',n:'Ataque RF'},
+    {k:'ataque_fa',n:'Ataque FA'},
+    {k:'daño_cac',n:'Daño CaC'},
+    {k:'daño_corta',n:'Daño arma corta'},
+    {k:'daño_media',n:'Daño arma media'},
+    {k:'daño_energia',n:'Daño arma energía'},
+  ],
+};
+function nombreParam(cat,k){
+  const lista=CATALOGO_PARAMS[cat]||[];
+  const f=lista.find(function(p){return p.k===k;});
+  return f?f.n:k;
+}
 const RASGOS=[
   {id:'bestia',      n:'Bestia',              d:'+2 daño CaC · -1 Combate'},
   {id:'bonachon',    n:'Bonachón',            d:'-2 pts armas · +2 fijos Medicina y Conversación'},
@@ -597,20 +630,6 @@ const EXTRAS_COMUNES=[
   {id:'sangre_fria',n:'Sangre Fría',d:'Sin penalizadores por disparar a cobertura parcial'},
   {id:'tal_atributo',n:'Talento con atributo',d:'+1 a tiradas con el atributo: '},
   {id:'tal_habilidad',n:'Talento con habilidad',d:'+1 a tiradas con la habilidad: '},
-];
-// Extras iniciales de creación de personaje (manual pág.6) — distintos de los EXTRAS_COMUNES de nivel
-const EXTRAS_INICIALES=[
-  {id:'accion_heroica',n:'Acción heroica',d:'1 vez por sesión, ventaja en una tirada a tu elección'},
-  {id:'duro',n:'Duro',d:'Comienzas con 10 puntos más de vida'},
-  {id:'entereza',n:'Entereza',d:'Ventaja en las pruebas relacionadas con RES'},
-  {id:'lumbreras',n:'Lumbreras',d:'Ventaja en las pruebas relacionadas con INT'},
-  {id:'presencia_inf',n:'Presencia influyente',d:'Ventaja en las pruebas relacionadas con CAR'},
-  {id:'pro_en_x',n:'Pro en X',d:'2 rangos en una habilidad a elegir, supera el límite de 2 pts en creación'},
-  {id:'resist_natural',n:'Resistencia natural',d:'Recuperas el doble de PV cuando descansas'},
-  {id:'vista_aguila',n:'Vista de águila',d:'Ventaja en las pruebas relacionadas con PER'},
-  {id:'cazador_eng',n:'Cazador de engendros',d:'+1 a las tiradas y al daño contra bestias mutantes y otros engendros'},
-  {id:'cazador',n:'Cazador',d:'+1 a las tiradas de ataque con armas medias no automáticas'},
-  {id:'luchador',n:'Luchador',d:'+1 a las tiradas de ataque cuando empleas armas'},
 ];
 const EXTRAS_AVANZADOS=[
   {id:'blindaje_nat',n:'Blindaje natural',d:'+2 a la defensa'},
@@ -878,19 +897,9 @@ const APP={
 /* ═══════════════════════════════════════════
    CALCULOS
    ═══════════════════════════════════════════ */
-function getMod(v){
-  // Tabla oficial del manual D20 Fallout (Valor -> Modificador)
-  if(v<=7) return -2-Math.ceil((7-v)/2); // extrapolación simétrica por debajo de 7
-  if(v===8) return -1;
-  if(v<=12) return 0;
-  if(v<=15) return 1;
-  if(v<=17) return 2;
-  if(v<=19) return 3;
-  if(v<=22) return 4;
-  return 5+Math.floor((v-23)/3); // extrapolación simétrica por encima de 23 (cada 3 puntos +1)
-}
+function getMod(v){return Math.floor((v-10)/2);}
 function calcPVMax(j){return CLASES[j.clase].dadoN+j.attrs.res}
-function getObjById(id){ var nid=typeof id==='string'?parseInt(id):id; return OBJETOS_EJEMPLO.find(function(o){return o!=null&&(o.id===nid||o.id===id);})||null; }
+function getObjById(id){ var nid=typeof id==='string'?parseInt(id):id; var fuente=(APP.tienda&&APP.tienda.length)?APP.tienda:OBJETOS_EJEMPLO; return fuente.find(function(o){return o!=null&&(o.id===nid||o.id===id);})||null; }
 
 function calcSetArmadura(j){
   // Devuelve el nombre del set si las 3 piezas son del mismo set, null si no
@@ -997,6 +1006,8 @@ function calcDEF(j){
   if(info.fueOk) d+=info.defBonus;
   // Blindaje natural
   if((j.extras||[]).includes('Blindaje natural')) d+=2;
+  // Efectos activos (drogas) genéricos
+  d+=(calcBonusEfectivos(j).derivado.def||0);
   // penalizador
   d+=(j.penMod||0);
   return d;
@@ -1008,7 +1019,7 @@ function calcFUEefectiva(j){
   const setBonus=calcSetBonus(j);
   return j.attrs.fue+(setBonus.fue||0);
 }
-function calcMOV(j){return 10+getMod(j.attrs.agi)}
+function calcMOV(j){return 10+getMod(j.attrs.agi)+(calcBonusEfectivos(j).derivado.mov||0)}
 function calcCRIT(j){
   if((j.rasgos||[]).includes('disparo')) return null;
   const m=getMod(j.attrs.sue);
@@ -1114,16 +1125,22 @@ function calcBonusRasgos(j){
   return bonos;
 }
 
-function calcBonusDrogas(j){
-  var bonos={int:0,per:0,fue:0,car:0,res:0,dañoCaC:0};
+function calcBonusEfectivos(j){
+  // Motor genérico: agrega todos los efectos activos (drogas/adicciones) por categoría/parámetro del catálogo cerrado
+  var out={atributo:{},hab_arma:{},hab_general:{},derivado:{}};
   (j.efectosActivos||[]).forEach(function(ef){
-    if(ef.bonos.int)     bonos.int+=ef.bonos.int;
-    if(ef.bonos.per)     bonos.per+=ef.bonos.per;
-    if(ef.bonos.fue)     bonos.fue+=ef.bonos.fue;
-    if(ef.bonos.car)     bonos.car+=ef.bonos.car;
-    if(ef.bonos.res)     bonos.res+=ef.bonos.res;
-    if(ef.bonos.dañoCaC) bonos.dañoCaC+=ef.bonos.dañoCaC;
+    (ef.efectosGen||[]).forEach(function(e){
+      var delta=(e.signo==='-'?-1:1)*e.valor;
+      if(!out[e.cat]) out[e.cat]={};
+      out[e.cat][e.param]=(out[e.cat][e.param]||0)+delta;
+    });
   });
+  return out;
+}
+function calcBonusDrogas(j){
+  var g=calcBonusEfectivos(j);
+  var atr=g.atributo||{};
+  var bonos={int:atr.int||0,per:atr.per||0,fue:atr.fue||0,car:atr.car||0,res:atr.res||0,agi:atr.agi||0,sue:atr.sue||0,dañoCaC:(g.derivado&&g.derivado.daño_cac)||0};
   return bonos;
 }
 
@@ -1158,10 +1175,10 @@ function calcIniciativa(j){
   var base=(j.attrs.agi||7)+((j.rasgos||[]).includes('pequeno')?1:0);
   var setBonus=calcSetBonus(j);
   var rasgoBonus=calcBonusRasgos(j);
-  return base+(setBonus.iniciativa||0)+(rasgoBonus.iniciativa||0);
+  return base+(setBonus.iniciativa||0)+(rasgoBonus.iniciativa||0)+(calcBonusEfectivos(j).derivado.iniciativa||0);
 }
 
-function calcCarga(j){return j.attrs.fue*10+(j.clase==='superviviente'?20:0)-(j.rasgos.includes('pequeno')?15:0)}
+function calcCarga(j){return j.attrs.fue*10+(j.clase==='superviviente'?20:0)-(j.rasgos.includes('pequeno')?15:0)+(calcBonusEfectivos(j).derivado.carga||0)}
 function calcCargaUsada(j){return(j.inventario||[]).reduce(function(s,i){const o=getObjById(i.objId)||APP.tienda.find(function(x){return x.id===i.objId});return s+(o?o.pc*i.qty:0)},0)}
 function getPtsArm(j){let b=CLASES[j.clase].arm;if(j.rasgos.includes('capacitado'))b-=1;if(j.rasgos.includes('tecnico'))b+=2;if(j.rasgos.includes('bonachon'))b-=2;return b}
 function getPtsHab(j){let b=CLASES[j.clase].hab;if(j.rasgos.includes('capacitado'))b-=1;if(j.rasgos.includes('tecnico'))b+=2;return b}
@@ -1177,6 +1194,7 @@ function getMockSala(id){
     MOCK.salas[id]={
       config:{pwHash:simplehash('master123')},
       jugadores:{}, tienda:OBJETOS_EJEMPLO.filter(function(o){return o!=null;}),
+      rasgosCustom:[],
       enVenta:[], enemigos:[...ENEMIGOS_EJEMPLO], combate:[],
       notificaciones:{},
       tiendas:[{
@@ -1254,7 +1272,7 @@ function salirApp(){
   // Reset completo del estado
   APP.rol=null; APP.jugadorId=null; APP.salaId=null;
   APP.masterTab='fichas'; APP.fichaInner='estado';
-  APP.jugadores={}; APP.tienda=[]; APP.enemigos=[]; APP.combate=[];
+  APP.jugadores={}; APP.tienda=[]; APP.enemigos=[]; APP.combate=[]; APP.rasgosCustom=[];
   APP.tiendas=[]; APP.notificaciones={}; APP._gruposAbiertos={};
   MOCK.salas={};
   showScreen('login-screen');
@@ -1375,7 +1393,7 @@ window.entrarTest=function(){
   APP.jugadores={};
   APP.jugadores[TEST_FICHA_ID]=j;
   APP.tienda=OBJETOS_EJEMPLO.filter(function(o){return o!=null;});
-  APP.tiendas=[]; APP.enemigos=[]; APP.combate=[]; APP.notificaciones={};
+  APP.tiendas=[]; APP.enemigos=[]; APP.combate=[]; APP.notificaciones={}; APP.rasgosCustom=[];
   document.getElementById('hdr-sala').textContent='MODO TEST';
   document.getElementById('hdr-badge').innerHTML='<span class="rbadge jugador" style="color:var(--pip-warn);">⚗ TEST</span>';
   buildTabs(); showScreen('shell'); renderApp();
@@ -1432,7 +1450,7 @@ function entrarMaster(){
         fbSaveSala(APP.salaId);
       }
       const s=getMockSala(APP.salaId);
-      APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[];
+      APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[];
       APP.enemigos=s.enemigos||[]; APP.combate=s.combate||[];
       APP.tiendas=s.tiendas||[]; APP.notificaciones=s.notificaciones||{};
       // Comprobar si master ya está conectado (con tolerancia de 15s)
@@ -1464,7 +1482,7 @@ function entrarMaster(){
 
 function entrarMasterLocal(){
   const s=getMockSala(APP.salaId);
-  APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[];
+  APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[];
   APP.enemigos=s.enemigos||[]; APP.combate=s.combate||[];
   APP.tiendas=s.tiendas||[]; APP.notificaciones=s.notificaciones||{};
   renderApp();
@@ -1584,7 +1602,7 @@ function completarEntradaJugador(id){
       const data=snap.val();
       if(data) MOCK.salas[APP.salaId]=Object.assign(getMockSala(APP.salaId), data);
       const s=getMockSala(APP.salaId);
-      APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[];
+      APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[];
       APP.tiendas=s.tiendas||[]; APP.notificaciones=s.notificaciones||{};
       const j=APP.jugadores[id];
       if(!j){ showNotif('Error: jugador no encontrado'); return; }
@@ -1619,7 +1637,7 @@ function completarEntradaJugador(id){
 
 function entrarJugadorLocal(id){
   const s=getMockSala(APP.salaId);
-  APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[];
+  APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[];
   APP.tiendas=s.tiendas||[]; APP.notificaciones=s.notificaciones||{};
   const j=APP.jugadores[id];
   if(!j){ showNotif('Error: jugador no encontrado'); showScreen('selector-screen'); return; }
@@ -1646,7 +1664,7 @@ function buildTabs(){
     return;
   }
   if(APP.rol==='master'){
-    el.innerHTML=[{k:'fichas',l:'FICHAS'},{k:'modif',l:'MODIF.'},{k:'objetos',l:'OBJETOS'},{k:'tiendas',l:'TIENDAS'},{k:'combate',l:'COMBATE'}]
+    el.innerHTML=[{k:'fichas',l:'FICHAS'},{k:'modif',l:'MODIF.'},{k:'objetos',l:'OBJETOS'},{k:'rasgos',l:'RASGOS'},{k:'tiendas',l:'TIENDAS'},{k:'combate',l:'COMBATE'}]
       .map(function(t){return '<button class="tab '+(APP.masterTab===t.k?'active':'')+'" data-k="'+t.k+'" onclick="switchMT(this.dataset.k)">'+t.l+'</button>';}).join('');
   } else {
     const fi=APP.fichaInner;
@@ -1705,6 +1723,7 @@ function renderApp(){
       case 'fichas':  el.innerHTML=renderMFichas(); break;
       case 'modif':   el.innerHTML=renderMModif(); break;
       case 'objetos': el.innerHTML=renderMObjetos(); break;
+      case 'rasgos':  el.innerHTML=renderMRasgos(); break;
       case 'tiendas': el.innerHTML=renderMTiendas(); break;
       case 'combate': el.innerHTML=renderMCombate(); break;
     }
@@ -2229,7 +2248,8 @@ function renderJEstado(){
   // ── Bono de ataque por modo ──
   var subcatMap={corta:'Armas cortas',media:'Armas medias',grande:'Armas grandes',energia:'Armas de energía',cac:'Combate'};
   var habArmaKey=armaObj?(subcatMap[armaObj.subcat]||'Combate'):'Combate';
-  var habArmaVal=armaObj?(j.habArmas[habArmaKey]||0):0;
+  var gEf=calcBonusEfectivos(j);
+  var habArmaVal=armaObj?(j.habArmas[habArmaKey]||0)+(gEf.hab_arma[habArmaKey]||0):0;
   var modAgi=getMod(j.attrs.agi+((j.rasgos||[]).includes('pequeno')?1:0));
   var radEfAtk=calcEfectosRad(j); var penRadAtk=radEfAtk.reduce(function(s,e){return s+(e.penHab||0);},0);
   var brA=calcBonusRasgos(j);
@@ -2243,16 +2263,18 @@ function renderJEstado(){
     else if(sc==='energia')bonSubcatAtk=(brA.atkEnergia||0)+(brA.atkTodas||0);
     else if(sc==='cac')    bonSubcatAtk=(brA.atkCaC||0)+(brA.atkTodas||0);
   }
-  var bonAtaqueTT=armaObj?(modAgi+habArmaVal+(j.penMod||0)+penRadAtk+bonSubcatAtk):0;
-  var bonAtaqueRF=armaObj?(bonAtaqueTT-2+(brA.rfAtk||0)+(brA.rfAtkExtra||0)):0;
-  var bonAtaqueFA=armaObj?(bonAtaqueTT+(brA.faAtkExtra||0)):0;
+  var bonAtaqueTT=armaObj?(modAgi+habArmaVal+(j.penMod||0)+penRadAtk+bonSubcatAtk+(armaObj.calidad||0)+(gEf.derivado.ataque_tt||0)):0;
+  var bonAtaqueRF=armaObj?(bonAtaqueTT-2+(brA.rfAtk||0)+(brA.rfAtkExtra||0)+(gEf.derivado.ataque_rf||0)):0;
+  var bonAtaqueFA=armaObj?(bonAtaqueTT+(brA.faAtkExtra||0)+(gEf.derivado.ataque_fa||0)):0;
   // FA = desventaja (mostrar valor pero indicar desventaja)
   var esCaC=armaObj&&armaObj.subcat==='cac';
   var bonDañoCaCTotal=esCaC?(bdDrogas.dañoCaC+bdRasgos.dañoCaC):0;
   var bonDañoDistTotal=(!esCaC&&armaObj&&armaObj.subcat!=='explosivo')?(bdRasgos.dañoDist||0):0;
   // Daño Adicional extra
-  var dañoAdicExtra=0;
+  var dañoAdicExtra=armaObj?(armaObj.estado||0):0;
   if(armaObj){
+    var dañoSubcatKey={corta:'daño_corta',media:'daño_media',energia:'daño_energia',cac:'daño_cac'}[armaObj.subcat];
+    if(dañoSubcatKey) dañoAdicExtra+=(gEf.derivado[dañoSubcatKey]||0);
     var subcatLabel={corta:'Armas cortas',media:'Armas medias',grande:'Armas grandes',energia:'Armas de energía',cac:'Combate'}[armaObj.subcat]||'';
     if(j.extraArma&&j.extraArma===subcatLabel&&(j.extras||[]).some(function(e){return e==='Daño adicional';})) dañoAdicExtra+=2;
     // Fuerza imparable: +4 daño CaC
@@ -3136,27 +3158,83 @@ window.usarObj=function(idx){
   // Aplicar efecto si es droga
   if(o.tipo==='droga'||o.tipo==='med'){
     aplicarEfectoDroga(j,o);
+    saveJ(); renderApp();
+    showNotif(o.n+' usado · ver EFECTOS ACTIVOS');
+    if(o.adiccionDado) abrirModalAdiccion(o);
+    return;
   }
   saveJ(); renderApp(); showNotif(o.n+' usado');
 };
 
+// ── Adicción: pregunta SI/NO al usar una droga con dado de adicción configurado ──
+window.abrirModalAdiccion=function(o){
+  const modal=document.getElementById('obj-detail-modal');
+  const box=document.getElementById('obj-detail-box');
+  box.innerHTML='<div style="padding:20px;text-align:center;">'
+    +'<div style="font-family:VT323,monospace;font-size:18px;color:var(--pip-bright);margin-bottom:6px;">☣ TIRA EL DADO DE ADICCIÓN ('+o.adiccionDado+')</div>'
+    +'<div style="font-size:11px;color:var(--pip-dim);margin-bottom:16px;">¿Te vuelves adicto a '+o.n+'?</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">'
+    +'<button class="btn" onclick="resolverAdiccion(false,'+o.id+')">NO</button>'
+    +'<button class="btn btn-danger" onclick="resolverAdiccion(true,'+o.id+')">SÍ</button>'
+    +'</div></div>';
+  modal.style.display='flex';
+};
+
+window.resolverAdiccion=function(si,objId){
+  cerrarDetalle();
+  if(!si) return;
+  const j=myFicha();
+  const o=getObjById(objId);
+  if(!o) return;
+  if(!j.efectosActivos) j.efectosActivos=[];
+  var efecto={droga:'☣ Adicción a '+o.n, desc:o.adiccionBanner||'', bonos:{}, efectosGen:[], esAdiccion:true};
+  if(o.adiccionEfecto&&o.adiccionEfecto.param){
+    efecto.efectosGen.push({cat:o.adiccionEfecto.cat,param:o.adiccionEfecto.param,signo:'-',valor:o.adiccionEfecto.valor});
+    efecto.info=(o.adiccionBanner?o.adiccionBanner+' · ':'')+'−'+o.adiccionEfecto.valor+' '+nombreParam(o.adiccionEfecto.cat,o.adiccionEfecto.param);
+  } else {
+    efecto.info=o.adiccionBanner||'Adicto';
+  }
+  j.efectosActivos.push(efecto);
+  saveJ(); renderApp();
+  showNotif('¡Te has vuelto adicto a '+o.n+'!');
+};
+
 function aplicarEfectoDroga(j,o){
   if(!j.efectosActivos) j.efectosActivos=[];
-  var efecto={droga:o.n, desc:o.desc, bonos:{}};
-  // Efectos automáticos por nombre
-  var n=o.n.toLowerCase();
-  if(n.includes('mentats'))         { efecto.bonos={int:2, per:2}; }
-  else if(n.includes('musculeína')) { efecto.bonos={fue:2, pvMaxExtra:25}; j.pvMax+=25; j.pvAct+=25; }
-  else if(n.includes('rad-away'))   { efecto.bonos={}; efecto.info='Reduce 1 Rad/min durante 1h'; }
-  else if(n.includes('rad-x'))      { efecto.bonos={}; efecto.info='Radiación recibida /2 durante 1h'; }
-  else if(n.includes('psico'))      { efecto.bonos={dañoCaC:10}; efecto.info='-5 daño recibido · +10 daño CaC (30min)'; }
-  else if(n.includes('med-x'))      { efecto.bonos={}; efecto.info='-5 daño recibido (1h)'; }
-  else if(n.includes('jet'))        { efecto.bonos={}; efecto.info='Ventaja en acciones de combate (30s)'; }
-  else if(n.includes('estimulante ultra')){ efecto.bonos={}; efecto.info='+5PV/asalto durante 12 asaltos'; }
-  else if(n.includes('estimulante max'))  { efecto.bonos={}; efecto.info='+5PV/asalto durante 6 asaltos'; }
-  else if(n.includes('estimulante'))      { efecto.bonos={}; efecto.info='+5PV/asalto durante 3 asaltos'; }
-  else if(n.includes('licor destilado'))  { efecto.bonos={fue:1, res:1}; efecto.info='INT-1 a partir del 3er trago'; }
-  else if(n.includes('licor fermentado')) { efecto.bonos={fue:1, car:1}; efecto.info='INT-1 a partir del 5o trago'; }
+  var efecto={droga:o.n, desc:o.desc, bonos:{}, efectosGen:[]};
+  if(o.efectos&&o.efectos.length){
+    // Sistema nuevo: efectos genéricos definidos en el creador (categoría/parámetro/signo/valor)
+    efecto.efectosGen=o.efectos.slice();
+    efecto.info=o.efectos.map(function(e){return (e.signo==='-'?'−':'+')+e.valor+' '+nombreParam(e.cat,e.param);}).join(' · ');
+    // También rellenar bonos{} plano para compatibilidad con el resumen de atributos
+    o.efectos.forEach(function(e){
+      if(e.cat==='atributo'){
+        var delta=(e.signo==='-'?-1:1)*e.valor;
+        efecto.bonos[e.param]=(efecto.bonos[e.param]||0)+delta;
+      }
+    });
+  } else {
+    // Sistema viejo: efectos automáticos por nombre (drogas de ejemplo predefinidas)
+    var n=o.n.toLowerCase();
+    if(n.includes('mentats'))         { efecto.bonos={int:2, per:2}; }
+    else if(n.includes('musculeína')) { efecto.bonos={fue:2, pvMaxExtra:25}; j.pvMax+=25; j.pvAct+=25; }
+    else if(n.includes('rad-away'))   { efecto.bonos={}; efecto.info='Reduce 1 Rad/min durante 1h'; }
+    else if(n.includes('rad-x'))      { efecto.bonos={}; efecto.info='Radiación recibida /2 durante 1h'; }
+    else if(n.includes('psico'))      { efecto.bonos={dañoCaC:10}; efecto.info='-5 daño recibido · +10 daño CaC (30min)'; }
+    else if(n.includes('med-x'))      { efecto.bonos={}; efecto.info='-5 daño recibido (1h)'; }
+    else if(n.includes('jet'))        { efecto.bonos={}; efecto.info='Ventaja en acciones de combate (30s)'; }
+    else if(n.includes('estimulante ultra')){ efecto.bonos={}; efecto.info='+5PV/asalto durante 12 asaltos'; }
+    else if(n.includes('estimulante max'))  { efecto.bonos={}; efecto.info='+5PV/asalto durante 6 asaltos'; }
+    else if(n.includes('estimulante'))      { efecto.bonos={}; efecto.info='+5PV/asalto durante 3 asaltos'; }
+    else if(n.includes('licor destilado'))  { efecto.bonos={fue:1, res:1}; efecto.info='INT-1 a partir del 3er trago'; }
+    else if(n.includes('licor fermentado')) { efecto.bonos={fue:1, car:1}; efecto.info='INT-1 a partir del 5o trago'; }
+    // Traducir bonos{} planos (sistema viejo) a efectosGen para que el motor genérico también los aplique
+    Object.keys(efecto.bonos).forEach(function(k){
+      if(k==='pvMaxExtra') return;
+      if(k==='dañoCaC') { efecto.efectosGen.push({cat:'derivado',param:'daño_cac',signo:'+',valor:efecto.bonos[k]}); return; }
+      efecto.efectosGen.push({cat:'atributo',param:k,signo:'+',valor:efecto.bonos[k]});
+    });
+  }
   j.efectosActivos.push(efecto);
 }
 
@@ -3176,7 +3254,7 @@ window.acabarEfecto=function(idx){
 /* ═══════════════════════════════════════════
    WIZARD – CREACIÓN DE FICHA
    ═══════════════════════════════════════════ */
-const WIZARD_STEPS=['S.P.E.C.I.A.L.','EXTRA','CLASE','RASGOS','HABILIDADES','TRASFONDO','RESUMEN'];
+const WIZARD_STEPS=['S.P.E.C.I.A.L.','CLASE','RASGOS','HABILIDADES','EXTRA','TRASFONDO','RESUMEN'];
 
 function renderWizard(){
   const wz=document.getElementById('wizard');
@@ -3202,10 +3280,10 @@ function renderWizard(){
 function renderWizardStep(step,d){
   switch(step){
     case 0: return renderWS_Special(d);
-    case 1: return renderWS_Extra(d);
-    case 2: return renderWS_Clase(d);
-    case 3: return renderWS_Rasgos(d);
-    case 4: return renderWS_Habilidades(d);
+    case 1: return renderWS_Clase(d);
+    case 2: return renderWS_Rasgos(d);
+    case 3: return renderWS_Habilidades(d);
+    case 4: return renderWS_Extra(d);
     case 5: return renderWS_Trasfondo(d);
     case 6: return renderWS_Resumen(d);
   }
@@ -3311,11 +3389,11 @@ function renderWS_Habilidades(d){
 
 function renderWS_Extra(d){
   return`
-  <div style="font-size:10px;color:var(--pip-dim);margin-bottom:10px;">Elige 1 extra inicial entre los disponibles para la creación de personaje.</div>
-  ${EXTRAS_INICIALES.map(e=>{
+  <div style="font-size:10px;color:var(--pip-dim);margin-bottom:10px;">Elige 1 extra inicial. Los extras comunes son los únicos disponibles en creación.</div>
+  ${EXTRAS_COMUNES.map(e=>{
     const sel=d.extraInicial===e.n;
     const safeNm=e.n.replace(/'/g,'&#39;'); return`<div class="extra-item ${sel?'sel':''}" onclick="wzExtra('${safeNm}')">
-      <div><span class="extra-name">${e.n}</span><span class="extra-cat">INICIAL</span></div>
+      <div><span class="extra-name">${e.n}</span><span class="extra-cat">COMÚN</span></div>
       <div class="extra-desc">${e.d}</div>
       ${sel?'<span class="extra-check">✓</span>':''}
     </div>`;
@@ -3387,7 +3465,7 @@ window.wzAttr=function(k,d){
   }
   document.getElementById('wizard-body').innerHTML=renderWizardStep(APP.wizardStep,dat);
 };
-window.wzClase=function(k){APP.wizardData.clase=k;document.getElementById('wizard-body').innerHTML=renderWizardStep(2,APP.wizardData)};
+window.wzClase=function(k){APP.wizardData.clase=k;document.getElementById('wizard-body').innerHTML=renderWizardStep(1,APP.wizardData)};
 window.wzRasgo=function(id){
   const r=APP.wizardData.rasgos;
   const teniaCap=r.includes('capacitado');
@@ -3415,14 +3493,14 @@ window.wzRasgo=function(id){
     APP.wizardData.habHabs['Medicina']=Math.max(0,(APP.wizardData.habHabs['Medicina']||0)-2);
     APP.wizardData.habHabs['Conversación']=Math.max(0,(APP.wizardData.habHabs['Conversación']||0)-2);
   }
-  document.getElementById('wizard-body').innerHTML=renderWizardStep(3,APP.wizardData);
+  document.getElementById('wizard-body').innerHTML=renderWizardStep(2,APP.wizardData);
 };
 window.wzHabArma=function(h,v){
   const d=APP.wizardData;const actual=d.habArmas[h];
   const u=Object.values(d.habArmas).reduce((s,x)=>s+x,0);const max=getPtsArm(d);
   if(v>actual){if(u>=max)return showNotif('Sin puntos de armas');if(v>2)return showNotif('Máx. 2 pts en creación');d.habArmas[h]=v;}
   else d.habArmas[h]=actual===v?v-1:v;
-  document.getElementById('wizard-body').innerHTML=renderWizardStep(4,APP.wizardData);
+  document.getElementById('wizard-body').innerHTML=renderWizardStep(3,APP.wizardData);
 };
 window.wzHabHab=function(h,v){
   const d=APP.wizardData;
@@ -3448,12 +3526,24 @@ window.wzHabHab=function(h,v){
     if(nuevo<minVal) return showNotif('Bonachón: mínimo '+minVal+' en '+h);
     d.habHabs[h]=nuevo;
   }
-  document.getElementById('wizard-body').innerHTML=renderWizardStep(4,APP.wizardData);
+  document.getElementById('wizard-body').innerHTML=renderWizardStep(3,APP.wizardData);
 };
 window.wzExtra=function(n){
   const deselect=APP.wizardData.extraInicial===n;
   APP.wizardData.extraInicial=deselect?'':n;
-  document.getElementById('wizard-body').innerHTML=renderWizardStep(APP.wizardStep,APP.wizardData);
+  if(deselect){
+    // Al deseleccionar, borrar elección guardada
+    if(n==='Entrenamiento intensivo') APP.wizardData.extraAtributo='';
+    if(n==='Daño adicional') APP.wizardData.extraArma='';
+    if(n==='Talento con atributo') APP.wizardData.talAtributo='';
+    if(n==='Talento con habilidad') APP.wizardData.talHabilidad='';
+  } else {
+    if(n==='Entrenamiento intensivo'){ document.getElementById('wizard-body').innerHTML=renderWizardStep(4,APP.wizardData); abrirModalEntrenamiento('wizard'); return; }
+    if(n==='Daño adicional'){ document.getElementById('wizard-body').innerHTML=renderWizardStep(4,APP.wizardData); abrirModalDañoAdic('wizard'); return; }
+    if(n==='Talento con atributo'){ document.getElementById('wizard-body').innerHTML=renderWizardStep(4,APP.wizardData); abrirModalTalAtributo('wizard'); return; }
+    if(n==='Talento con habilidad'){ document.getElementById('wizard-body').innerHTML=renderWizardStep(4,APP.wizardData); abrirModalTalHabilidad('wizard'); return; }
+  }
+  document.getElementById('wizard-body').innerHTML=renderWizardStep(4,APP.wizardData);
 };
 window.wzTrasfondo=function(v){APP.wizardData.trasfondo=v};
 
@@ -4165,6 +4255,8 @@ function renderMObjetos(){
   const tipoActual=APP._currentFormTipo;
   const esArma=tipoActual==='arma';
   const esArmadura=tipoActual==='armadura';
+  const esDroga=tipoActual==='droga';
+  if(esDroga&&!APP._draftObjEfectos) APP._draftObjEfectos=editObj?JSON.parse(JSON.stringify(editObj.efectos||[])):[];
 
   const s='style="font-family:VT323,monospace;font-size:15px;padding:4px 6px;background:var(--pip-dark);border:1px solid var(--pip-border);color:var(--pip-bright);width:100%;"';
   const sm='style="font-family:VT323,monospace;font-size:15px;padding:4px 6px;background:var(--pip-dark);border:1px solid var(--pip-border);color:var(--pip-bright);width:65px;"';
@@ -4200,7 +4292,7 @@ function renderMObjetos(){
       }).join('')+'</select>')
     +row2({l:'PRECIO (¢)',h:'<input type="number" id="no-v" value="'+fv('val',0)+'" min="0" '+sm+'>'},
           {l:'PESO (pc)', h:'<input type="number" id="no-pc" value="'+fv('pc',5)+'" min="1" '+sm+'>'})
-    +'<div id="arma-extra-fields" style="display:'+(esArma?'block':'none')+';">'    +row1('SUBCATEGORÍA','<select id="no-subcat" onchange="toggleSubcatFields(this.value)" '+s+'>'+      ARMA_SUBCATS.map(function(sc){        return '<option value="'+sc.id+'"'+(fv('subcat','corta')===sc.id?' selected':'')+'>'+sc.n+'</option>';      }).join('')+'</select>')    +(function(){      var sc=fv('subcat','corta');      var esCaC=sc==='cac';      var campos='';      if(!esCaC){        campos+=row1('MUNICIÓN','<select id="no-muni" '+s+'>'          +'<option value="">— Ninguna —</option>'          +MUNICION_TIPOS.map(function(m){return '<option value="'+m.id+'"'+(fv('muniId','')===m.id?' selected':'')+'>'+m.n+'</option>';}).join('')          +'</select>');        campos+=row2({l:'CARGADOR (balas)',h:'<input type="number" id="no-carg" value="'+fv('cargador',0)+'" min="0" '+sm+'>'},                     {l:'ALCANCE (m)',h:'<input type="number" id="no-alc" value="'+fv('alcance',20)+'" min="0" '+sm+'>'});      } else {        campos+='<input type="hidden" id="no-muni" value=""><input type="hidden" id="no-carg" value="0"><input type="hidden" id="no-alc" value="0">';      }      campos+='<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin-bottom:5px;">'+(esCaC?'DADO DE DAÑO':'DADOS DE DAÑO')+'</div>';      if(esCaC){        campos+=row1('Daño TT','<input type="text" id="no-daño" value="'+fv('daño','1D6')+'" placeholder="1D6" '+sm+'>');        campos+='<input type="hidden" id="no-rfdaño" value=""><input type="hidden" id="no-fadaño" value="">';        campos+='<input type="hidden" id="no-tt" value="0"><input type="hidden" id="no-rf" value="0"><input type="hidden" id="no-fa" value="0">';      } else {        campos+=row3({l:'TT',h:'<input type="text" id="no-daño" value="'+fv('daño','1D6')+'" placeholder="1D6" '+sm+'>'},                     {l:'RF',h:'<input type="text" id="no-rfdaño" value="'+fv('rf','')+'" placeholder="2D6" '+sm+'>'},                     {l:'FA',h:'<input type="text" id="no-fadaño" value="'+fv('fa','')+'" placeholder="3D6" '+sm+'>'});        campos+='<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin-bottom:5px;">BALAS CONSUMIDAS</div>';        campos+=row3({l:'Coste TT',h:'<input type="number" id="no-tt" value="'+fv('ttCost',1)+'" min="0" '+sm+'>'},                     {l:'Coste RF',h:'<input type="number" id="no-rf" value="'+fv('rfCost',0)+'" min="0" '+sm+'>'},                     {l:'Coste FA',h:'<input type="number" id="no-fa" value="'+fv('faCost',0)+'" min="0" '+sm+'>'});      }      return campos;    })()    +'</div>'
+    +'<div id="arma-extra-fields" style="display:'+(esArma?'block':'none')+';">'    +row1('SUBCATEGORÍA','<select id="no-subcat" onchange="toggleSubcatFields(this.value)" '+s+'>'+      ARMA_SUBCATS.map(function(sc){        return '<option value="'+sc.id+'"'+(fv('subcat','corta')===sc.id?' selected':'')+'>'+sc.n+'</option>';      }).join('')+'</select>')    +(function(){      var sc=fv('subcat','corta');      var esCaC=sc==='cac';      var campos='';      if(!esCaC){        campos+=row1('MUNICIÓN','<select id="no-muni" '+s+'>'          +'<option value="">— Ninguna —</option>'          +MUNICION_TIPOS.map(function(m){return '<option value="'+m.id+'"'+(fv('muniId','')===m.id?' selected':'')+'>'+m.n+'</option>';}).join('')          +'</select>');        campos+=row2({l:'CARGADOR (balas)',h:'<input type="number" id="no-carg" value="'+fv('cargador',0)+'" min="0" '+sm+'>'},                     {l:'ALCANCE (m)',h:'<input type="number" id="no-alc" value="'+fv('alcance',20)+'" min="0" '+sm+'>'});      } else {        campos+='<input type="hidden" id="no-muni" value=""><input type="hidden" id="no-carg" value="0"><input type="hidden" id="no-alc" value="0">';      }      campos+='<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin-bottom:5px;">'+(esCaC?'DADO DE DAÑO':'DADOS DE DAÑO')+'</div>';      if(esCaC){        campos+=row1('Daño TT','<input type="text" id="no-daño" value="'+fv('daño','1D6')+'" placeholder="1D6" '+sm+'>');        campos+='<input type="hidden" id="no-rfdaño" value=""><input type="hidden" id="no-fadaño" value="">';        campos+='<input type="hidden" id="no-tt" value="0"><input type="hidden" id="no-rf" value="0"><input type="hidden" id="no-fa" value="0">';      } else {        campos+=row3({l:'TT',h:'<input type="text" id="no-daño" value="'+fv('daño','1D6')+'" placeholder="1D6" '+sm+'>'},                     {l:'RF',h:'<input type="text" id="no-rfdaño" value="'+fv('rf','')+'" placeholder="2D6" '+sm+'>'},                     {l:'FA',h:'<input type="text" id="no-fadaño" value="'+fv('fa','')+'" placeholder="3D6" '+sm+'>'});        campos+='<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin-bottom:5px;">BALAS CONSUMIDAS</div>';        campos+=row3({l:'Coste TT',h:'<input type="number" id="no-tt" value="'+fv('ttCost',1)+'" min="0" '+sm+'>'},                     {l:'Coste RF',h:'<input type="number" id="no-rf" value="'+fv('rfCost',0)+'" min="0" '+sm+'>'},                     {l:'Coste FA',h:'<input type="number" id="no-fa" value="'+fv('faCost',0)+'" min="0" '+sm+'>'});      }      return campos;    })()    +row2({l:'CALIDAD (suma a Ataque)',h:'<input type="number" id="no-calidad" value="'+fv('calidad',0)+'" min="0" max="6" '+sm+'>'},                  {l:'ESTADO (suma a Daño)',h:'<input type="number" id="no-estado" value="'+fv('estado',0)+'" min="0" max="6" '+sm+'>'})    +row1('MANOS','<select id="no-manos" '+s+'><option value="1"'+(String(fv('manos',1))==='1'?' selected':'')+'>Una mano (permite dos armas equipadas)</option><option value="2"'+(String(fv('manos',1))==='2'?' selected':'')+'>Dos manos (ocupa las dos)</option></select>')    +'</div>'
     // Campos extra para armadura
     +(esArmadura?(function(){
       var sets=APP.setsArmadura||[];
@@ -4212,7 +4304,51 @@ function renderMObjetos(){
       var slotV=fv('slotTipo','casco');
       var fueMinV=fv('fueMin',0);
       var radReducV=fv('radReduc',0);
-      return row2({l:'BONUS DEF',h:'<input type="number" id="no-defbonus" value="'+defB+'" min="0" max="15" '+sm+'>'},             {l:'SLOT',h:'<select id="no-slotarm" '+s+'>'+SLOTS_ARM.map(function(sl){return '<option value="'+sl+'"'+(slotV===sl?' selected':'')+'>'+sl.toUpperCase()+'</option>';}).join('')+'</select>'})        +row1('CATEGORÍA','<select id="no-tipoblinaje" '+s+'>'+TIPOS_BLINDAJE.map(function(t){return '<option value="'+t+'"'+(tipB===t?' selected':'')+'>'+t+'</option>';}).join('')+'</select>')        +row2({l:'FUE mínima',h:'<input type="number" id="no-fuemin" value="'+fueMinV+'" min="0" max="20" '+sm+'>'},              {l:'Rads/h reducción',h:'<input type="number" id="no-radreduc" value="'+radReducV+'" min="0" '+sm+'>'})        +'<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin-bottom:5px;">SET DE ARMADURA</div>'        +'<div style="display:grid;grid-template-columns:1fr auto;gap:5px;margin-bottom:5px;">'        +'<select id="no-set" '+s+'>'        +'<option value="">— Sin set —</option>'        +sets.map(function(s2){return '<option value="'+s2.id+'"'+(setV===s2.id?' selected':'')+'>'+s2.n+' ('+s2.tipo+')</option>';}).join('')        +'</select>'        +'<button class="btn btn-sm" onclick="abrirCrearSet()" style="white-space:nowrap;">+ NUEVO</button>'        +'</div>'        +(setV?(function(){var s2=sets.find(function(x){return x.id===setV;});return s2?'<div style="font-size:9px;color:var(--pip-warn);padding:4px 8px;border:1px solid rgba(245,185,66,.3);margin-bottom:5px;">Set: '+s2.n+' · '+s2.efecto+'</div>':'';})():'')        ;    })():'')    +row1('NOTAS / DESCRIPCIÓN','<input type="text" id="no-d" value="'+fv('desc','')+'" placeholder="Efectos, notas..." '+s+'>')
+      return row2({l:'BONUS DEF',h:'<input type="number" id="no-defbonus" value="'+defB+'" min="0" max="15" '+sm+'>'},             {l:'SLOT',h:'<select id="no-slotarm" '+s+'>'+SLOTS_ARM.map(function(sl){return '<option value="'+sl+'"'+(slotV===sl?' selected':'')+'>'+sl.toUpperCase()+'</option>';}).join('')+'</select>'})        +row1('CATEGORÍA','<select id="no-tipoblinaje" '+s+'>'+TIPOS_BLINDAJE.map(function(t){return '<option value="'+t+'"'+(tipB===t?' selected':'')+'>'+t+'</option>';}).join('')+'</select>')        +row2({l:'FUE mínima',h:'<input type="number" id="no-fuemin" value="'+fueMinV+'" min="0" max="20" '+sm+'>'},              {l:'Rads/h reducción',h:'<input type="number" id="no-radreduc" value="'+radReducV+'" min="0" '+sm+'>'})        +'<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin-bottom:5px;">SET DE ARMADURA</div>'        +'<div style="display:grid;grid-template-columns:1fr auto;gap:5px;margin-bottom:5px;">'        +'<select id="no-set" '+s+'>'        +'<option value="">— Sin set —</option>'        +sets.map(function(s2){return '<option value="'+s2.id+'"'+(setV===s2.id?' selected':'')+'>'+s2.n+' ('+s2.tipo+')</option>';}).join('')        +'</select>'        +'<button class="btn btn-sm" onclick="abrirCrearSet()" style="white-space:nowrap;">+ NUEVO</button>'        +'</div>'        +(setV?(function(){var s2=sets.find(function(x){return x.id===setV;});return s2?'<div style="font-size:9px;color:var(--pip-warn);padding:4px 8px;border:1px solid rgba(245,185,66,.3);margin-bottom:5px;">Set: '+s2.n+' · '+s2.efecto+'</div>':'';})():'')        ;    })():'')
+    // Campos extra para drogas: efectos múltiples sobre el catálogo cerrado
+    +(esDroga?(function(){
+      const draft=APP._draftObjEfectos||[];
+      const catActual=APP._draftObjEfCat||'atributo';
+      const paramsActuales=CATALOGO_PARAMS[catActual]||[];
+      const efectosListHtml=!draft.length?'<div style="font-size:10px;color:var(--pip-dim);padding:4px 0;">Sin efectos añadidos todavía</div>'
+        :draft.map(function(ef,i){
+          return '<div style="display:flex;align-items:center;justify-content:space-between;border:1px solid var(--pip-border);padding:4px 8px;margin-bottom:4px;">'
+            +'<span style="font-size:12px;color:var(--pip-bright);">'+(ef.signo==='-'?'−':'+')+ef.valor+' · '+nombreParam(ef.cat,ef.param)+'</span>'
+            +'<button class="chip chip-r" data-i="'+i+'" onclick="masterDelEfectoObjDraft(parseInt(this.dataset.i))">×</button>'
+            +'</div>';
+        }).join('');
+      return '<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin:8px 0 4px;border-bottom:1px solid var(--pip-border);padding-bottom:3px;">EFECTOS DE LA DROGA</div>'
+        +efectosListHtml
+        +'<div style="display:grid;grid-template-columns:1fr;gap:6px;margin-top:6px;padding:8px;border:1px dashed var(--pip-border);">'
+        +row1('CATEGORÍA','<select id="do-ef-cat" onchange="masterCambiarCatEfectoObj(this.value)" '+s+'>'
+          +CATEGORIAS_EFECTO.map(function(c){return '<option value="'+c.k+'"'+(catActual===c.k?' selected':'')+'>'+c.n+'</option>';}).join('')+'</select>')
+        +row1('PARÁMETRO','<select id="do-ef-param" '+s+'>'
+          +paramsActuales.map(function(p){return '<option value="'+p.k+'">'+p.n+'</option>';}).join('')+'</select>')
+        +row2({l:'SIGNO',h:'<select id="do-ef-signo" '+s+'><option value="+">+ (suma)</option><option value="-">− (resta)</option></select>'},
+              {l:'VALOR',h:'<input type="number" id="do-ef-valor" value="1" min="0" '+sm+'>'})
+        +'<button class="btn btn-sm" onclick="masterAddEfectoObjDraft()">+ AÑADIR EFECTO</button>'
+        +'</div>'
+        // ── Adicción ──
+        +'<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin:10px 0 4px;border-bottom:1px solid var(--pip-border);padding-bottom:3px;">ADICCIÓN</div>'
+        +row1('DADO DE ADICCIÓN','<select id="no-adic-dado" '+s+'>'
+          +['','1D3','1D4','1D6','1D8','1D10','1D12','1D20'].map(function(d){
+            return '<option value="'+d+'"'+(fv('adiccionDado','')===d?' selected':'')+'>'+(d||'— Sin adicción —')+'</option>';
+          }).join('')+'</select>')
+        +(function(){
+          const adCatActual=APP._draftObjAdicCat||'atributo';
+          const adParams=CATALOGO_PARAMS[adCatActual]||[];
+          const adEf=fv('adiccionEfecto',null);
+          return row1('EFECTO NEGATIVO AL VOLVERTE ADICTO','<div style="display:grid;grid-template-columns:1fr 1fr auto;gap:6px;">'
+            +'<select id="no-adic-cat" onchange="masterCambiarCatAdiccion(this.value)" '+s+'>'
+              +CATEGORIAS_EFECTO.map(function(c){return '<option value="'+c.k+'"'+(adCatActual===c.k?' selected':'')+'>'+c.n+'</option>';}).join('')+'</select>'
+            +'<select id="no-adic-param" '+s+'>'
+              +adParams.map(function(p){return '<option value="'+p.k+'">'+p.n+'</option>';}).join('')+'</select>'
+            +'<input type="number" id="no-adic-valor" value="'+(adEf?adEf.valor:2)+'" min="0" '+sm+'>'
+            +'</div>');
+        })()
+        +row1('BANNER DE ADICCIÓN','<input type="text" id="no-adic-banner" value="'+fv('adiccionBanner','')+'" placeholder="Texto de aviso, p.ej. Eres adicto a..." '+s+'>')
+    })():'')
+    +row1('NOTAS / DESCRIPCIÓN','<input type="text" id="no-d" value="'+fv('desc','')+'" placeholder="Efectos, notas..." '+s+'>')
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:4px;">'
     +(editObj
       ?'<button class="btn btn-warn" onclick="cancelarEditObj()">✕ CANCELAR</button><button class="btn" onclick="masterSaveObj()">▸ GUARDAR</button>'
@@ -4242,10 +4378,44 @@ window.toggleArmaFields=function(tipo){
   APP._objTipoSelected=tipo;
   APP._currentFormTipo=tipo;
   APP._objSubcatSelected=null; // reset subcat al cambiar tipo
+  if(tipo!=='droga'){ APP._draftObjEfectos=null; APP._draftObjAdicCat=null; } // limpiar draft si sales de droga
   // Rerenderizar para mostrar/ocultar campos de armadura/arma
   var mc=document.getElementById('main-content');
   if(mc) mc.innerHTML=renderMObjetos();
 };
+
+window.masterCambiarCatEfectoObj=function(cat){
+  APP._draftObjEfCat=cat;
+  var mc=document.getElementById('main-content');
+  if(mc) mc.innerHTML=renderMObjetos();
+};
+
+window.masterCambiarCatAdiccion=function(cat){
+  APP._draftObjAdicCat=cat;
+  var mc=document.getElementById('main-content');
+  if(mc) mc.innerHTML=renderMObjetos();
+};
+
+window.masterAddEfectoObjDraft=function(){
+  const cat=(document.getElementById('do-ef-cat')||{}).value||'atributo';
+  const param=(document.getElementById('do-ef-param')||{}).value;
+  const signo=(document.getElementById('do-ef-signo')||{}).value||'+';
+  const valor=parseInt((document.getElementById('do-ef-valor')||{}).value)||0;
+  if(!param) return showNotif('Selecciona un parámetro');
+  if(!valor) return showNotif('El valor debe ser mayor que 0');
+  if(!APP._draftObjEfectos) APP._draftObjEfectos=[];
+  APP._draftObjEfectos.push({cat:cat,param:param,signo:signo,valor:valor});
+  const mc=document.getElementById('main-content');
+  if(mc) mc.innerHTML=renderMObjetos();
+};
+
+window.masterDelEfectoObjDraft=function(i){
+  if(!APP._draftObjEfectos) return;
+  APP._draftObjEfectos.splice(i,1);
+  const mc=document.getElementById('main-content');
+  if(mc) mc.innerHTML=renderMObjetos();
+};
+
 
 window.toggleSubcatFields=function(sc){
   APP._objSubcatSelected=sc;
@@ -4290,6 +4460,9 @@ window.masterSaveObj=function(){
     ttCost:parseInt((document.getElementById('no-tt')||{}).value)||1,
     rfCost:parseInt((document.getElementById('no-rf')||{}).value)||0,
     faCost:parseInt((document.getElementById('no-fa')||{}).value)||0,
+    calidad:parseInt((document.getElementById('no-calidad')||{}).value)||0,
+    estado:parseInt((document.getElementById('no-estado')||{}).value)||0,
+    manos:parseInt((document.getElementById('no-manos')||{}).value)||1,
   }:{};
   const extraArmadura=tipo==='armadura'?{
     equipable:true,
@@ -4300,22 +4473,195 @@ window.masterSaveObj=function(){
     radReduc:parseInt((document.getElementById('no-radreduc')||{}).value)||0,
     set:(document.getElementById('no-set')||{}).value||'',
   }:{};
+  const extraDroga=tipo==='droga'?{
+    efectos:(APP._draftObjEfectos||[]).slice(),
+    adiccionDado:(document.getElementById('no-adic-dado')||{}).value||'',
+    adiccionEfecto:(function(){
+      const cat=(document.getElementById('no-adic-cat')||{}).value||'';
+      const param=(document.getElementById('no-adic-param')||{}).value||'';
+      const valor=parseInt((document.getElementById('no-adic-valor')||{}).value)||0;
+      return (cat&&param&&valor)?{cat:cat,param:param,valor:valor}:null;
+    })(),
+    adiccionBanner:(document.getElementById('no-adic-banner')||{}).value||'',
+  }:{};
   const sala=getMockSala(APP.salaId);
   const editId=APP._editObjId;
   if(editId!=null){
     const idx=APP.tienda.findIndex(function(o){return o.id===editId;});
-    if(idx>=0){ APP.tienda[idx]=Object.assign({},APP.tienda[idx],{n:n.trim(),tipo,val,pc,desc},extraArma,extraArmadura); sala.tienda=APP.tienda; showNotif(n+' actualizado'); }
+    if(idx>=0){ APP.tienda[idx]=Object.assign({},APP.tienda[idx],{n:n.trim(),tipo,val,pc,desc},extraArma,extraArmadura,extraDroga); sala.tienda=APP.tienda; showNotif(n+' actualizado'); }
     APP._editObjId=null;
   } else {
-    const o=Object.assign({id:Date.now(),n:n.trim(),tipo,val,pc,desc},extraArma,extraArmadura);
+    const o=Object.assign({id:Date.now(),n:n.trim(),tipo,val,pc,desc},extraArma,extraArmadura,extraDroga);
     APP.tienda.push(o); sala.tienda=APP.tienda; showNotif(n+' añadido');
   }
-  APP._currentFormTipo=null; APP._objTipoSelected=null; APP._objSubcatSelected=null;
+  APP._currentFormTipo=null; APP._objTipoSelected=null; APP._objSubcatSelected=null; APP._draftObjEfectos=null; APP._draftObjEfCat=null; APP._draftObjAdicCat=null;
   fbSet('salas/'+APP.salaId+'/tienda',APP.tienda); renderApp();
 };
 ;
 ;
 ;
+
+/* ═══════════════════════════════════════════
+   CREADOR DE RASGOS (nuevo, Panel Master)
+   No toca ni sustituye el array RASGOS[] original.
+   Se guarda en APP.rasgosCustom / sala.rasgosCustom
+   ═══════════════════════════════════════════ */
+function renderMRasgos(){
+  const editId=APP._editRasgoId||null;
+  const editRasgo=editId!=null?(APP.rasgosCustom||[]).find(function(r){return r.id===editId;}):null;
+  const lista=APP.rasgosCustom||[];
+  if(!APP._draftEfectos) APP._draftEfectos=editRasgo?JSON.parse(JSON.stringify(editRasgo.efectos||[])):[];
+  const draft=APP._draftEfectos;
+
+  const s='style="font-family:VT323,monospace;font-size:15px;padding:4px 6px;background:var(--pip-dark);border:1px solid var(--pip-border);color:var(--pip-bright);width:100%;"';
+  const sm='style="font-family:VT323,monospace;font-size:15px;padding:4px 6px;background:var(--pip-dark);border:1px solid var(--pip-border);color:var(--pip-bright);width:65px;"';
+  const lbl='style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;display:block;margin-bottom:3px;"';
+  function row1(label,html){ return '<div style="margin-bottom:8px;"><label '+lbl+'>'+label+'</label>'+html+'</div>'; }
+  function row2(a,b){ return '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">'+'<div><label '+lbl+'>'+a.l+'</label>'+a.h+'</div>'+'<div><label '+lbl+'>'+b.l+'</label>'+b.h+'</div>'+'</div>'; }
+
+  const catActual=APP._draftEfCat||'atributo';
+  const paramsActuales=CATALOGO_PARAMS[catActual]||[];
+
+  const efectosListHtml=!draft.length?'<div style="font-size:10px;color:var(--pip-dim);padding:4px 0;">Sin efectos añadidos todavía</div>'
+    :draft.map(function(ef,i){
+      return '<div style="display:flex;align-items:center;justify-content:space-between;border:1px solid var(--pip-border);padding:4px 8px;margin-bottom:4px;">'
+        +'<span style="font-size:12px;color:var(--pip-bright);">'+(ef.signo==='-'?'−':'+')+ef.valor+' · '+nombreParam(ef.cat,ef.param)+'</span>'
+        +'<button class="chip chip-r" data-i="'+i+'" onclick="masterDelEfectoDraft(parseInt(this.dataset.i))">×</button>'
+        +'</div>';
+    }).join('');
+
+  const formHtml='<div class="card" style="border-color:rgba(245,185,66,.4);margin-bottom:8px;">'
+    +'<div class="card-hdr" style="color:var(--pip-warn);">'+(editRasgo?'✎ EDITAR: '+editRasgo.n:'+ CREAR NUEVO RASGO')+'</div>'
+    +'<div style="padding:10px 12px;">'
+    +row1('NOMBRE','<input type="text" id="rs-n" value="'+(editRasgo?editRasgo.n:(APP._draftRasgoN||''))+'" placeholder="Nombre del rasgo" '+s+'>')
+    +row1('DESCRIPCIÓN BREVE','<textarea id="rs-d" rows="2" placeholder="Qué hace este rasgo..." '+s+'>'+(editRasgo?editRasgo.d:(APP._draftRasgoD||''))+'</textarea>')
+    +'<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin:8px 0 4px;border-bottom:1px solid var(--pip-border);padding-bottom:3px;">EFECTOS</div>'
+    +efectosListHtml
+    +'<div style="display:grid;grid-template-columns:1fr;gap:6px;margin-top:6px;padding:8px;border:1px dashed var(--pip-border);">'
+    +row1('CATEGORÍA','<select id="rs-ef-cat" onchange="masterCambiarCatEfecto(this.value)" '+s+'>'
+      +CATEGORIAS_EFECTO.map(function(c){return '<option value="'+c.k+'"'+(catActual===c.k?' selected':'')+'>'+c.n+'</option>';}).join('')+'</select>')
+    +row1('PARÁMETRO','<select id="rs-ef-param" '+s+'>'
+      +paramsActuales.map(function(p){return '<option value="'+p.k+'">'+p.n+'</option>';}).join('')+'</select>')
+    +row2({l:'SIGNO',h:'<select id="rs-ef-signo" '+s+'><option value="+">+ (suma)</option><option value="-">− (resta)</option></select>'},
+          {l:'VALOR',h:'<input type="number" id="rs-ef-valor" value="1" min="0" '+sm+'>'})
+    +'<button class="btn btn-sm" onclick="masterAddEfectoDraft()">+ AÑADIR EFECTO</button>'
+    +'</div>'
+    +row1('TEXTO INFORMATIVO / BANNER <span style="opacity:.7;">(para rasgos sin efecto mecánico, o aclaraciones)</span>','<input type="text" id="rs-banner" value="'+(editRasgo?(editRasgo.banner||''):(APP._draftRasgoBanner||''))+'" placeholder="Texto que verá el jugador en su ficha" '+s+'>')
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:4px;">'
+    +(editRasgo
+      ?'<button class="btn btn-warn" onclick="masterCancelRasgo()">✕ CANCELAR</button><button class="btn" onclick="masterSaveRasgo()">▸ GUARDAR</button>'
+      :'<button class="btn btn-block" onclick="masterSaveRasgo()" style="grid-column:1/-1;">▸ CREAR RASGO</button>')
+    +'</div></div></div>';
+
+  const listaHtml='<div class="card"><div class="card-hdr">RASGOS CREADOS ('+lista.length+')</div>'
+    +'<div style="padding:0;">'
+    +(!lista.length?'<div class="empty">Sin rasgos creados todavía</div>'
+      :lista.map(function(r){
+        return '<div class="shop-item">'
+          +'<div class="shop-info"><div class="shop-name">'+r.n+'</div>'
+          +'<div class="shop-desc" style="font-size:11px;color:#7ddb8e;">'+(r.d||'')+'</div>'
+          +(r.efectos&&r.efectos.length?'<div style="font-size:10px;color:var(--pip-dim);margin-top:2px;">'+r.efectos.map(function(ef){return (ef.signo==='-'?'−':'+')+ef.valor+' '+nombreParam(ef.cat,ef.param);}).join(' · ')+'</div>':'')
+          +(r.banner?'<div style="font-size:10px;color:var(--pip-warn);margin-top:2px;">ℹ '+r.banner+'</div>':'')
+          +'</div>'
+          +'<div style="display:flex;gap:3px;flex-shrink:0;">'
+          +'<button class="chip chip-g" style="border-color:var(--pip-warn);color:var(--pip-warn);" data-rid="'+r.id+'" onclick="masterEditRasgo(parseInt(this.dataset.rid))">EDIT.</button>'
+          +'<button class="chip chip-r" data-rid="'+r.id+'" onclick="masterDelRasgo(parseInt(this.dataset.rid))">×</button>'
+          +'</div></div>';
+      }).join(''))
+    +'</div></div>';
+
+  return formHtml+listaHtml;
+}
+
+window.masterCambiarCatEfecto=function(cat){
+  APP._draftEfCat=cat;
+  APP._draftRasgoN=(document.getElementById('rs-n')||{}).value||'';
+  APP._draftRasgoD=(document.getElementById('rs-d')||{}).value||'';
+  APP._draftRasgoBanner=(document.getElementById('rs-banner')||{}).value||'';
+  var mc=document.getElementById('main-content');
+  if(mc) mc.innerHTML=renderMRasgos();
+};
+
+window.masterAddEfectoDraft=function(){
+  const cat=(document.getElementById('rs-ef-cat')||{}).value||'atributo';
+  const param=(document.getElementById('rs-ef-param')||{}).value;
+  const signo=(document.getElementById('rs-ef-signo')||{}).value||'+';
+  const valor=parseInt((document.getElementById('rs-ef-valor')||{}).value)||0;
+  if(!param) return showNotif('Selecciona un parámetro');
+  if(!valor) return showNotif('El valor debe ser mayor que 0');
+  if(!APP._draftEfectos) APP._draftEfectos=[];
+  APP._draftEfectos.push({cat:cat,param:param,signo:signo,valor:valor});
+  // Conservar nombre/descripción/banner tecleados antes de re-renderizar
+  APP._draftRasgoN=(document.getElementById('rs-n')||{}).value||'';
+  APP._draftRasgoD=(document.getElementById('rs-d')||{}).value||'';
+  APP._draftRasgoBanner=(document.getElementById('rs-banner')||{}).value||'';
+  const mc=document.getElementById('main-content');
+  if(mc) mc.innerHTML=renderMRasgos();
+};
+
+window.masterDelEfectoDraft=function(i){
+  if(!APP._draftEfectos) return;
+  APP._draftEfectos.splice(i,1);
+  APP._draftRasgoN=(document.getElementById('rs-n')||{}).value||'';
+  APP._draftRasgoD=(document.getElementById('rs-d')||{}).value||'';
+  APP._draftRasgoBanner=(document.getElementById('rs-banner')||{}).value||'';
+  const mc=document.getElementById('main-content');
+  if(mc) mc.innerHTML=renderMRasgos();
+};
+
+function limpiarDraftRasgo(){
+  APP._draftEfectos=[]; APP._draftEfCat=null;
+  APP._draftRasgoN=''; APP._draftRasgoD=''; APP._draftRasgoBanner='';
+  APP._editRasgoId=null;
+}
+
+window.masterSaveRasgo=function(){
+  const n=(document.getElementById('rs-n')||{}).value||''; if(!n.trim()) return showNotif('Escribe un nombre');
+  const d=(document.getElementById('rs-d')||{}).value||'';
+  const banner=(document.getElementById('rs-banner')||{}).value||'';
+  const efectos=(APP._draftEfectos||[]).slice();
+  if(!efectos.length&&!banner.trim()) return showNotif('Añade al menos un efecto o un texto informativo');
+
+  // Unicidad de nombre entre RASGOS originales y rasgos custom (evita el problema de nombres duplicados)
+  const editId=APP._editRasgoId;
+  const nombreOcupado=RASGOS.some(function(r){return r.n.toLowerCase()===n.trim().toLowerCase();})
+    || (APP.rasgosCustom||[]).some(function(r){return r.id!==editId&&r.n.toLowerCase()===n.trim().toLowerCase();});
+  if(nombreOcupado) return showNotif('Ya existe un rasgo o extra con ese nombre');
+
+  const sala=getMockSala(APP.salaId);
+  if(!APP.rasgosCustom) APP.rasgosCustom=[];
+  if(editId!=null){
+    const idx=APP.rasgosCustom.findIndex(function(r){return r.id===editId;});
+    if(idx>=0){ APP.rasgosCustom[idx]=Object.assign({},APP.rasgosCustom[idx],{n:n.trim(),d:d,banner:banner,efectos:efectos}); showNotif(n+' actualizado'); }
+  } else {
+    APP.rasgosCustom.push({id:Date.now(),n:n.trim(),d:d,banner:banner,efectos:efectos});
+    showNotif(n+' creado');
+  }
+  sala.rasgosCustom=APP.rasgosCustom;
+  fbSet('salas/'+APP.salaId+'/rasgosCustom',APP.rasgosCustom);
+  limpiarDraftRasgo();
+  renderApp();
+};
+
+window.masterEditRasgo=function(rid){
+  const r=(APP.rasgosCustom||[]).find(function(x){return x.id===rid;});
+  if(!r) return;
+  APP._editRasgoId=rid;
+  APP._draftEfectos=JSON.parse(JSON.stringify(r.efectos||[]));
+  APP._draftRasgoN=r.n; APP._draftRasgoD=r.d; APP._draftRasgoBanner=r.banner||'';
+  APP._draftEfCat=null;
+  renderApp();
+};
+
+window.masterCancelRasgo=function(){ limpiarDraftRasgo(); renderApp(); };
+
+window.masterDelRasgo=function(rid){
+  APP.rasgosCustom=(APP.rasgosCustom||[]).filter(function(r){return r.id!==rid;});
+  const sala=getMockSala(APP.salaId);
+  sala.rasgosCustom=APP.rasgosCustom;
+  fbSet('salas/'+APP.salaId+'/rasgosCustom',APP.rasgosCustom);
+  renderApp();
+};
 
 /* ── TIENDAS ── */
 function renderMTiendas(){
@@ -4555,6 +4901,9 @@ window.crearFicha=function(){
 window.masterEditObj=function(oid){
   APP._editObjId=oid;
   APP.masterTab='objetos';
+  const o=APP.tienda.find(function(x){return x.id===oid;});
+  APP._draftObjEfectos=o?JSON.parse(JSON.stringify(o.efectos||[])):[];
+  APP._draftObjEfCat=null;
   renderApp();
   // Abrir el desplegable del formulario
   setTimeout(function(){
@@ -4570,6 +4919,9 @@ window.cancelarEditObj=function(){
   APP._currentFormTipo=null;
   APP._objTipoSelected=null;
   APP._objSubcatSelected=null;
+  APP._draftObjEfectos=null;
+  APP._draftObjEfCat=null;
+  APP._draftObjAdicCat=null;
   renderApp();
 };
 window.masterDelObj=function(id){APP.tienda=APP.tienda.filter(o=>o.id!==id);APP.enVenta=APP.enVenta.filter(i=>i!==id);getMockSala(APP.salaId).tienda=APP.tienda;renderApp()};
