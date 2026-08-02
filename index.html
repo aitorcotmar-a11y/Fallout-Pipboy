@@ -56,6 +56,14 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
   overscroll-behavior: contain;padding:6px 8px;overflow-y:auto;-webkit-overflow-scrolling:touch;}
 }
 
+/* ESCRITORIO: pantallas anchas — ampliar el contenedor central en vez de dejarlo en formato móvil estrecho */
+@media (min-width:900px){
+  body{background:#0a0f0a;}
+  #shell,#login-screen,#selector-screen,#master-pw-screen,#pin-screen,#obj-detail-box{max-width:900px !important;}
+  .wizard-overlay{max-width:700px !important;}
+  .modal-box{max-width:600px !important;}
+}
+
 /* HEADER */
 .hdr{flex-shrink:0;background:var(--pip-mid);border-bottom:2px solid var(--pip-border);padding:8px 14px 5px}
 .hdr-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
