@@ -905,7 +905,17 @@ const APP={
 /* ═══════════════════════════════════════════
    CALCULOS
    ═══════════════════════════════════════════ */
-function getMod(v){return Math.floor((v-10)/2);}
+function getMod(v){
+  if(v>=23) return 5;
+  if(v>=20) return 4;
+  if(v>=18) return 3;
+  if(v>=16) return 2;
+  if(v>=13) return 1;
+  if(v>=9)  return 0;
+  if(v===8) return -1;
+  if(v===7) return -2;
+  return -2-(7-v); // por debajo de 7 (p.ej. penalizaciones temporales), sigue el mismo patrón de -1 por punto
+}
 function calcPVMax(j){return CLASES[j.clase].dadoN+j.attrs.res}
 function getObjById(id){ var nid=typeof id==='string'?parseInt(id):id; var fuente=(APP.tienda&&APP.tienda.length)?APP.tienda:OBJETOS_EJEMPLO; return fuente.find(function(o){return o!=null&&(o.id===nid||o.id===id);})||null; }
 
