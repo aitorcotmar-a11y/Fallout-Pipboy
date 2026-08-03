@@ -1074,6 +1074,11 @@ function calcCuadroValor(j,c){
     case 'sue':    return calcSPts(j)+' pts';
     case 'modagi': return (getMod(j.attrs.agi)>=0?'+':'')+getMod(j.attrs.agi);
     case 'modres': return (getMod(j.attrs.res)>=0?'+':'')+getMod(j.attrs.res);
+    case 'modfue': return (getMod(j.attrs.fue)>=0?'+':'')+getMod(j.attrs.fue);
+    case 'modint': return (getMod(j.attrs.int)>=0?'+':'')+getMod(j.attrs.int);
+    case 'modper': return (getMod(j.attrs.per)>=0?'+':'')+getMod(j.attrs.per);
+    case 'modcar': return (getMod(j.attrs.car)>=0?'+':'')+getMod(j.attrs.car);
+    case 'modsue': return (getMod(j.attrs.sue)>=0?'+':'')+getMod(j.attrs.sue);
     // Atributos
     case 'fue':    return j.attrs.fue;
     case 'agi':    return j.attrs.agi;
@@ -1190,7 +1195,7 @@ function calcEstadoFatiga(j){
 }
 
 function calcIniciativa(j){
-  var base=(j.attrs.agi||7)+((j.rasgos||[]).includes('pequeno')?1:0);
+  var base=getMod(j.attrs.agi||7)+((j.rasgos||[]).includes('pequeno')?1:0);
   var setBonus=calcSetBonus(j);
   var rasgoBonus=calcBonusRasgos(j);
   return base+(setBonus.iniciativa||0)+(rasgoBonus.iniciativa||0)+(calcBonusEfectivos(j).derivado.iniciativa||0);
@@ -5089,6 +5094,11 @@ const CUADRO_OPCIONES=[
   {id:'sue',    label:'PTS SUERTE', auto:true,  desc:'Puntos de suerte máximos'},
   {id:'modagi', label:'MOD AGI',    auto:true,  desc:'Modificador de Agilidad'},
   {id:'modres', label:'MOD RES',    auto:true,  desc:'Modificador de Resistencia'},
+  {id:'modfue', label:'MOD FUE',    auto:true,  desc:'Modificador de Fuerza'},
+  {id:'modint', label:'MOD INT',    auto:true,  desc:'Modificador de Inteligencia'},
+  {id:'modper', label:'MOD PER',    auto:true,  desc:'Modificador de Percepción'},
+  {id:'modcar', label:'MOD CAR',    auto:true,  desc:'Modificador de Carisma'},
+  {id:'modsue', label:'MOD SUE',    auto:true,  desc:'Modificador de Suerte'},
   {id:'fue',    label:'FUE',        auto:true,  desc:'Atributo Fuerza'},
   {id:'agi',    label:'AGI',        auto:true,  desc:'Atributo Agilidad'},
   {id:'res',    label:'RES',        auto:true,  desc:'Atributo Resistencia'},
@@ -5162,6 +5172,12 @@ window.elegirOpcionCuadro=function(idx, el){
   if(!op) return;
   j.cuadros[idx]={id:op.id, label:op.label, valor:'', auto:op.auto};
   saveJ();
+  if(opId==='custom'){
+    // Mantener el modal abierto y mostrar ya los campos de ETIQUETA/VALOR para escribir
+    renderApp();
+    abrirEditarCuadro(idx);
+    return;
+  }
   cerrarDetalle();
   renderApp();
 };
