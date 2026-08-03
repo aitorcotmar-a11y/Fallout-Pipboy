@@ -142,13 +142,17 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 .pts-val{font-family:'VT323',monospace;font-size:22px;color:var(--pip-warn);min-width:36px;text-align:right;text-shadow:0 0 8px rgba(245,185,66,.5)}
 
 /* SKILLS */
-.skill-row{display:flex;align-items:center;padding:4px 0;border-bottom:1px solid rgba(74,254,130,.08);gap:6px}
-.skill-name{font-size:10px;flex:1}
-.skill-dots{display:flex;gap:2px}
-.dot{width:8px;height:8px;border:1px solid var(--pip-border);cursor:pointer;flex-shrink:0;transition:all .1s}
+.skill-row{display:flex;align-items:center;padding:8px 0;border-bottom:1px solid rgba(74,254,130,.08);gap:6px}
+.skill-name{font-size:13px;flex:1}
+.skill-dots{display:flex;gap:3px}
+.dot{width:11px;height:11px;border:1px solid var(--pip-border);cursor:pointer;flex-shrink:0;transition:all .1s}
 .dot.on{background:var(--pip);box-shadow:0 0 3px rgba(74,254,130,.5);border-color:var(--pip)}
 .dot.ro{cursor:default}
-.skill-total{font-family:'VT323',monospace;font-size:17px;color:var(--pip-bright);width:22px;text-align:right}
+.skill-total{font-family:'VT323',monospace;font-size:20px;color:var(--pip-bright);width:24px;text-align:right}
+.skill-btn{width:30px;height:30px;min-width:30px;border:1px solid var(--pip);background:none;color:var(--pip-bright);font-family:'VT323',monospace;font-size:20px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;border-radius:2px;-webkit-tap-highlight-color:transparent;}
+.skill-btn:active{background:rgba(74,254,130,.18);}
+.skill-btn.minus{color:var(--pip-dim);border-color:var(--pip-border);}
+.skill-btn:disabled{opacity:.3;cursor:default;}
 
 /* INV */
 .inv-item{display:flex;align-items:center;padding:6px 8px;border-bottom:1px solid rgba(74,254,130,.08);gap:6px}
@@ -620,25 +624,47 @@ const RASGOS=[
   {id:'tribal',      n:'Tribal',              d:'Ventaja Supervivencia · Desventaja Ciencia · ℹ solo informativo'},
 ];
 const EXTRAS_COMUNES=[
-  {id:'afortunado',n:'Afortunado',d:'Obtén 1 punto de suerte adicional'},
-  {id:'apañado',n:'Apañado',d:'En fabricación, sustituye 1 recurso por chatarra'},
-  {id:'aprendizaje',n:'Aprendizaje rápido',d:'+1 PE extra al final de sesión'},
-  {id:'barriga',n:'Barriga de plomo',d:'Comida y agua irradiada como si fueran cocinadas'},
-  {id:'bolsillos',n:'Bolsillos rápidos',d:'+20 puntos de carga a mano'},
-  {id:'comprension',n:'Comprensión rápida',d:'La mitad de tiempo aprendiendo conocimientos'},
-  {id:'daño_adic',n:'Daño adicional',d:'+2 al daño con un tipo de arma a elegir'},
-  {id:'entrenamiento',n:'Entrenamiento intensivo',d:'+1 punto a un atributo a elegir'},
-  {id:'manitas',n:'Manitas',d:'Repite una tirada de fabricación fallida 1 vez/día'},
-  {id:'mejores_cur',n:'Mejores curaciones',d:'+1D4 adicional al aplicar primeros auxilios'},
-  {id:'mula',n:'Mula',d:'+50 puntos de carga'},
-  {id:'noctambulo',n:'Noctámbulo',d:'Solo necesitas dormir 6h cada dos días'},
-  {id:'oportunista',n:'Oportunista',d:'+2 ataque y daño vs. enemigos que no han actuado'},
-  {id:'precision',n:'Precisión instintiva',d:'Repite una tirada de ataque fallida 1 vez/combate'},
-  {id:'rad_resist',n:'Resistente a la radiación',d:'-5 Rads/hora'},
-  {id:'sangre_fria',n:'Sangre Fría',d:'Sin penalizadores por disparar a cobertura parcial'},
-  {id:'tal_atributo',n:'Talento con atributo',d:'+1 a tiradas con el atributo: '},
-  {id:'tal_habilidad',n:'Talento con habilidad',d:'+1 a tiradas con la habilidad: '},
+  {id:'accion_heroica',n:'Acción heroica',d:'1 vez por sesión, obtienes ventaja en una tirada a tu elección'},
+  {id:'duro',n:'Duro',d:'Comienzas con 10 puntos más de vida'},
+  {id:'entereza',n:'Entereza',d:'Ventaja en las pruebas relacionadas con RES'},
+  {id:'lumbreras',n:'Lumbreras',d:'Ventaja en las pruebas relacionadas con INT'},
+  {id:'presencia_influyente',n:'Presencia influyente',d:'Ventaja en las pruebas relacionadas con CAR'},
+  {id:'pro_armascortas',n:'Pro en Armas cortas',d:'+2 rangos en Armas cortas (supera el límite de 2 puntos de la creación)'},
+  {id:'pro_armasmedias',n:'Pro en Armas medias',d:'+2 rangos en Armas medias (supera el límite de 2 puntos de la creación)'},
+  {id:'pro_armasgrandes',n:'Pro en Armas grandes',d:'+2 rangos en Armas grandes (supera el límite de 2 puntos de la creación)'},
+  {id:'pro_armasenergia',n:'Pro en Armas de energía',d:'+2 rangos en Armas de energía (supera el límite de 2 puntos de la creación)'},
+  {id:'pro_explosivos',n:'Pro en Explosivos',d:'+2 rangos en Explosivos (supera el límite de 2 puntos de la creación)'},
+  {id:'pro_combate',n:'Pro en Combate',d:'+2 rangos en Combate (supera el límite de 2 puntos de la creación)'},
+  {id:'pro_atletismo',n:'Pro en Atletismo',d:'+2 rangos en Atletismo (supera el límite de 2 puntos de la creación)'},
+  {id:'pro_ciencia',n:'Pro en Ciencia',d:'+2 rangos en Ciencia (supera el límite de 2 puntos de la creación)'},
+  {id:'pro_conversacion',n:'Pro en Conversación',d:'+2 rangos en Conversación (supera el límite de 2 puntos de la creación)'},
+  {id:'pro_ganzua',n:'Pro en Ganzúa',d:'+2 rangos en Ganzúa (supera el límite de 2 puntos de la creación)'},
+  {id:'pro_medicina',n:'Pro en Medicina',d:'+2 rangos en Medicina (supera el límite de 2 puntos de la creación)'},
+  {id:'pro_reparacion',n:'Pro en Reparación',d:'+2 rangos en Reparación (supera el límite de 2 puntos de la creación)'},
+  {id:'pro_sigilo',n:'Pro en Sigilo',d:'+2 rangos en Sigilo (supera el límite de 2 puntos de la creación)'},
+  {id:'pro_supervivencia',n:'Pro en Supervivencia',d:'+2 rangos en Supervivencia (supera el límite de 2 puntos de la creación)'},
+  {id:'resistencia_natural',n:'Resistencia natural',d:'Recuperas el doble de puntos de vida cuando descansas'},
+  {id:'vista_aguila',n:'Vista de águila',d:'Ventaja en las pruebas relacionadas con PER'},
+  {id:'cazador_engendros',n:'Cazador de engendros',d:'+1 a las tiradas y al daño contra bestias mutantes y otros engendros'},
+  {id:'cazador',n:'Cazador',d:'+1 a las tiradas de ataque con armas medias a distancia no automáticas (solo TT)'},
+  {id:'luchador',n:'Luchador',d:'+1 a las tiradas de ataque con cualquier arma equipada (no afecta a los puños)'},
 ];
+const PRO_EXTRA_MAP={
+  'Pro en Armas cortas':{tipo:'arma',n:'Armas cortas'},
+  'Pro en Armas medias':{tipo:'arma',n:'Armas medias'},
+  'Pro en Armas grandes':{tipo:'arma',n:'Armas grandes'},
+  'Pro en Armas de energía':{tipo:'arma',n:'Armas de energía'},
+  'Pro en Explosivos':{tipo:'arma',n:'Explosivos'},
+  'Pro en Combate':{tipo:'arma',n:'Combate'},
+  'Pro en Atletismo':{tipo:'hab',n:'Atletismo'},
+  'Pro en Ciencia':{tipo:'hab',n:'Ciencia'},
+  'Pro en Conversación':{tipo:'hab',n:'Conversación'},
+  'Pro en Ganzúa':{tipo:'hab',n:'Ganzúa'},
+  'Pro en Medicina':{tipo:'hab',n:'Medicina'},
+  'Pro en Reparación':{tipo:'hab',n:'Reparación'},
+  'Pro en Sigilo':{tipo:'hab',n:'Sigilo'},
+  'Pro en Supervivencia':{tipo:'hab',n:'Supervivencia'},
+};
 const EXTRAS_AVANZADOS=[
   {id:'blindaje_nat',n:'Blindaje natural',d:'+2 a la defensa'},
   {id:'canibal',n:'Caníbal',d:'Sangre y carne humana como agua y comida purificadas'},
@@ -2286,7 +2312,11 @@ function renderJEstado(){
     else if(sc==='energia')bonSubcatAtk=(brA.atkEnergia||0)+(brA.atkTodas||0);
     else if(sc==='cac')    bonSubcatAtk=(brA.atkCaC||0)+(brA.atkTodas||0);
   }
-  var bonAtaqueTT=armaObj?(modAgi+habArmaVal+(j.penMod||0)+penRadAtk+bonSubcatAtk+(armaObj.calidad||0)+(gEf.derivado.ataque_tt||0)):0;
+  // Extra Luchador: +1 ataque con cualquier arma equipada (no puños, ese bloque es aparte)
+  var bonLuchador=(armaObj&&(j.extras||[]).includes('Luchador'))?1:0;
+  // Extra Cazador: +1 ataque con armas medias a distancia sin RF/FA (solo TT)
+  var bonCazador=(armaObj&&armaObj.subcat==='media'&&!armaObj.rf&&!armaObj.fa&&(j.extras||[]).includes('Cazador'))?1:0;
+  var bonAtaqueTT=armaObj?(modAgi+habArmaVal+(j.penMod||0)+penRadAtk+bonSubcatAtk+(armaObj.calidad||0)+(gEf.derivado.ataque_tt||0)+bonLuchador+bonCazador):0;
   var bonAtaqueRF=armaObj?(bonAtaqueTT-2+(brA.rfAtk||0)+(brA.rfAtkExtra||0)+(gEf.derivado.ataque_rf||0)):0;
   var bonAtaqueFA=armaObj?(bonAtaqueTT+(brA.faAtkExtra||0)+(gEf.derivado.ataque_fa||0)):0;
   // FA = desventaja (mostrar valor pero indicar desventaja)
@@ -2617,6 +2647,14 @@ function renderJEstado(){
       if(ex.includes('Sangre Fría'))         msgs.push('❄ SANGRE FRÍA · Sin penalizadores por disparar a cobertura parcial');
       if(ex.includes('Talento con atributo'))msgs.push('🌟 TALENTO CON ATRIBUTO · +1 a tiradas de '+(j.talAtributo?(ATTRS.find(function(a){return a.k===j.talAtributo;})||{n:j.talAtributo}).n:'atributo no elegido'));
       if(ex.includes('Talento con habilidad'))msgs.push('🌟 TALENTO CON HABILIDAD · +1 a tiradas de '+(j.talHabilidad||'habilidad no elegida'));
+      // Extras iniciales (creación de personaje)
+      if(ex.includes('Acción heroica'))       msgs.push('⭐ ACCIÓN HEROICA · 1 vez por sesión: ventaja en una tirada a tu elección');
+      if(ex.includes('Entereza'))             msgs.push('💪 ENTEREZA · Ventaja en pruebas de RES');
+      if(ex.includes('Lumbreras'))            msgs.push('🧠 LUMBRERAS · Ventaja en pruebas de INT');
+      if(ex.includes('Presencia influyente')) msgs.push('🗣 PRESENCIA INFLUYENTE · Ventaja en pruebas de CAR');
+      if(ex.includes('Resistencia natural'))  msgs.push('❤ RESISTENCIA NATURAL · Recuperas el doble de PV al descansar');
+      if(ex.includes('Vista de águila'))      msgs.push('🦅 VISTA DE ÁGUILA · Ventaja en pruebas de PER');
+      if(ex.includes('Cazador de engendros')) msgs.push('🎯 CAZADOR DE ENGENDROS · +1 a tiradas y daño contra bestias mutantes y engendros');
       // Extras avanzados
       if(ex.includes('Blindaje natural'))       msgs.push('🛡 BLINDAJE NATURAL · +2 DEF permanente');
       if(ex.includes('Crítico superior'))       msgs.push('🎯 CRÍTICO SUPERIOR · -2 umbral crit con '+(j.critSuperiorArma||'arma no elegida'));
@@ -3396,7 +3434,9 @@ function renderWS_Habilidades(d){
   <div style="font-family:VT323,monospace;font-size:15px;color:var(--pip-bright);margin-bottom:6px;letter-spacing:1px;">ARMAS · ${uA}/${pA} pts</div>
   ${HAB_ARMAS.map(h=>{const v=d.habArmas[h];return`<div class="skill-row">
     <span class="skill-name">${h}</span>
+    <button class="skill-btn minus" ${v<=0?'disabled':''} onclick="wzHabArma('${h}',${v-1})">−</button>
     <div class="skill-dots">${[1,2,3,4,5,6,7,8,9,10].map(i=>`<div class="dot ${v>=i?'on':''}" onclick="wzHabArma('${h}',${i})"></div>`).join('')}</div>
+    <button class="skill-btn" onclick="wzHabArma('${h}',${v+1})">+</button>
     <span class="skill-total">${v}</span>
   </div>`}).join('')}
   <div style="font-family:VT323,monospace;font-size:15px;color:var(--pip-bright);margin:12px 0 6px;letter-spacing:1px;">HABILIDADES · ${uH}/${pH} pts</div>
@@ -3405,7 +3445,9 @@ function renderWS_Habilidades(d){
     const fijo=(d.rasgos.includes('bonachon')&&(h==='Medicina'||h==='Conversación'))?2:0;
     return`<div class="skill-row">
     <span class="skill-name">${h}${fijo>0?`<span style="font-size:8px;color:var(--pip-warn);"> +${fijo}🎭</span>`:''}</span>
+    <button class="skill-btn minus" ${v<=fijo?'disabled':''} onclick="wzHabHab('${h}',${v-1})">−</button>
     <div class="skill-dots">${[1,2,3,4,5,6,7,8,9,10].map(i=>`<div class="dot ${v>=i?'on':''}" style="${i<=fijo?'border-color:var(--pip-warn);background:rgba(245,185,66,.3);':''}" onclick="wzHabHab('${h}',${i})"></div>`).join('')}</div>
+    <button class="skill-btn" onclick="wzHabHab('${h}',${v+1})">+</button>
     <span class="skill-total">${v}</span>
   </div>`;}).join('')}`;
 }
@@ -3582,6 +3624,14 @@ window.wizardNext=function(){
     d.pvMax=CLASES[d.clase].dadoN+d.attrs.res;
     d.pvAct=d.pvMax;
     if(d.extraInicial)d.extras=[d.extraInicial];
+    // Duro: +10 PV iniciales
+    if(d.extraInicial==='Duro'){ d.pvMax+=10; d.pvAct+=10; }
+    // Pro en X: +2 rangos directos en la habilidad/arma elegida (supera el límite de 2 pts de creación)
+    if(PRO_EXTRA_MAP[d.extraInicial]){
+      var proInfo=PRO_EXTRA_MAP[d.extraInicial];
+      if(proInfo.tipo==='arma') d.habArmas[proInfo.n]=(d.habArmas[proInfo.n]||0)+2;
+      else d.habHabs[proInfo.n]=(d.habHabs[proInfo.n]||0)+2;
+    }
     // Aplicar Entrenamiento Intensivo
     if(d.extraInicial==='Entrenamiento intensivo'&&d.extraAtributo&&ATTRS.find(function(a){return a.k===d.extraAtributo;})){
       d.attrs[d.extraAtributo]=(d.attrs[d.extraAtributo]||7)+1;
@@ -3814,11 +3864,13 @@ function renderLvlupPaso(paso,d,j){
       const ganado=valAct-valBase;
       return '<div class="skill-row">'
         +'<span class="skill-name">'+h+'</span>'
+        +'<button class="skill-btn minus" '+(valAct<=valBase?'disabled':'')+' onclick="lvlDotClick(\''+h.replace(/'/g,"\\'")+'\','+(valAct-1)+',\''+tipo+'\')">−</button>'
         +'<div class="skill-dots">'+[1,2,3,4,5,6,7,8,9,10].map(function(vi){
           const lleno=valAct>=vi;
           const esNuevo=vi>valBase&&vi<=valAct;
           return '<div class="dot'+(lleno?' on':'')+'" style="'+(esNuevo?'border-color:var(--pip-warn);background:var(--pip-warn);':'')+'" data-h="'+h.replace(/"/g,'&quot;')+'" data-v="'+vi+'" data-tipo="'+tipo+'" onclick="lvlDotClick(this.dataset.h,parseInt(this.dataset.v),this.dataset.tipo)"></div>';
         }).join('')+'</div>'
+        +'<button class="skill-btn" onclick="lvlDotClick(\''+h.replace(/'/g,"\\'")+'\','+(valAct+1)+',\''+tipo+'\')">+</button>'
         +'<span class="skill-total">'+valAct+(ganado>0?'<span style="color:var(--pip-warn);font-size:9px;">+'+ganado+'</span>':'')+'</span>'
         +'</div>';
     }
@@ -5088,7 +5140,7 @@ window.cambiarContador=function(btn){
 const CUADRO_OPCIONES=[
   {id:'atk',    label:'ATAQUE',     auto:true,  desc:'Ataque base (Mod.AGI + bonos generales)'},
   {id:'mov',    label:'MOV',        auto:true,  desc:'Movimiento por asalto'},
-  {id:'ini',    label:'INIC.',       auto:true,  desc:'Iniciativa (AGI + bonos de equipo)'},
+  {id:'ini',    label:'INIC.',       auto:true,  desc:'Iniciativa (Mod.AGI + bonos de equipo)'},
   {id:'crit',   label:'CRIT',       auto:true,  desc:'Umbral de crítico'},
   {id:'pif',    label:'PIFIA',      auto:true,  desc:'Umbral de pifia'},
   {id:'sue',    label:'PTS SUERTE', auto:true,  desc:'Puntos de suerte máximos'},
