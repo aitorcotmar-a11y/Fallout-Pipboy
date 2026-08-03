@@ -457,7 +457,7 @@ input:focus,select:focus{border-color:var(--pip);box-shadow:0 0 4px rgba(74,254,
 </div>
 
 <!-- DETALLE OBJETO -->
-<div id="obj-detail-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:800;display:none;align-items:flex-start;justify-content:center;padding-top:20px;overflow-y:auto;">
+<div id="obj-detail-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:1100;display:none;align-items:flex-start;justify-content:center;padding-top:20px;overflow-y:auto;">
   <div id="obj-detail-box" style="background:var(--pip-dark);border:2px solid var(--pip-border);width:100%;max-width:480px;margin:0 auto 20px;overflow-y:auto;">
   </div>
 </div>
@@ -513,7 +513,7 @@ function startRealtime(salaId){
     var jugsRaw=s.jugadores||{};
     Object.keys(jugsRaw).forEach(function(k){ normalizarFicha(jugsRaw[k]); });
     APP.jugadores=jugsRaw;
-    APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[];
+    APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[]; APP.extrasCustom=s.extrasCustom||[]; APP.rasgosOverride=s.rasgosOverride||{}; APP.extrasOverride=s.extrasOverride||{}; aplicarOverridesContenido();
     APP.enemigos=s.enemigos||[];
     APP.combate=s.combate||[];
     APP.tiendas=s.tiendas||[];
@@ -599,6 +599,24 @@ function nombreParam(cat,k){
   const lista=CATALOGO_PARAMS[cat]||[];
   const f=lista.find(function(p){return p.k===k;});
   return f?f.n:k;
+}
+function aplicarOverridesContenido(){
+  // Ediciones guardadas sobre rasgos/extras YA EXISTENTES (id fijo, nombre bloqueado).
+  // Se mutan los objetos de los arrays estáticos: cualquier ficha que ya tenga
+  // ese rasgo/extra por id/nombre ve el cambio al instante, sin migrar datos.
+  var ro=APP.rasgosOverride||{};
+  Object.keys(ro).forEach(function(id){
+    var r=RASGOS.find(function(x){return x.id===id;});
+    if(r) Object.assign(r,ro[id]);
+  });
+  var eo=APP.extrasOverride||{};
+  var todasListas=[EXTRAS_INICIALES,EXTRAS_COMUNES,EXTRAS_AVANZADOS,EXTRAS_LEGENDARIOS];
+  Object.keys(eo).forEach(function(id){
+    todasListas.forEach(function(lista){
+      var e=lista.find(function(x){return x.id===id;});
+      if(e) Object.assign(e,eo[id]);
+    });
+  });
 }
 const RASGOS=[
   {id:'bestia',      n:'Bestia',              d:'+2 daño CaC · -1 Combate'},
@@ -1263,7 +1281,7 @@ function getMockSala(id){
     MOCK.salas[id]={
       config:{pwHash:simplehash('master123')},
       jugadores:{}, tienda:OBJETOS_EJEMPLO.filter(function(o){return o!=null;}),
-      rasgosCustom:[],
+      rasgosCustom:[], extrasCustom:[], rasgosOverride:{}, extrasOverride:{},
       enVenta:[], enemigos:[...ENEMIGOS_EJEMPLO], combate:[],
       notificaciones:{},
       tiendas:[{
@@ -1341,7 +1359,7 @@ function salirApp(){
   // Reset completo del estado
   APP.rol=null; APP.jugadorId=null; APP.salaId=null;
   APP.masterTab='fichas'; APP.fichaInner='estado';
-  APP.jugadores={}; APP.tienda=[]; APP.enemigos=[]; APP.combate=[]; APP.rasgosCustom=[];
+  APP.jugadores={}; APP.tienda=[]; APP.enemigos=[]; APP.combate=[]; APP.rasgosCustom=[]; APP.extrasCustom=[]; APP.rasgosOverride={}; APP.extrasOverride={};
   APP.tiendas=[]; APP.notificaciones={}; APP._gruposAbiertos={};
   MOCK.salas={};
   showScreen('login-screen');
@@ -1462,7 +1480,7 @@ window.entrarTest=function(){
   APP.jugadores={};
   APP.jugadores[TEST_FICHA_ID]=j;
   APP.tienda=OBJETOS_EJEMPLO.filter(function(o){return o!=null;});
-  APP.tiendas=[]; APP.enemigos=[]; APP.combate=[]; APP.notificaciones={}; APP.rasgosCustom=[];
+  APP.tiendas=[]; APP.enemigos=[]; APP.combate=[]; APP.notificaciones={}; APP.rasgosCustom=[]; APP.extrasCustom=[]; APP.rasgosOverride={}; APP.extrasOverride={};
   document.getElementById('hdr-sala').textContent='MODO TEST';
   document.getElementById('hdr-badge').innerHTML='<span class="rbadge jugador" style="color:var(--pip-warn);">⚗ TEST</span>';
   buildTabs(); showScreen('shell'); renderApp();
@@ -1519,7 +1537,7 @@ function entrarMaster(){
         fbSaveSala(APP.salaId);
       }
       const s=getMockSala(APP.salaId);
-      APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[];
+      APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[]; APP.extrasCustom=s.extrasCustom||[]; APP.rasgosOverride=s.rasgosOverride||{}; APP.extrasOverride=s.extrasOverride||{}; aplicarOverridesContenido();
       APP.enemigos=s.enemigos||[]; APP.combate=s.combate||[];
       APP.tiendas=s.tiendas||[]; APP.notificaciones=s.notificaciones||{};
       // Comprobar si master ya está conectado (con tolerancia de 15s)
@@ -1551,7 +1569,7 @@ function entrarMaster(){
 
 function entrarMasterLocal(){
   const s=getMockSala(APP.salaId);
-  APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[];
+  APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[]; APP.extrasCustom=s.extrasCustom||[]; APP.rasgosOverride=s.rasgosOverride||{}; APP.extrasOverride=s.extrasOverride||{}; aplicarOverridesContenido();
   APP.enemigos=s.enemigos||[]; APP.combate=s.combate||[];
   APP.tiendas=s.tiendas||[]; APP.notificaciones=s.notificaciones||{};
   renderApp();
@@ -1671,7 +1689,7 @@ function completarEntradaJugador(id){
       const data=snap.val();
       if(data) MOCK.salas[APP.salaId]=Object.assign(getMockSala(APP.salaId), data);
       const s=getMockSala(APP.salaId);
-      APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[];
+      APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[]; APP.extrasCustom=s.extrasCustom||[]; APP.rasgosOverride=s.rasgosOverride||{}; APP.extrasOverride=s.extrasOverride||{}; aplicarOverridesContenido();
       APP.tiendas=s.tiendas||[]; APP.notificaciones=s.notificaciones||{};
       const j=APP.jugadores[id];
       if(!j){ showNotif('Error: jugador no encontrado'); return; }
@@ -1706,7 +1724,7 @@ function completarEntradaJugador(id){
 
 function entrarJugadorLocal(id){
   const s=getMockSala(APP.salaId);
-  APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[];
+  APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[]; APP.extrasCustom=s.extrasCustom||[]; APP.rasgosOverride=s.rasgosOverride||{}; APP.extrasOverride=s.extrasOverride||{}; aplicarOverridesContenido();
   APP.tiendas=s.tiendas||[]; APP.notificaciones=s.notificaciones||{};
   const j=APP.jugadores[id];
   if(!j){ showNotif('Error: jugador no encontrado'); showScreen('selector-screen'); return; }
@@ -1733,7 +1751,7 @@ function buildTabs(){
     return;
   }
   if(APP.rol==='master'){
-    el.innerHTML=[{k:'fichas',l:'FICHAS'},{k:'modif',l:'MODIF.'},{k:'objetos',l:'OBJETOS'},{k:'rasgos',l:'RASGOS'},{k:'tiendas',l:'TIENDAS'},{k:'combate',l:'COMBATE'}]
+    el.innerHTML=[{k:'fichas',l:'FICHAS'},{k:'modif',l:'MODIF.'},{k:'objetos',l:'OBJETOS'},{k:'rasgos',l:'RASGOS'},{k:'extras',l:'EXTRAS'},{k:'tiendas',l:'TIENDAS'},{k:'combate',l:'COMBATE'}]
       .map(function(t){return '<button class="tab '+(APP.masterTab===t.k?'active':'')+'" data-k="'+t.k+'" onclick="switchMT(this.dataset.k)">'+t.l+'</button>';}).join('');
   } else {
     const fi=APP.fichaInner;
@@ -1793,6 +1811,7 @@ function renderApp(){
       case 'modif':   el.innerHTML=renderMModif(); break;
       case 'objetos': el.innerHTML=renderMObjetos(); break;
       case 'rasgos':  el.innerHTML=renderMRasgos(); break;
+      case 'extras':  el.innerHTML=renderMExtras(); break;
       case 'tiendas': el.innerHTML=renderMTiendas(); break;
       case 'combate': el.innerHTML=renderMCombate(); break;
     }
@@ -4607,13 +4626,15 @@ window.masterSaveObj=function(){
    Se guarda en APP.rasgosCustom / sala.rasgosCustom
    ═══════════════════════════════════════════ */
 function renderMRasgos(){
-  const editId=APP._editRasgoId||null;
-  const editRasgo=editId!=null?(APP.rasgosCustom||[]).find(function(r){return r.id===editId;}):null;
-  const lista=APP.rasgosCustom||[];
+  const editId=APP._editRasgoId!=null?String(APP._editRasgoId):null;
+  const todosRasgos=[].concat(RASGOS,APP.rasgosCustom||[]);
+  const editRasgo=editId!=null?todosRasgos.find(function(r){return String(r.id)===editId;}):null;
+  const esEstatico=editRasgo?RASGOS.some(function(r){return String(r.id)===editId;}):false;
   if(!APP._draftEfectos) APP._draftEfectos=editRasgo?JSON.parse(JSON.stringify(editRasgo.efectos||[])):[];
   const draft=APP._draftEfectos;
 
   const s='style="font-family:VT323,monospace;font-size:15px;padding:4px 6px;background:var(--pip-dark);border:1px solid var(--pip-border);color:var(--pip-bright);width:100%;"';
+  const sRo='style="font-family:VT323,monospace;font-size:15px;padding:4px 6px;background:rgba(255,255,255,.03);border:1px solid var(--pip-border);color:var(--pip-dim);width:100%;"';
   const sm='style="font-family:VT323,monospace;font-size:15px;padding:4px 6px;background:var(--pip-dark);border:1px solid var(--pip-border);color:var(--pip-bright);width:65px;"';
   const lbl='style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;display:block;margin-bottom:3px;"';
   function row1(label,html){ return '<div style="margin-bottom:8px;"><label '+lbl+'>'+label+'</label>'+html+'</div>'; }
@@ -4633,7 +4654,10 @@ function renderMRasgos(){
   const formHtml='<div class="card" style="border-color:rgba(245,185,66,.4);margin-bottom:8px;">'
     +'<div class="card-hdr" style="color:var(--pip-warn);">'+(editRasgo?'✎ EDITAR: '+editRasgo.n:'+ CREAR NUEVO RASGO')+'</div>'
     +'<div style="padding:10px 12px;">'
-    +row1('NOMBRE','<input type="text" id="rs-n" value="'+(editRasgo?editRasgo.n:(APP._draftRasgoN||''))+'" placeholder="Nombre del rasgo" '+s+'>')
+    +(esEstatico?'<div style="font-size:10px;color:var(--pip-warn);margin-bottom:8px;padding:5px 8px;border:1px solid rgba(245,185,66,.3);">⚠ Rasgo base del juego: el nombre queda bloqueado (ya lo usan fichas existentes por su ID). Puedes editar descripción, efectos y banner.</div>':'')
+    +row1('NOMBRE',esEstatico
+      ?'<input type="text" id="rs-n" value="'+editRasgo.n+'" readonly '+sRo+'>'
+      :'<input type="text" id="rs-n" value="'+(editRasgo?editRasgo.n:(APP._draftRasgoN||''))+'" placeholder="Nombre del rasgo" '+s+'>')
     +row1('DESCRIPCIÓN BREVE','<textarea id="rs-d" rows="2" placeholder="Qué hace este rasgo..." '+s+'>'+(editRasgo?editRasgo.d:(APP._draftRasgoD||''))+'</textarea>')
     +'<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin:8px 0 4px;border-bottom:1px solid var(--pip-border);padding-bottom:3px;">EFECTOS</div>'
     +efectosListHtml
@@ -4653,19 +4677,20 @@ function renderMRasgos(){
       :'<button class="btn btn-block" onclick="masterSaveRasgo()" style="grid-column:1/-1;">▸ CREAR RASGO</button>')
     +'</div></div></div>';
 
-  const listaHtml='<div class="card"><div class="card-hdr">RASGOS CREADOS ('+lista.length+')</div>'
+  const listaHtml='<div class="card"><div class="card-hdr">RASGOS ('+todosRasgos.length+')</div>'
     +'<div style="padding:0;">'
-    +(!lista.length?'<div class="empty">Sin rasgos creados todavía</div>'
-      :lista.map(function(r){
+    +(!todosRasgos.length?'<div class="empty">Sin rasgos todavía</div>'
+      :todosRasgos.map(function(r){
+        var esBase=RASGOS.some(function(x){return x.id===r.id;});
         return '<div class="shop-item">'
-          +'<div class="shop-info"><div class="shop-name">'+r.n+'</div>'
+          +'<div class="shop-info"><div class="shop-name">'+r.n+(esBase?' <span style="font-size:8px;color:var(--pip-dim);border:1px solid var(--pip-border);padding:0 4px;">BASE</span>':'')+'</div>'
           +'<div class="shop-desc" style="font-size:11px;color:#7ddb8e;">'+(r.d||'')+'</div>'
           +(r.efectos&&r.efectos.length?'<div style="font-size:10px;color:var(--pip-dim);margin-top:2px;">'+r.efectos.map(function(ef){return (ef.signo==='-'?'−':'+')+ef.valor+' '+nombreParam(ef.cat,ef.param);}).join(' · ')+'</div>':'')
           +(r.banner?'<div style="font-size:10px;color:var(--pip-warn);margin-top:2px;">ℹ '+r.banner+'</div>':'')
           +'</div>'
           +'<div style="display:flex;gap:3px;flex-shrink:0;">'
-          +'<button class="chip chip-g" style="border-color:var(--pip-warn);color:var(--pip-warn);" data-rid="'+r.id+'" onclick="masterEditRasgo(parseInt(this.dataset.rid))">EDIT.</button>'
-          +'<button class="chip chip-r" data-rid="'+r.id+'" onclick="masterDelRasgo(parseInt(this.dataset.rid))">×</button>'
+          +'<button class="chip chip-g" style="border-color:var(--pip-warn);color:var(--pip-warn);" data-rid="'+r.id+'" onclick="masterEditRasgo(this.dataset.rid)">EDIT.</button>'
+          +(esBase?'':'<button class="chip chip-r" data-rid="'+r.id+'" onclick="masterDelRasgo(this.dataset.rid)">×</button>')
           +'</div></div>';
       }).join(''))
     +'</div></div>';
@@ -4720,18 +4745,33 @@ window.masterSaveRasgo=function(){
   const d=(document.getElementById('rs-d')||{}).value||'';
   const banner=(document.getElementById('rs-banner')||{}).value||'';
   const efectos=(APP._draftEfectos||[]).slice();
-  if(!efectos.length&&!banner.trim()) return showNotif('Añade al menos un efecto o un texto informativo');
+  if(!efectos.length&&!banner.trim()&&!d.trim()) return showNotif('Añade una descripción, un efecto o un texto informativo');
+
+  const editId=APP._editRasgoId!=null?String(APP._editRasgoId):null;
+  const esEstatico=editId!=null&&RASGOS.some(function(r){return String(r.id)===editId;});
+  const sala=getMockSala(APP.salaId);
+
+  if(esEstatico){
+    // Edición de un rasgo BASE: se guarda como override (nombre e ID no cambian, nunca se borra)
+    if(!APP.rasgosOverride) APP.rasgosOverride={};
+    APP.rasgosOverride[editId]={d:d,banner:banner,efectos:efectos};
+    sala.rasgosOverride=APP.rasgosOverride;
+    fbSet('salas/'+APP.salaId+'/rasgosOverride',APP.rasgosOverride);
+    aplicarOverridesContenido();
+    showNotif(n+' actualizado (afecta a fichas existentes)');
+    limpiarDraftRasgo();
+    renderApp();
+    return;
+  }
 
   // Unicidad de nombre entre RASGOS originales y rasgos custom (evita el problema de nombres duplicados)
-  const editId=APP._editRasgoId;
   const nombreOcupado=RASGOS.some(function(r){return r.n.toLowerCase()===n.trim().toLowerCase();})
-    || (APP.rasgosCustom||[]).some(function(r){return r.id!==editId&&r.n.toLowerCase()===n.trim().toLowerCase();});
+    || (APP.rasgosCustom||[]).some(function(r){return String(r.id)!==editId&&r.n.toLowerCase()===n.trim().toLowerCase();});
   if(nombreOcupado) return showNotif('Ya existe un rasgo o extra con ese nombre');
 
-  const sala=getMockSala(APP.salaId);
   if(!APP.rasgosCustom) APP.rasgosCustom=[];
   if(editId!=null){
-    const idx=APP.rasgosCustom.findIndex(function(r){return r.id===editId;});
+    const idx=APP.rasgosCustom.findIndex(function(r){return String(r.id)===editId;});
     if(idx>=0){ APP.rasgosCustom[idx]=Object.assign({},APP.rasgosCustom[idx],{n:n.trim(),d:d,banner:banner,efectos:efectos}); showNotif(n+' actualizado'); }
   } else {
     APP.rasgosCustom.push({id:Date.now(),n:n.trim(),d:d,banner:banner,efectos:efectos});
@@ -4744,7 +4784,8 @@ window.masterSaveRasgo=function(){
 };
 
 window.masterEditRasgo=function(rid){
-  const r=(APP.rasgosCustom||[]).find(function(x){return x.id===rid;});
+  rid=String(rid);
+  const r=[].concat(RASGOS,APP.rasgosCustom||[]).find(function(x){return String(x.id)===rid;});
   if(!r) return;
   APP._editRasgoId=rid;
   APP._draftEfectos=JSON.parse(JSON.stringify(r.efectos||[]));
@@ -4756,10 +4797,220 @@ window.masterEditRasgo=function(rid){
 window.masterCancelRasgo=function(){ limpiarDraftRasgo(); renderApp(); };
 
 window.masterDelRasgo=function(rid){
-  APP.rasgosCustom=(APP.rasgosCustom||[]).filter(function(r){return r.id!==rid;});
+  rid=String(rid);
+  if(RASGOS.some(function(r){return String(r.id)===rid;})) return showNotif('Los rasgos base no se pueden borrar');
+  APP.rasgosCustom=(APP.rasgosCustom||[]).filter(function(r){return String(r.id)!==rid;});
   const sala=getMockSala(APP.salaId);
   sala.rasgosCustom=APP.rasgosCustom;
   fbSet('salas/'+APP.salaId+'/rasgosCustom',APP.rasgosCustom);
+  renderApp();
+};
+
+/* ═══════════════════════════════════════════
+   CREADOR DE EXTRAS (Panel Master)
+   Igual que Rasgos: lista todo (inicial/común/avanzado/legendario) + custom.
+   Editar un extra base = override (nombre y categoría bloqueados).
+   ═══════════════════════════════════════════ */
+const TIERS_EXTRA=[
+  {k:'inicial',n:'INICIAL',arr:function(){return EXTRAS_INICIALES;}},
+  {k:'comun',n:'COMÚN',arr:function(){return EXTRAS_COMUNES;}},
+  {k:'avanzado',n:'AVANZADO',arr:function(){return EXTRAS_AVANZADOS;}},
+  {k:'legendario',n:'LEGENDARIO',arr:function(){return EXTRAS_LEGENDARIOS;}},
+];
+function tierDeExtraBase(id){
+  const t=TIERS_EXTRA.find(function(t){return t.arr().some(function(x){return x.id===id;});});
+  return t?t.k:null;
+}
+function renderMExtras(){
+  const editId=APP._editExtraId!=null?String(APP._editExtraId):null;
+  const todosBase=[].concat(EXTRAS_INICIALES,EXTRAS_COMUNES,EXTRAS_AVANZADOS,EXTRAS_LEGENDARIOS);
+  const todosExtras=todosBase.concat(APP.extrasCustom||[]);
+  const editExtra=editId!=null?todosExtras.find(function(e){return String(e.id)===editId;}):null;
+  const tierBase=editExtra?tierDeExtraBase(editExtra.id):null;
+  const esEstatico=!!tierBase;
+  if(!APP._draftEfectosExtra) APP._draftEfectosExtra=editExtra?JSON.parse(JSON.stringify(editExtra.efectos||[])):[];
+  const draft=APP._draftEfectosExtra;
+
+  const s='style="font-family:VT323,monospace;font-size:15px;padding:4px 6px;background:var(--pip-dark);border:1px solid var(--pip-border);color:var(--pip-bright);width:100%;"';
+  const sRo='style="font-family:VT323,monospace;font-size:15px;padding:4px 6px;background:rgba(255,255,255,.03);border:1px solid var(--pip-border);color:var(--pip-dim);width:100%;"';
+  const sm='style="font-family:VT323,monospace;font-size:15px;padding:4px 6px;background:var(--pip-dark);border:1px solid var(--pip-border);color:var(--pip-bright);width:65px;"';
+  const lbl='style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;display:block;margin-bottom:3px;"';
+  function row1(label,html){ return '<div style="margin-bottom:8px;"><label '+lbl+'>'+label+'</label>'+html+'</div>'; }
+  function row2(a,b){ return '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">'+'<div><label '+lbl+'>'+a.l+'</label>'+a.h+'</div>'+'<div><label '+lbl+'>'+b.l+'</label>'+b.h+'</div>'+'</div>'; }
+
+  const catActual=APP._draftEfCatExtra||'atributo';
+  const paramsActuales=CATALOGO_PARAMS[catActual]||[];
+  const tierDraft=APP._draftExtraTier||'comun';
+
+  const efectosListHtml=!draft.length?'<div style="font-size:10px;color:var(--pip-dim);padding:4px 0;">Sin efectos añadidos todavía</div>'
+    :draft.map(function(ef,i){
+      return '<div style="display:flex;align-items:center;justify-content:space-between;border:1px solid var(--pip-border);padding:4px 8px;margin-bottom:4px;">'
+        +'<span style="font-size:12px;color:var(--pip-bright);">'+(ef.signo==='-'?'−':'+')+ef.valor+' · '+nombreParam(ef.cat,ef.param)+'</span>'
+        +'<button class="chip chip-r" data-i="'+i+'" onclick="masterDelEfectoDraftExtra(parseInt(this.dataset.i))">×</button>'
+        +'</div>';
+    }).join('');
+
+  const formHtml='<div class="card" style="border-color:rgba(245,185,66,.4);margin-bottom:8px;">'
+    +'<div class="card-hdr" style="color:var(--pip-warn);">'+(editExtra?'✎ EDITAR: '+editExtra.n:'+ CREAR NUEVO EXTRA')+'</div>'
+    +'<div style="padding:10px 12px;">'
+    +(esEstatico?'<div style="font-size:10px;color:var(--pip-warn);margin-bottom:8px;padding:5px 8px;border:1px solid rgba(245,185,66,.3);">⚠ Extra base del juego: el nombre y la categoría quedan bloqueados (ya lo usan fichas existentes por su nombre exacto). Puedes editar descripción, efectos y banner.</div>':'')
+    +row1('NOMBRE',esEstatico
+      ?'<input type="text" id="ex-n" value="'+editExtra.n+'" readonly '+sRo+'>'
+      :'<input type="text" id="ex-n" value="'+(editExtra?editExtra.n:(APP._draftExtraN||''))+'" placeholder="Nombre del extra" '+s+'>')
+    +row1('CATEGORÍA',esEstatico
+      ?'<input type="text" value="'+(TIERS_EXTRA.find(function(t){return t.k===tierBase;})||{n:tierBase}).n+'" readonly '+sRo+'>'
+      :'<select id="ex-tier" '+s+'>'+TIERS_EXTRA.map(function(t){return '<option value="'+t.k+'"'+(tierDraft===t.k?' selected':'')+'>'+t.n+'</option>';}).join('')+'</select>')
+    +row1('DESCRIPCIÓN BREVE','<textarea id="ex-d" rows="2" placeholder="Qué hace este extra..." '+s+'>'+(editExtra?editExtra.d:(APP._draftExtraD||''))+'</textarea>')
+    +'<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin:8px 0 4px;border-bottom:1px solid var(--pip-border);padding-bottom:3px;">EFECTOS</div>'
+    +efectosListHtml
+    +'<div style="display:grid;grid-template-columns:1fr;gap:6px;margin-top:6px;padding:8px;border:1px dashed var(--pip-border);">'
+    +row1('CATEGORÍA DEL EFECTO','<select id="ex-ef-cat" onchange="masterCambiarCatEfectoExtra(this.value)" '+s+'>'
+      +CATEGORIAS_EFECTO.map(function(c){return '<option value="'+c.k+'"'+(catActual===c.k?' selected':'')+'>'+c.n+'</option>';}).join('')+'</select>')
+    +row1('PARÁMETRO','<select id="ex-ef-param" '+s+'>'
+      +paramsActuales.map(function(p){return '<option value="'+p.k+'">'+p.n+'</option>';}).join('')+'</select>')
+    +row2({l:'SIGNO',h:'<select id="ex-ef-signo" '+s+'><option value="+">+ (suma)</option><option value="-">− (resta)</option></select>'},
+          {l:'VALOR',h:'<input type="number" id="ex-ef-valor" value="1" min="0" '+sm+'>'})
+    +'<button class="btn btn-sm" onclick="masterAddEfectoDraftExtra()">+ AÑADIR EFECTO</button>'
+    +'</div>'
+    +row1('TEXTO INFORMATIVO / BANNER <span style="opacity:.7;">(para extras sin efecto mecánico, o aclaraciones)</span>','<input type="text" id="ex-banner" value="'+(editExtra?(editExtra.banner||''):(APP._draftExtraBanner||''))+'" placeholder="Texto que verá el jugador en su ficha" '+s+'>')
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:4px;">'
+    +(editExtra
+      ?'<button class="btn btn-warn" onclick="masterCancelExtra()">✕ CANCELAR</button><button class="btn" onclick="masterSaveExtra()">▸ GUARDAR</button>'
+      :'<button class="btn btn-block" onclick="masterSaveExtra()" style="grid-column:1/-1;">▸ CREAR EXTRA</button>')
+    +'</div></div></div>';
+
+  const listaHtml='<div class="card"><div class="card-hdr">EXTRAS ('+todosExtras.length+')</div>'
+    +'<div style="padding:0;">'
+    +(!todosExtras.length?'<div class="empty">Sin extras todavía</div>'
+      :todosExtras.map(function(e){
+        var tier=tierDeExtraBase(e.id);
+        var esBase=!!tier;
+        var tierLabel=esBase?(TIERS_EXTRA.find(function(t){return t.k===tier;})||{n:tier}).n:((TIERS_EXTRA.find(function(t){return t.k===e.tierCustom;})||{n:'COMÚN'}).n);
+        return '<div class="shop-item">'
+          +'<div class="shop-info"><div class="shop-name">'+e.n+' <span style="font-size:8px;color:var(--pip-dim);border:1px solid var(--pip-border);padding:0 4px;">'+tierLabel+(esBase?' · BASE':'')+'</span></div>'
+          +'<div class="shop-desc" style="font-size:11px;color:#7ddb8e;">'+(e.d||'')+'</div>'
+          +(e.efectos&&e.efectos.length?'<div style="font-size:10px;color:var(--pip-dim);margin-top:2px;">'+e.efectos.map(function(ef){return (ef.signo==='-'?'−':'+')+ef.valor+' '+nombreParam(ef.cat,ef.param);}).join(' · ')+'</div>':'')
+          +(e.banner?'<div style="font-size:10px;color:var(--pip-warn);margin-top:2px;">ℹ '+e.banner+'</div>':'')
+          +'</div>'
+          +'<div style="display:flex;gap:3px;flex-shrink:0;">'
+          +'<button class="chip chip-g" style="border-color:var(--pip-warn);color:var(--pip-warn);" data-eid="'+e.id+'" onclick="masterEditExtra(this.dataset.eid)">EDIT.</button>'
+          +(esBase?'':'<button class="chip chip-r" data-eid="'+e.id+'" onclick="masterDelExtra(this.dataset.eid)">×</button>')
+          +'</div></div>';
+      }).join(''))
+    +'</div></div>';
+
+  return formHtml+listaHtml;
+}
+
+window.masterCambiarCatEfectoExtra=function(cat){
+  APP._draftEfCatExtra=cat;
+  APP._draftExtraN=(document.getElementById('ex-n')||{}).value||'';
+  APP._draftExtraD=(document.getElementById('ex-d')||{}).value||'';
+  APP._draftExtraBanner=(document.getElementById('ex-banner')||{}).value||'';
+  var tierSel=document.getElementById('ex-tier'); if(tierSel) APP._draftExtraTier=tierSel.value;
+  var mc=document.getElementById('main-content');
+  if(mc) mc.innerHTML=renderMExtras();
+};
+
+window.masterAddEfectoDraftExtra=function(){
+  const cat=(document.getElementById('ex-ef-cat')||{}).value||'atributo';
+  const param=(document.getElementById('ex-ef-param')||{}).value;
+  const signo=(document.getElementById('ex-ef-signo')||{}).value||'+';
+  const valor=parseInt((document.getElementById('ex-ef-valor')||{}).value)||0;
+  if(!param) return showNotif('Selecciona un parámetro');
+  if(!valor) return showNotif('El valor debe ser mayor que 0');
+  if(!APP._draftEfectosExtra) APP._draftEfectosExtra=[];
+  APP._draftEfectosExtra.push({cat:cat,param:param,signo:signo,valor:valor});
+  APP._draftExtraN=(document.getElementById('ex-n')||{}).value||'';
+  APP._draftExtraD=(document.getElementById('ex-d')||{}).value||'';
+  APP._draftExtraBanner=(document.getElementById('ex-banner')||{}).value||'';
+  var tierSel=document.getElementById('ex-tier'); if(tierSel) APP._draftExtraTier=tierSel.value;
+  const mc=document.getElementById('main-content');
+  if(mc) mc.innerHTML=renderMExtras();
+};
+
+window.masterDelEfectoDraftExtra=function(i){
+  if(!APP._draftEfectosExtra) return;
+  APP._draftEfectosExtra.splice(i,1);
+  APP._draftExtraN=(document.getElementById('ex-n')||{}).value||'';
+  APP._draftExtraD=(document.getElementById('ex-d')||{}).value||'';
+  APP._draftExtraBanner=(document.getElementById('ex-banner')||{}).value||'';
+  var tierSel=document.getElementById('ex-tier'); if(tierSel) APP._draftExtraTier=tierSel.value;
+  const mc=document.getElementById('main-content');
+  if(mc) mc.innerHTML=renderMExtras();
+};
+
+function limpiarDraftExtra(){
+  APP._draftEfectosExtra=[]; APP._draftEfCatExtra=null;
+  APP._draftExtraN=''; APP._draftExtraD=''; APP._draftExtraBanner=''; APP._draftExtraTier='comun';
+  APP._editExtraId=null;
+}
+
+window.masterSaveExtra=function(){
+  const n=(document.getElementById('ex-n')||{}).value||''; if(!n.trim()) return showNotif('Escribe un nombre');
+  const d=(document.getElementById('ex-d')||{}).value||'';
+  const banner=(document.getElementById('ex-banner')||{}).value||'';
+  const efectos=(APP._draftEfectosExtra||[]).slice();
+  if(!efectos.length&&!banner.trim()&&!d.trim()) return showNotif('Añade una descripción, un efecto o un texto informativo');
+
+  const editId=APP._editExtraId!=null?String(APP._editExtraId):null;
+  const tierBase=editId!=null?tierDeExtraBase(editId):null;
+  const esEstatico=!!tierBase;
+  const sala=getMockSala(APP.salaId);
+
+  if(esEstatico){
+    // Edición de un extra BASE: se guarda como override (nombre/categoría no cambian, nunca se borra)
+    if(!APP.extrasOverride) APP.extrasOverride={};
+    APP.extrasOverride[editId]={d:d,banner:banner,efectos:efectos};
+    sala.extrasOverride=APP.extrasOverride;
+    fbSet('salas/'+APP.salaId+'/extrasOverride',APP.extrasOverride);
+    aplicarOverridesContenido();
+    showNotif(n+' actualizado (afecta a fichas existentes)');
+    limpiarDraftExtra();
+    renderApp();
+    return;
+  }
+
+  const todosBase=[].concat(EXTRAS_INICIALES,EXTRAS_COMUNES,EXTRAS_AVANZADOS,EXTRAS_LEGENDARIOS);
+  const nombreOcupado=todosBase.some(function(e){return e.n.toLowerCase()===n.trim().toLowerCase();})
+    || (APP.extrasCustom||[]).some(function(e){return String(e.id)!==editId&&e.n.toLowerCase()===n.trim().toLowerCase();});
+  if(nombreOcupado) return showNotif('Ya existe un rasgo o extra con ese nombre');
+
+  const tier=(document.getElementById('ex-tier')||{}).value||'comun';
+  if(!APP.extrasCustom) APP.extrasCustom=[];
+  if(editId!=null){
+    const idx=APP.extrasCustom.findIndex(function(e){return String(e.id)===editId;});
+    if(idx>=0){ APP.extrasCustom[idx]=Object.assign({},APP.extrasCustom[idx],{n:n.trim(),d:d,banner:banner,efectos:efectos,tierCustom:tier}); showNotif(n+' actualizado'); }
+  } else {
+    APP.extrasCustom.push({id:'custom_'+Date.now(),n:n.trim(),d:d,banner:banner,efectos:efectos,tierCustom:tier});
+    showNotif(n+' creado');
+  }
+  sala.extrasCustom=APP.extrasCustom;
+  fbSet('salas/'+APP.salaId+'/extrasCustom',APP.extrasCustom);
+  limpiarDraftExtra();
+  renderApp();
+};
+
+window.masterEditExtra=function(eid){
+  eid=String(eid);
+  const e=[].concat(EXTRAS_INICIALES,EXTRAS_COMUNES,EXTRAS_AVANZADOS,EXTRAS_LEGENDARIOS,APP.extrasCustom||[]).find(function(x){return String(x.id)===eid;});
+  if(!e) return;
+  APP._editExtraId=eid;
+  APP._draftEfectosExtra=JSON.parse(JSON.stringify(e.efectos||[]));
+  APP._draftExtraN=e.n; APP._draftExtraD=e.d; APP._draftExtraBanner=e.banner||''; APP._draftExtraTier=e.tierCustom||tierDeExtraBase(e.id)||'comun';
+  APP._draftEfCatExtra=null;
+  renderApp();
+};
+
+window.masterCancelExtra=function(){ limpiarDraftExtra(); renderApp(); };
+
+window.masterDelExtra=function(eid){
+  eid=String(eid);
+  if(tierDeExtraBase(eid)) return showNotif('Los extras base no se pueden borrar');
+  APP.extrasCustom=(APP.extrasCustom||[]).filter(function(e){return String(e.id)!==eid;});
+  const sala=getMockSala(APP.salaId);
+  sala.extrasCustom=APP.extrasCustom;
+  fbSet('salas/'+APP.salaId+'/extrasCustom',APP.extrasCustom);
   renderApp();
 };
 
