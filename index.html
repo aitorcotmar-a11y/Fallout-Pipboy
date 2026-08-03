@@ -1100,7 +1100,7 @@ function calcCRIT(j){
   return base;
 }
 function calcPIF(j){var base=j.attrs.sue<=7?3:j.attrs.sue<=8?2:1;var br=calcBonusRasgos(j);return base+(br.pifia||0);}
-function calcSPts(j){const m=getMod(j.attrs.sue);return m>0?m:0}
+function calcSPts(j){const m=getMod(j.attrs.sue);const base=m>0?m:0;return base+((j.extras||[]).includes('Afortunado')?1:0);}
 function calcCuadroValor(j,c){
   if(!c.auto) return c.valor||'—';
   switch(c.id){
@@ -1247,7 +1247,7 @@ function calcIniciativa(j){
   return base+(setBonus.iniciativa||0)+(rasgoBonus.iniciativa||0)+(calcBonusEfectivos(j).derivado.iniciativa||0);
 }
 
-function calcCarga(j){return j.attrs.fue*10+(j.clase==='superviviente'?20:0)-(j.rasgos.includes('pequeno')?15:0)+(calcBonusEfectivos(j).derivado.carga||0)}
+function calcCarga(j){return j.attrs.fue*10+(j.clase==='superviviente'?20:0)-(j.rasgos.includes('pequeno')?15:0)+(calcBonusEfectivos(j).derivado.carga||0)+((j.extras||[]).includes('Mula')?50:0)}
 function calcCargaUsada(j){return(j.inventario||[]).reduce(function(s,i){const o=getObjById(i.objId)||APP.tienda.find(function(x){return x.id===i.objId});return s+(o?o.pc*i.qty:0)},0)}
 function getPtsArm(j){let b=CLASES[j.clase].arm;if(j.rasgos.includes('capacitado'))b-=1;if(j.rasgos.includes('tecnico'))b+=2;if(j.rasgos.includes('bonachon'))b-=2;return b}
 function getPtsHab(j){let b=CLASES[j.clase].hab;if(j.rasgos.includes('capacitado'))b-=1;if(j.rasgos.includes('tecnico'))b+=2;return b}
@@ -2041,8 +2041,9 @@ window.abrirModalTalHabilidad=function(origen){
   const modal=document.getElementById('obj-detail-modal');
   const box=document.getElementById('obj-detail-box');
   const actual=d.talHabilidad||'';
-  // Solo habilidades generales (sin armas)
-  box.innerHTML='<div style="padding:20px;">'    +'<div style="font-family:VT323,monospace;font-size:18px;color:var(--pip-bright);margin-bottom:6px;">🌟 TALENTO CON HABILIDAD</div>'    +'<div style="font-size:10px;color:var(--pip-dim);margin-bottom:14px;">Elige una habilidad general · +1 a todas las tiradas con ella</div>'    +HAB_HABS.map(function(h){
+  // Habilidades de arma + generales. Con armas (salvo Explosivos) se aplica automáticamente al ataque.
+  const todasHabs=[...HAB_ARMAS,...HAB_HABS];
+  box.innerHTML='<div style="padding:20px;">'    +'<div style="font-family:VT323,monospace;font-size:18px;color:var(--pip-bright);margin-bottom:6px;">🌟 TALENTO CON HABILIDAD</div>'    +'<div style="font-size:10px;color:var(--pip-dim);margin-bottom:14px;">Elige una habilidad · +1 a todas las tiradas con ella</div>'    +todasHabs.map(function(h){
       const sel=actual===h;
       return '<button class="_talhab-pick" data-h="'+h+'" data-or="'+origen+'" style="display:block;width:100%;padding:8px 12px;margin-bottom:4px;border:1px solid '+(sel?'var(--pip-warn)':'var(--pip-border)')+';background:'+(sel?'rgba(245,185,66,.1)':'none')+';color:'+(sel?'var(--pip-warn)':'var(--pip-bright)')+';font-family:VT323,monospace;font-size:14px;cursor:pointer;text-align:left;">'+h+(sel?' ✓':'')+'</button>';
     }).join('')    +'<button style="margin-top:10px;width:100%;padding:8px;border:1px solid rgba(74,254,130,.3);background:none;color:var(--pip-dim);font-family:VT323,monospace;font-size:13px;cursor:pointer;" onclick="cerrarDetalle()">CANCELAR</button>'    +'</div>';
@@ -2336,7 +2337,9 @@ function renderJEstado(){
   var bonLuchador=(armaObj&&(j.extras||[]).includes('Luchador'))?1:0;
   // Extra Cazador: +1 ataque con armas medias a distancia sin RF/FA (solo TT)
   var bonCazador=(armaObj&&armaObj.subcat==='media'&&!armaObj.rf&&!armaObj.fa&&(j.extras||[]).includes('Cazador'))?1:0;
-  var bonAtaqueTT=armaObj?(modAgi+habArmaVal+(j.penMod||0)+penRadAtk+bonSubcatAtk+(armaObj.calidad||0)+(gEf.derivado.ataque_tt||0)+bonLuchador+bonCazador):0;
+  // Talento con habilidad: si coincide con la habilidad de arma del arma equipada, +1 automático (Explosivos y habilidades generales solo muestran banner)
+  var bonTalHab=(armaObj&&j.talHabilidad&&j.talHabilidad===habArmaKey&&(j.extras||[]).includes('Talento con habilidad'))?1:0;
+  var bonAtaqueTT=armaObj?(modAgi+habArmaVal+(j.penMod||0)+penRadAtk+bonSubcatAtk+(armaObj.calidad||0)+(gEf.derivado.ataque_tt||0)+bonLuchador+bonCazador+bonTalHab):0;
   var bonAtaqueRF=armaObj?(bonAtaqueTT-2+(brA.rfAtk||0)+(brA.rfAtkExtra||0)+(gEf.derivado.ataque_rf||0)):0;
   var bonAtaqueFA=armaObj?(bonAtaqueTT+(brA.faAtkExtra||0)+(gEf.derivado.ataque_fa||0)):0;
   // FA = desventaja (mostrar valor pero indicar desventaja)
@@ -2666,7 +2669,10 @@ function renderJEstado(){
       if(ex.includes('Resistente a la radiación')) msgs.push('☢ RESISTENTE A LA RADIACIÓN · -5 Rads/hora');
       if(ex.includes('Sangre Fría'))         msgs.push('❄ SANGRE FRÍA · Sin penalizadores por disparar a cobertura parcial');
       if(ex.includes('Talento con atributo'))msgs.push('🌟 TALENTO CON ATRIBUTO · +1 a tiradas de '+(j.talAtributo?(ATTRS.find(function(a){return a.k===j.talAtributo;})||{n:j.talAtributo}).n:'atributo no elegido'));
-      if(ex.includes('Talento con habilidad'))msgs.push('🌟 TALENTO CON HABILIDAD · +1 a tiradas de '+(j.talHabilidad||'habilidad no elegida'));
+      if(ex.includes('Talento con habilidad')){
+        var thAplicaAuto=j.talHabilidad&&HAB_ARMAS.includes(j.talHabilidad)&&j.talHabilidad!=='Explosivos';
+        msgs.push('🌟 TALENTO CON HABILIDAD · +1 a tiradas de '+(j.talHabilidad||'habilidad no elegida')+(j.talHabilidad?(thAplicaAuto?' (ya aplicado al ataque)':' (recuerda sumarlo a mano)'):''));
+      }
       // Extras iniciales (creación de personaje)
       if(ex.includes('Acción heroica'))       msgs.push('⭐ ACCIÓN HEROICA · 1 vez por sesión: ventaja en una tirada a tu elección');
       if(ex.includes('Entereza'))             msgs.push('💪 ENTEREZA · Ventaja en pruebas de RES');
@@ -3659,8 +3665,7 @@ window.wizardNext=function(){
     // Guardar elecciones de talento (wizardData ES la ficha, ya están copiados)
     // extraArma, talAtributo, talHabilidad ya están en d directamente
     // inicializar puntos de suerte al confirmar
-    const modSue=getMod(d.attrs.sue);
-    d.puntossuerte=modSue>0?modSue:0;
+    d.puntossuerte=calcSPts(d);
     d.karma=d.karma||0;
     if(!d.cuadros||!d.cuadros.length) d.cuadros=[
       {id:'mov',   label:'MOV',      valor:'', auto:true},
