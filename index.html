@@ -623,7 +623,7 @@ const RASGOS=[
   {id:'tecnico',     n:'Técnico',             d:'+2 pts armas+hab · atributos máx.15 en creación'},
   {id:'tribal',      n:'Tribal',              d:'Ventaja Supervivencia · Desventaja Ciencia · ℹ solo informativo'},
 ];
-const EXTRAS_COMUNES=[
+const EXTRAS_INICIALES=[
   {id:'accion_heroica',n:'Acción heroica',d:'1 vez por sesión, obtienes ventaja en una tirada a tu elección'},
   {id:'duro',n:'Duro',d:'Comienzas con 10 puntos más de vida'},
   {id:'entereza',n:'Entereza',d:'Ventaja en las pruebas relacionadas con RES'},
@@ -648,6 +648,26 @@ const EXTRAS_COMUNES=[
   {id:'cazador_engendros',n:'Cazador de engendros',d:'+1 a las tiradas y al daño contra bestias mutantes y otros engendros'},
   {id:'cazador',n:'Cazador',d:'+1 a las tiradas de ataque con armas medias a distancia no automáticas (solo TT)'},
   {id:'luchador',n:'Luchador',d:'+1 a las tiradas de ataque con cualquier arma equipada (no afecta a los puños)'},
+];
+const EXTRAS_COMUNES=[
+  {id:'afortunado',n:'Afortunado',d:'Obtén 1 punto de suerte adicional'},
+  {id:'apañado',n:'Apañado',d:'En fabricación, sustituye 1 recurso por chatarra'},
+  {id:'aprendizaje',n:'Aprendizaje rápido',d:'+1 PE extra al final de sesión'},
+  {id:'barriga',n:'Barriga de plomo',d:'Comida y agua irradiada como si fueran cocinadas'},
+  {id:'bolsillos',n:'Bolsillos rápidos',d:'+20 puntos de carga a mano'},
+  {id:'comprension',n:'Comprensión rápida',d:'La mitad de tiempo aprendiendo conocimientos'},
+  {id:'daño_adic',n:'Daño adicional',d:'+2 al daño con un tipo de arma a elegir'},
+  {id:'entrenamiento',n:'Entrenamiento intensivo',d:'+1 punto a un atributo a elegir'},
+  {id:'manitas',n:'Manitas',d:'Repite una tirada de fabricación fallida 1 vez/día'},
+  {id:'mejores_cur',n:'Mejores curaciones',d:'+1D4 adicional al aplicar primeros auxilios'},
+  {id:'mula',n:'Mula',d:'+50 puntos de carga'},
+  {id:'noctambulo',n:'Noctámbulo',d:'Solo necesitas dormir 6h cada dos días'},
+  {id:'oportunista',n:'Oportunista',d:'+2 ataque y daño vs. enemigos que no han actuado'},
+  {id:'precision',n:'Precisión instintiva',d:'Repite una tirada de ataque fallida 1 vez/combate'},
+  {id:'rad_resist',n:'Resistente a la radiación',d:'-5 Rads/hora'},
+  {id:'sangre_fria',n:'Sangre Fría',d:'Sin penalizadores por disparar a cobertura parcial'},
+  {id:'tal_atributo',n:'Talento con atributo',d:'+1 a tiradas con el atributo: '},
+  {id:'tal_habilidad',n:'Talento con habilidad',d:'+1 a tiradas con la habilidad: '},
 ];
 const PRO_EXTRA_MAP={
   'Pro en Armas cortas':{tipo:'arma',n:'Armas cortas'},
@@ -2409,7 +2429,7 @@ function renderJEstado(){
   const extrasBlock=(j.extras||[]).length
     ?'<div class="card" style="margin-top:8px;"><div class="card-hdr">EXTRAS ACTIVOS</div><div class="card-body" style="padding:6px 10px;">'
       +(j.extras||[]).map(function(e){
-        var exObj=[].concat(EXTRAS_COMUNES).find(function(x){return x.n===e;});
+        var exObj=[].concat(EXTRAS_INICIALES,EXTRAS_COMUNES).find(function(x){return x.n===e;});
         var desc=exObj?exObj.d:'';
         return '<div style="padding:4px 0;border-bottom:1px solid rgba(74,254,130,.08);"><div style="font-size:11px;color:var(--pip-bright);">▸ '+e+'</div>'+(desc?'<div style="font-size:9px;color:var(--pip-dim);">'+desc+'</div>':'')+'</div>';
       }).join('')
@@ -2733,7 +2753,7 @@ function renderJCreacion(){
   </div></div>
   <div class="card"><div class="card-hdr">EXTRAS OBTENIDOS</div><div class="card-body" style="padding:6px 10px;">
     ${(j.extras||[]).length?(j.extras||[]).map(e=>{
-      const exObj=[...EXTRAS_COMUNES,...(EXTRAS_AVANZADOS||[]),...(EXTRAS_LEGENDARIOS||[])].find(x=>x.n===e);
+      const exObj=[...EXTRAS_INICIALES,...EXTRAS_COMUNES,...(EXTRAS_AVANZADOS||[]),...(EXTRAS_LEGENDARIOS||[])].find(x=>x.n===e);
       const desc=exObj?exObj.d:'';
       return `<div style="padding:5px 0;border-bottom:1px solid rgba(74,254,130,.08);"><div style="font-size:11px;color:var(--pip-bright);">▸ ${e}</div>${desc?`<div style="font-size:10px;color:var(--pip-dim);margin-top:1px;">${desc}</div>`:''}</div>`;
     }).join(''):'<div class="empty" style="padding:10px;">Sin extras adicionales aún</div>'}
@@ -3454,11 +3474,11 @@ function renderWS_Habilidades(d){
 
 function renderWS_Extra(d){
   return`
-  <div style="font-size:10px;color:var(--pip-dim);margin-bottom:10px;">Elige 1 extra inicial. Los extras comunes son los únicos disponibles en creación.</div>
-  ${EXTRAS_COMUNES.map(e=>{
+  <div style="font-size:10px;color:var(--pip-dim);margin-bottom:10px;">Elige 1 extra inicial.</div>
+  ${EXTRAS_INICIALES.map(e=>{
     const sel=d.extraInicial===e.n;
     const safeNm=e.n.replace(/'/g,'&#39;'); return`<div class="extra-item ${sel?'sel':''}" onclick="wzExtra('${safeNm}')">
-      <div><span class="extra-name">${e.n}</span><span class="extra-cat">COMÚN</span></div>
+      <div><span class="extra-name">${e.n}</span><span class="extra-cat">INICIAL</span></div>
       <div class="extra-desc">${e.d}</div>
       ${sel?'<span class="extra-check">✓</span>':''}
     </div>`;
