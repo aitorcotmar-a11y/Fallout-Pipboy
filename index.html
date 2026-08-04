@@ -441,6 +441,7 @@ input:focus,select:focus{border-color:var(--pip);box-shadow:0 0 4px rgba(74,254,
         <div id="hdr-badge"></div>
         <div style="display:flex;align-items:center;gap:6px;">
           <span class="on" style="font-size:9px;">● ONLINE</span>
+          <button id="btn-personaje" onclick="abrirPersonaje()" style="display:none;background:none;border:1px solid var(--pip-border);color:var(--pip-bright);font-family:'Share Tech Mono',monospace;font-size:9px;padding:2px 6px;cursor:pointer;letter-spacing:1px;" title="Ver personaje">PERSONAJE</button>
           <button onclick="salirApp()" style="background:none;border:1px solid var(--pip-border);color:var(--pip-dim);font-family:'Share Tech Mono',monospace;font-size:9px;padding:2px 6px;cursor:pointer;letter-spacing:1px;" title="Volver al selector">SALIR</button>
         </div>
       </div>
@@ -463,6 +464,13 @@ input:focus,select:focus{border-color:var(--pip);box-shadow:0 0 4px rgba(74,254,
 
 <!-- WIZARD CREACION FICHA -->
 <div class="wizard-overlay" id="wizard" style="display:none;"></div>
+<div class="wizard-overlay" id="personaje-overlay" style="display:none;">
+  <div style="padding:10px 12px;border-bottom:1px solid var(--pip-border);display:flex;align-items:center;gap:10px;flex-shrink:0;">
+    <button onclick="cerrarPersonaje()" style="background:none;border:1px solid var(--pip-border);color:var(--pip-bright);font-family:'Share Tech Mono',monospace;font-size:11px;padding:5px 10px;cursor:pointer;">◂ VOLVER</button>
+    <div style="font-family:VT323,monospace;font-size:18px;color:var(--pip-bright);letter-spacing:1px;">PERSONAJE</div>
+  </div>
+  <div id="personaje-content" class="scroll" style="flex:1;overflow-y:auto;padding:10px 8px;"></div>
+</div>
 
 <!-- MODAL NIVEL UP -->
 <div class="modal-overlay" id="lvlup-modal" style="display:none;"></div>
@@ -1544,6 +1552,7 @@ function entrarMaster(){
   APP.rol='master';
   document.getElementById('hdr-sala').textContent=APP.salaId;
   document.getElementById('hdr-badge').innerHTML='<span class="rbadge master">◉ MASTER</span>';
+  var bp=document.getElementById('btn-personaje'); if(bp) bp.style.display='none';
   buildTabs();
   showScreen('shell');
   if(!FB_MOCK&&db){
@@ -1735,7 +1744,7 @@ function completarEntradaJugador(id){
       j.heartbeat=ahora;
       db.ref('salas/'+APP.salaId+'/jugadores/'+id+'/online').set(true);
       db.ref('salas/'+APP.salaId+'/jugadores/'+id+'/heartbeat').set(ahora);
-      document.getElementById('hdr-badge').innerHTML='<span class="rbadge jugador">'+j.nombre+'</span>';
+      document.getElementById('hdr-badge').innerHTML='<span class="rbadge jugador">'+j.nombre+'</span>'; (function(){var bp=document.getElementById('btn-personaje'); if(bp) bp.style.display='inline-block';})();
       if(!j.confirmada){
         APP.wizardStep=0; APP.wizardData=normalizarFicha(JSON.parse(JSON.stringify(j)));
         renderWizard(); document.getElementById('wizard').style.display='flex';
@@ -1753,7 +1762,7 @@ function entrarJugadorLocal(id){
   APP.tiendas=s.tiendas||[]; APP.notificaciones=s.notificaciones||{};
   const j=APP.jugadores[id];
   if(!j){ showNotif('Error: jugador no encontrado'); showScreen('selector-screen'); return; }
-  document.getElementById('hdr-badge').innerHTML='<span class="rbadge jugador">'+j.nombre+'</span>';
+  document.getElementById('hdr-badge').innerHTML='<span class="rbadge jugador">'+j.nombre+'</span>'; (function(){var bp=document.getElementById('btn-personaje'); if(bp) bp.style.display='inline-block';})();
   if(!j.confirmada){
     APP.wizardStep=0; APP.wizardData=JSON.parse(JSON.stringify(j));
     renderWizard(); document.getElementById('wizard').style.display='flex';
@@ -1773,14 +1782,42 @@ function buildTabs(){
       .map(function(t){return '<button class="tab '+(APP.masterTab===t.k?'active':'')+'" data-k="'+t.k+'" onclick="switchMT(this.dataset.k)">'+t.l+'</button>';}).join('');
   } else {
     const fi=APP.fichaInner;
-    const at=fi==='estado'?'estado':fi==='armas'||fi==='habs'||fi==='special'||fi==='creacion'?'habs':fi==='inv'?'inv':fi==='municion'?'municion':fi==='recetas'?'recetas':'tienda';
-    el.innerHTML=[{k:'estado',l:'ESTADO'},{k:'habs',l:'HABILID.'},{k:'inv',l:'EQUIPO'},{k:'municion',l:'MUNICIÓN'},{k:'recetas',l:'RECETAS'},{k:'tienda',l:'TIENDA'}]
+    const at=fi==='estado'?'estado':fi==='inv'?'inv':fi==='cofre'?'cofre':fi==='municion'?'municion':fi==='recetas'?'recetas':'tienda';
+    el.innerHTML=[{k:'estado',l:'ESTADO'},{k:'inv',l:'EQUIPO'},{k:'cofre',l:'COFRE'},{k:'municion',l:'MUNICIÓN'},{k:'recetas',l:'RECETAS'},{k:'tienda',l:'TIENDA'}]
       .map(function(t){return '<button class="tab '+(at===t.k?'active':'')+'" data-k="'+t.k+'" onclick="switchJT(this.dataset.k)">'+t.l+'</button>';}).join('');
   }
 }
 window.switchMT=function(t){APP.masterTab=t;APP._gruposAbiertos={};buildTabs();renderApp();};
-window.switchJT=function(t){var m={estado:'estado',habs:'armas',inv:'inv',municion:'municion',tienda:'tienda',recetas:'recetas'};APP.fichaInner=m[t]||t;buildTabs();renderApp();};
-window.switchFI=function(t){APP.fichaInner=t;renderApp()};
+window.switchJT=function(t){var m={estado:'estado',inv:'inv',cofre:'cofre',municion:'municion',tienda:'tienda',recetas:'recetas'};APP.fichaInner=m[t]||t;buildTabs();renderApp();};
+window.switchFI=function(t){
+  APP.fichaInner=t;
+  if(APP._personajeAbierto){ renderPersonajeContent(); return; }
+  renderApp();
+};
+
+function renderPersonajeContent(){
+  const el=document.getElementById('personaje-content');
+  if(!el) return;
+  const fi=APP.fichaInner;
+  if(fi==='special') el.innerHTML=renderJSpecial();
+  else if(fi==='creacion') el.innerHTML=renderJCreacion();
+  else if(fi==='armas') el.innerHTML=renderJArmas();
+  else el.innerHTML=renderJHabs();
+}
+
+window.abrirPersonaje=function(){
+  APP._personajeAbierto=true;
+  if(!['armas','habs','special','creacion'].includes(APP.fichaInner)) APP.fichaInner='special';
+  const ov=document.getElementById('personaje-overlay');
+  if(ov) ov.style.display='flex';
+  renderPersonajeContent();
+};
+
+window.cerrarPersonaje=function(){
+  APP._personajeAbierto=false;
+  const ov=document.getElementById('personaje-overlay');
+  if(ov) ov.style.display='none';
+};
 
 /* ═══════════════════════════════════════════
    RENDER APP
@@ -1843,6 +1880,7 @@ function renderApp(){
       case 'armas':    el.innerHTML=renderJArmas(); break;
       case 'habs':     el.innerHTML=renderJHabs(); break;
       case 'inv':      el.innerHTML=renderJInv(); break;
+      case 'cofre':    el.innerHTML=renderJCofre(); break;
       case 'municion': el.innerHTML=renderJMunicion(); break;
       case 'tienda':   el.innerHTML=renderJTienda(); break;
       case 'recetas':  el.innerHTML=renderJRecetas(); break;
@@ -2463,36 +2501,67 @@ window.jugadorConsumirRecurso=function(k){
   saveJ(); renderApp();
 };
 
-window.jugadorMoverACofre=function(k){
+window.abrirMandarRecurso=function(k){
   if(!APP.enCiudad) return showNotif('El Cofre solo está disponible en ciudad/refugio');
   const j=myFicha();
-  if(!j.recursos) j.recursos={};
-  const cantEl=document.getElementById('rec-mov-'+k);
-  const cant=Math.max(1,parseInt(cantEl?cantEl.value:1)||1);
-  const disponible=j.recursos[k]||0;
+  const disponible=(j.recursos&&j.recursos[k])||0;
   if(disponible<1) return showNotif('No tienes ese recurso');
-  const mover=Math.min(cant,disponible);
-  j.recursos[k]=disponible-mover;
+  const r=RECURSOS_FABRICACION.find(function(x){return x.k===k;});
+  const modal=document.getElementById('obj-detail-modal');
+  const box=document.getElementById('obj-detail-box');
+  box.innerHTML='<div style="padding:20px;">'
+    +'<div style="font-family:VT323,monospace;font-size:18px;color:var(--pip-bright);margin-bottom:10px;">→🗃 MANDAR AL COFRE: '+(r?r.n:k)+'</div>'
+    +'<div style="font-size:11px;color:var(--pip-dim);margin-bottom:10px;">Tienes: '+disponible+'</div>'
+    +'<input type="number" id="mover-recurso-cant" value="'+disponible+'" min="1" max="'+disponible+'" style="width:100%;font-family:VT323,monospace;font-size:22px;padding:8px;background:var(--pip-dark);border:1px solid var(--pip-border);color:var(--pip-bright);text-align:center;margin-bottom:14px;">'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">'
+    +'<button class="btn btn-warn" onclick="cerrarDetalle()">CANCELAR</button>'
+    +'<button class="btn" data-k="'+k+'" onclick="confirmarMandarRecurso(this.dataset.k)">▸ MANDAR</button>'
+    +'</div></div>';
+  modal.style.display='flex';
+};
+window.confirmarMandarRecurso=function(k){
+  const j=myFicha();
+  if(!j.recursos) j.recursos={};
+  const disponible=j.recursos[k]||0;
+  const cantEl=document.getElementById('mover-recurso-cant');
+  const cant=Math.max(1,Math.min(disponible,parseInt(cantEl?cantEl.value:1)||1));
+  j.recursos[k]=disponible-cant;
   if(!APP.cofre) APP.cofre={};
-  APP.cofre[k]=(APP.cofre[k]||0)+mover;
+  APP.cofre[k]=(APP.cofre[k]||0)+cant;
   saveJ(); saveCofre();
-  showNotif('Guardado en el Cofre: '+mover);
+  cerrarDetalle();
+  showNotif('Enviado al Cofre: '+cant);
   renderApp();
 };
 
-window.jugadorSacarDeCofre=function(k){
+window.abrirCogerRecurso=function(k){
   if(!APP.enCiudad) return showNotif('El Cofre solo está disponible en ciudad/refugio');
-  const j=myFicha();
-  if(!j.recursos) j.recursos={};
-  const cantEl=document.getElementById('rec-mov-'+k);
-  const cant=Math.max(1,parseInt(cantEl?cantEl.value:1)||1);
   const disponible=(APP.cofre&&APP.cofre[k])||0;
   if(disponible<1) return showNotif('El Cofre no tiene ese recurso');
-  const sacar=Math.min(cant,disponible);
-  APP.cofre[k]=disponible-sacar;
-  j.recursos[k]=(j.recursos[k]||0)+sacar;
+  const r=RECURSOS_FABRICACION.find(function(x){return x.k===k;});
+  const modal=document.getElementById('obj-detail-modal');
+  const box=document.getElementById('obj-detail-box');
+  box.innerHTML='<div style="padding:20px;">'
+    +'<div style="font-family:VT323,monospace;font-size:18px;color:var(--pip-bright);margin-bottom:10px;">🗃→ COGER DEL COFRE: '+(r?r.n:k)+'</div>'
+    +'<div style="font-size:11px;color:var(--pip-dim);margin-bottom:10px;">Disponibles: '+disponible+'</div>'
+    +'<input type="number" id="coger-recurso-cant" value="'+disponible+'" min="1" max="'+disponible+'" style="width:100%;font-family:VT323,monospace;font-size:22px;padding:8px;background:var(--pip-dark);border:1px solid var(--pip-border);color:var(--pip-bright);text-align:center;margin-bottom:14px;">'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">'
+    +'<button class="btn btn-warn" onclick="cerrarDetalle()">CANCELAR</button>'
+    +'<button class="btn" data-k="'+k+'" onclick="confirmarCogerRecurso(this.dataset.k)">▸ COGER</button>'
+    +'</div></div>';
+  modal.style.display='flex';
+};
+window.confirmarCogerRecurso=function(k){
+  const disponible=(APP.cofre&&APP.cofre[k])||0;
+  const cantEl=document.getElementById('coger-recurso-cant');
+  const cant=Math.max(1,Math.min(disponible,parseInt(cantEl?cantEl.value:1)||1));
+  APP.cofre[k]=disponible-cant;
+  const j=myFicha();
+  if(!j.recursos) j.recursos={};
+  j.recursos[k]=(j.recursos[k]||0)+cant;
   saveJ(); saveCofre();
-  showNotif('Sacado del Cofre: '+sacar);
+  cerrarDetalle();
+  showNotif('Cogido del Cofre: '+cant);
   renderApp();
 };
 
@@ -3307,16 +3376,42 @@ function renderJInv(){
     +(!(j.inventario||[]).length?'<div class="empty">Sin objetos</div>':renderInvGrupos(j, eq))
     +'</div></div>'
 
-    // ── 🗃 COFRE COMÚN (recursos + objetos) ──
-    +'<div class="card" style="margin-top:8px;"><div class="card-hdr">🗃 COFRE COMÚN</div>'
+    // ── RECURSOS DE FABRICACIÓN (los que lleva encima el jugador) ──
+    +'<div class="card" style="margin-top:8px;"><div class="card-hdr">RECURSOS DE FABRICACIÓN</div>'
     +'<div style="padding:8px 10px;">'
     +(APP.enCiudad
-      ?'<div style="font-size:9px;color:#64c8ff;margin-bottom:6px;">🏙 EN CIUDAD/REFUGIO · puedes guardar y sacar del Cofre común. Para guardar un objeto, ábrelo desde el inventario y pulsa "Enviar al Cofre".</div>'
-      :'<div style="font-size:9px;color:var(--pip-dim);margin-bottom:6px;">Fuera de ciudad: el Cofre común no está disponible ahora mismo</div>')
-    +'<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin-bottom:4px;">RECURSOS (los entrega el Master)</div>'
-    +RECURSOS_FABRICACION.filter(function(r){return !r.consumible;}).map(function(r){return renderRecursoRow(j,r);}).join('')
+      ?'<div style="font-size:9px;color:#64c8ff;margin-bottom:6px;">🏙 EN CIUDAD/REFUGIO · puedes mandar recursos al Cofre</div>'
+      :'<div style="font-size:9px;color:var(--pip-dim);margin-bottom:6px;">Fuera de ciudad: no puedes mandar recursos al Cofre ahora mismo</div>')
+    +RECURSOS_FABRICACION.filter(function(r){return !r.consumible;}).map(function(r){return renderRecursoRowInv(j,r);}).join('')
     +'<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin:10px 0 4px;border-bottom:1px solid var(--pip-border);padding-bottom:3px;">CONSUMIBLES</div>'
-    +RECURSOS_FABRICACION.filter(function(r){return r.consumible;}).map(function(r){return renderRecursoRow(j,r);}).join('')
+    +RECURSOS_FABRICACION.filter(function(r){return r.consumible;}).map(function(r){return renderRecursoRowInv(j,r);}).join('')
+    +'</div></div>';
+}
+
+function renderRecursoRowInv(j,r){
+  const cant=(j.recursos&&j.recursos[r.k])||0;
+  return '<div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid rgba(74,254,130,.08);">'
+    +'<span style="flex:1;min-width:110px;font-size:12px;color:var(--pip-bright);">'+r.icono+' '+r.n+'</span>'
+    +'<span style="font-family:VT323,monospace;font-size:18px;color:var(--pip-warn);min-width:26px;text-align:right;">'+cant+'</span>'
+    +(r.consumible?'<button class="chip" style="border-color:var(--pip);color:var(--pip);" data-k="'+r.k+'" onclick="jugadorConsumirRecurso(this.dataset.k)" '+(cant<1?'disabled':'')+'>USAR</button>':'')
+    +(APP.enCiudad?'<button class="chip chip-g" data-k="'+r.k+'" onclick="abrirMandarRecurso(this.dataset.k)" '+(cant<1?'disabled':'')+'>MANDAR</button>':'')
+    +'</div>';
+}
+
+/* ═══════════════════════════════════════════
+   COFRE COMÚN — pestaña propia del jugador
+   ═══════════════════════════════════════════ */
+function renderJCofre(){
+  const j=myFicha();
+  return '<div class="card"><div class="card-hdr">🗃 COFRE COMÚN</div>'
+    +'<div style="padding:8px 10px;">'
+    +(APP.enCiudad
+      ?'<div style="font-size:9px;color:#64c8ff;margin-bottom:6px;">🏙 EN CIUDAD/REFUGIO · puedes coger recursos y objetos del Cofre. Para guardar un objeto tuyo, ábrelo desde el Inventario y pulsa "Enviar al Cofre".</div>'
+      :'<div style="font-size:9px;color:var(--pip-dim);margin-bottom:6px;">Fuera de ciudad: el Cofre no está disponible ahora mismo</div>')
+    +'<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin-bottom:4px;">RECURSOS (los entrega el Master)</div>'
+    +RECURSOS_FABRICACION.filter(function(r){return !r.consumible;}).map(function(r){return renderRecursoRowCofre(r);}).join('')
+    +'<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin:10px 0 4px;border-bottom:1px solid var(--pip-border);padding-bottom:3px;">CONSUMIBLES</div>'
+    +RECURSOS_FABRICACION.filter(function(r){return r.consumible;}).map(function(r){return renderRecursoRowCofre(r);}).join('')
     +(function(){
         const cofreItems=(APP.cofreObjetos||[]).map(function(ci){return {ci:ci,o:getObjById(ci.objId)};}).filter(function(x){return x.o;});
         return '<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin:10px 0 4px;border-bottom:1px solid var(--pip-border);padding-bottom:3px;">OBJETOS EN EL COFRE ('+cofreItems.length+')</div>'
@@ -3330,20 +3425,15 @@ function renderJInv(){
             }).join(''));
       })()
     +'</div></div>';
+}
 
-  function renderRecursoRow(j,r){
-    const cant=(j.recursos&&j.recursos[r.k])||0;
-    return '<div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;padding:5px 0;border-bottom:1px solid rgba(74,254,130,.08);">'
-      +'<span style="flex:1;min-width:110px;font-size:12px;color:var(--pip-bright);">'+r.icono+' '+r.n+'</span>'
-      +'<span style="font-family:VT323,monospace;font-size:18px;color:var(--pip-warn);min-width:26px;text-align:right;">'+cant+'</span>'
-      +(r.consumible?'<button class="chip" style="border-color:var(--pip);color:var(--pip);" data-k="'+r.k+'" onclick="jugadorConsumirRecurso(this.dataset.k)" '+(cant<1?'disabled':'')+'>USAR</button>':'')
-      +(APP.enCiudad?(
-        '<input type="number" min="1" value="1" id="rec-mov-'+r.k+'" style="width:38px;font-family:VT323,monospace;font-size:13px;padding:2px 4px;background:var(--pip-dark);border:1px solid var(--pip-border);color:var(--pip-bright);">'
-        +'<button class="chip chip-g" data-k="'+r.k+'" onclick="jugadorMoverACofre(this.dataset.k)" '+(cant<1?'disabled':'')+' title="Guardar en el Cofre">→🗃</button>'
-        +'<button class="chip" data-k="'+r.k+'" onclick="jugadorSacarDeCofre(this.dataset.k)" title="Sacar del Cofre">🗃→</button>'
-      ):'')
-      +'</div>';
-  }
+function renderRecursoRowCofre(r){
+  const cant=(APP.cofre&&APP.cofre[r.k])||0;
+  return '<div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid rgba(74,254,130,.08);">'
+    +'<span style="flex:1;min-width:110px;font-size:12px;color:var(--pip-bright);">'+r.icono+' '+r.n+'</span>'
+    +'<span style="font-family:VT323,monospace;font-size:18px;color:var(--pip-warn);min-width:26px;text-align:right;">'+cant+'</span>'
+    +(APP.enCiudad?'<button class="chip chip-g" data-k="'+r.k+'" onclick="abrirCogerRecurso(this.dataset.k)" '+(cant<1?'disabled':'')+'>COGER</button>':'')
+    +'</div>';
 }
 
 /* ═══════════════════════════════════════════
