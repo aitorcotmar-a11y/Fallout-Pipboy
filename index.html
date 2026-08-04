@@ -4870,6 +4870,13 @@ window.lvlupNext=function(){
 function renderMFichas(){
   const jugs=Object.values(APP.jugadores);
   return`
+  <div class="card" style="border-color:rgba(255,60,60,.5);margin-bottom:8px;">
+    <div class="card-hdr" style="color:var(--pip-danger);">⚠ ZONA PELIGROSA</div>
+    <div style="padding:10px 12px;">
+      <div style="font-size:9px;color:var(--pip-dim);margin-bottom:8px;">Borra TODOS los personajes, el Cofre, las recetas, la tienda y las adiciones custom de esta sala, dejándola como recién creada. NO se puede deshacer.</div>
+      <button class="btn btn-danger btn-block" onclick="masterResetearSalaCompleta()">🗑 RESETEAR SALA COMPLETA</button>
+    </div>
+  </div>
   <div class="card"><div class="card-hdr">NUEVA FICHA</div><div class="card-body">
     <div class="form-row"><span class="form-lbl">NOMBRE:</span><input type="text" id="nf-n" placeholder="Nombre del personaje" maxlength="20"></div>
     <button class="btn btn-block" onclick="crearFicha()">▸ CREAR FICHA</button>
@@ -5253,6 +5260,16 @@ function renderMObjetos(){
         +'<button class="chip" style="border-color:var(--pip-warn);color:var(--pip-warn);" data-k="'+r.k+'" onclick="masterRecursoAJugador(this.dataset.k)">→ JUGADOR</button>'
         +'</div>';
     }).join('')
+    +(function(){
+        var lista=Array.isArray(APP.cofreObjetos)?APP.cofreObjetos:[];
+        return '<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin:12px 0 4px;border-bottom:1px solid var(--pip-border);padding-bottom:3px;">OBJETOS EN EL COFRE ('+lista.length+')</div>'
+          +(!lista.length?'<div style="font-size:10px;color:var(--pip-dim);padding:4px 0;">Vacío</div>'
+            :lista.map(function(ci){
+              var o=getObjById(ci.objId);
+              return '<div style="font-size:11px;color:var(--pip-bright);padding:3px 0;">'+(o?o.n:'(objeto #'+ci.objId+', ya no existe en la tienda)')+' — x'+ci.qty+'</div>';
+            }).join(''));
+      })()
+    +'<button class="btn btn-danger" style="margin-top:12px;width:100%;" onclick="masterResetearCofre()">🗑 RESETEAR COFRE (vaciar recursos y objetos)</button>'
     +'</div></div>';
 
   return cofreBlockHtml+formHtml+listaHtml;
@@ -6198,6 +6215,39 @@ window.masterDarPE=function(id,pe){
 window.masterDelFicha=function(id){
   const s=getMockSala(APP.salaId);delete s.jugadores[id];APP.jugadores=s.jugadores;
   fbSet(`salas/${APP.salaId}/jugadores/${id}`,null);showNotif('Ficha eliminada');renderApp();
+};
+
+window.masterResetearSalaCompleta=function(){
+  if(!confirm('¿SEGURO que quieres borrar TODO? Se perderán todos los personajes, el Cofre, las recetas y las adiciones hechas a la tienda. Esta acción NO se puede deshacer.')) return;
+  if(!confirm('Última confirmación: la sala quedará como si fuera la primera vez que se usa esta versión. ¿Continuar?')) return;
+  const configActual=getMockSala(APP.salaId).config;
+  const fresh={
+    config:configActual,
+    jugadores:{}, tienda:OBJETOS_EJEMPLO.filter(function(o){return o!=null;}),
+    rasgosCustom:[], extrasCustom:[], rasgosOverride:{}, extrasOverride:{},
+    radZona:{activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0},
+    cofre:{chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0},
+    cofreObjetos:[],
+    recetasPendientes:[],
+    enCiudad:false,
+    enVenta:[], enemigos:[...ENEMIGOS_EJEMPLO], combate:[],
+    notificaciones:{},
+    tiendas:[{
+      id:'tienda_pruebas',
+      nombre:'🧪 TIENDA DE PRUEBAS',
+      objIds:OBJETOS_EJEMPLO.filter(function(o){return o!=null;}).map(function(o){return o.id;}),
+      activa:false,
+      descuento:100
+    }],
+  };
+  MOCK.salas[APP.salaId]=fresh;
+  APP.jugadores={}; APP.tienda=fresh.tienda; APP.tiendas=fresh.tiendas;
+  APP.enemigos=fresh.enemigos; APP.combate=[]; APP.notificaciones={};
+  APP.rasgosCustom=[]; APP.extrasCustom=[]; APP.rasgosOverride={}; APP.extrasOverride={}; aplicarOverridesContenido();
+  APP.radZona=fresh.radZona; APP.cofre=fresh.cofre; APP.cofreObjetos=[]; APP.recetasPendientes=[]; APP.enCiudad=false;
+  if(!FB_MOCK&&db) db.ref('salas/'+APP.salaId).set(fresh);
+  showNotif('Sala reseteada por completo');
+  renderApp();
 };
 window.crearFicha=function(){
   const n=document.getElementById('nf-n').value.trim();if(!n)return showNotif('Escribe un nombre');
