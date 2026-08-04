@@ -2376,11 +2376,9 @@ function descontarCoste(j,ingredientes){
   saveCofre(); saveCofreObjetos();
 }
 
-window.jugadorObjACofre=function(){
+window.jugadorObjACofre=function(objId){
   if(!APP.enCiudad) return showNotif('El Cofre solo está disponible en ciudad/refugio');
-  const sel=document.getElementById('cofre-obj-sel');
-  if(!sel||!sel.value) return;
-  const objId=parseInt(sel.value)||sel.value;
+  objId=parseInt(objId)||objId;
   const j=myFicha();
   const idx=(j.inventario||[]).findIndex(function(it){return it.objId===objId;});
   if(idx<0) return showNotif('No tienes ese objeto');
@@ -2393,6 +2391,7 @@ window.jugadorObjACofre=function(){
   saveJ(); saveCofreObjetos();
   const o=getObjById(objId);
   showNotif((o?o.n:'Objeto')+' guardado en el Cofre');
+  cerrarDetalle();
   renderApp();
 };
 
@@ -2427,6 +2426,24 @@ window.masterCofreMod=function(k,delta){
   if(!APP.cofre) APP.cofre={};
   APP.cofre[k]=Math.max(0,(APP.cofre[k]||0)+(parseInt(delta)*cant));
   saveCofre();
+  renderApp();
+};
+
+window.masterRecursoAJugador=function(k){
+  const cantEl=document.getElementById('m-cofre-cant');
+  const cant=Math.max(1,parseInt(cantEl?cantEl.value:1)||1);
+  const jidEl=document.getElementById('m-cofre-jugador');
+  const jid=jidEl?jidEl.value:'';
+  if(!jid) return showNotif('Elige un jugador');
+  const sala=getMockSala(APP.salaId);
+  const jug=sala.jugadores[jid];
+  if(!jug) return showNotif('Jugador no encontrado');
+  if(!jug.recursos) jug.recursos={};
+  jug.recursos[k]=(jug.recursos[k]||0)+cant;
+  APP.jugadores=sala.jugadores;
+  fbSet('salas/'+APP.salaId+'/jugadores/'+jid+'/recursos',jug.recursos);
+  const r=RECURSOS_FABRICACION.find(function(x){return x.k===k;});
+  showNotif(cant+'x '+(r?r.n:k)+' entregado a '+jug.nombre);
   renderApp();
 };
 
@@ -3290,43 +3307,28 @@ function renderJInv(){
     +(!(j.inventario||[]).length?'<div class="empty">Sin objetos</div>':renderInvGrupos(j, eq))
     +'</div></div>'
 
-    // ── RECURSOS DE FABRICACIÓN ──
-    +'<div class="card" style="margin-top:8px;"><div class="card-hdr">RECURSOS DE FABRICACIÓN</div>'
+    // ── 🗃 COFRE COMÚN (recursos + objetos) ──
+    +'<div class="card" style="margin-top:8px;"><div class="card-hdr">🗃 COFRE COMÚN</div>'
     +'<div style="padding:8px 10px;">'
     +(APP.enCiudad
-      ?'<div style="font-size:9px;color:#64c8ff;margin-bottom:6px;">🏙 EN CIUDAD/REFUGIO · puedes guardar y sacar del Cofre común</div>'
+      ?'<div style="font-size:9px;color:#64c8ff;margin-bottom:6px;">🏙 EN CIUDAD/REFUGIO · puedes guardar y sacar del Cofre común. Para guardar un objeto, ábrelo desde el inventario y pulsa "Enviar al Cofre".</div>'
       :'<div style="font-size:9px;color:var(--pip-dim);margin-bottom:6px;">Fuera de ciudad: el Cofre común no está disponible ahora mismo</div>')
+    +'<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin-bottom:4px;">RECURSOS (los entrega el Master)</div>'
     +RECURSOS_FABRICACION.filter(function(r){return !r.consumible;}).map(function(r){return renderRecursoRow(j,r);}).join('')
     +'<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin:10px 0 4px;border-bottom:1px solid var(--pip-border);padding-bottom:3px;">CONSUMIBLES</div>'
     +RECURSOS_FABRICACION.filter(function(r){return r.consumible;}).map(function(r){return renderRecursoRow(j,r);}).join('')
-    +'</div></div>'
-
-    // ── COFRE COMÚN (OBJETOS) ──
-    +'<div class="card" style="margin-top:8px;"><div class="card-hdr">🗃 COFRE COMÚN</div>'
-    +'<div style="padding:8px 10px;">'
-    +(!APP.enCiudad
-      ?'<div style="font-size:9px;color:var(--pip-dim);">Fuera de ciudad: el Cofre no está disponible ahora mismo</div>'
-      :(function(){
+    +(function(){
         const cofreItems=(APP.cofreObjetos||[]).map(function(ci){return {ci:ci,o:getObjById(ci.objId)};}).filter(function(x){return x.o;});
-        const misItems=(j.inventario||[]).map(function(it){return {it:it,o:getObjById(it.objId)};}).filter(function(x){return x.o;});
-        return '<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin-bottom:4px;">EN EL COFRE ('+cofreItems.length+')</div>'
+        return '<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin:10px 0 4px;border-bottom:1px solid var(--pip-border);padding-bottom:3px;">OBJETOS EN EL COFRE ('+cofreItems.length+')</div>'
           +(!cofreItems.length?'<div class="empty" style="padding:8px;">Vacío</div>'
             :cofreItems.map(function(x){
               return '<div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid rgba(74,254,130,.08);">'
                 +'<span style="flex:1;font-size:12px;color:var(--pip-bright);">'+x.o.n+'</span>'
                 +'<span style="font-family:VT323,monospace;font-size:16px;color:var(--pip-warn);">x'+x.ci.qty+'</span>'
-                +'<button class="chip chip-g" data-oid="'+x.ci.objId+'" onclick="jugadorObjDeCofre(this.dataset.oid)">SACAR</button>'
+                +(APP.enCiudad?'<button class="chip chip-g" data-oid="'+x.ci.objId+'" onclick="jugadorObjDeCofre(this.dataset.oid)">SACAR</button>':'')
                 +'</div>';
-            }).join(''))
-          +'<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin:10px 0 4px;border-bottom:1px solid var(--pip-border);padding-bottom:3px;">GUARDAR UN OBJETO MÍO</div>'
-          +(!misItems.length?'<div class="empty" style="padding:8px;">No tienes objetos en el inventario</div>'
-            :'<div style="display:flex;gap:6px;">'
-              +'<select id="cofre-obj-sel" style="flex:1;font-family:VT323,monospace;font-size:14px;padding:4px 6px;background:var(--pip-dark);border:1px solid var(--pip-border);color:var(--pip-bright);">'
-              +misItems.map(function(x){return '<option value="'+x.it.objId+'">'+x.o.n+' (x'+x.it.qty+')</option>';}).join('')
-              +'</select>'
-              +'<button class="chip chip-g" onclick="jugadorObjACofre()">GUARDAR</button>'
-              +'</div>');
-      })())
+            }).join(''));
+      })()
     +'</div></div>';
 
   function renderRecursoRow(j,r){
@@ -3353,7 +3355,8 @@ function renderJRecetas(){
   if(draft){
     if(draft.paso==='editar') return renderRecetaPasoEditar(j,draft);
     if(draft.paso==='coste') return renderRecetaPasoCoste(j,draft);
-    return renderRecetaPasoBase(j,draft);
+    if(draft.paso==='elegirBase') return renderRecetaPasoElegirBase(j,draft);
+    return renderRecetaPasoModo(j,draft);
   }
   const misPendientes=(APP.recetasPendientes||[]).filter(function(p){return p.jugadorId===j.id;});
   const limite=5;
@@ -3384,14 +3387,23 @@ function renderJRecetas(){
     +'</div></div>';
 }
 
-function renderRecetaPasoBase(j,draft){
+function renderRecetaPasoModo(j,draft){
+  return '<div class="card"><div class="card-hdr">▸ PROPONER RECETA (1/3)</div><div style="padding:10px 12px;">'
+    +'<div style="font-size:10px;color:var(--pip-dim);margin-bottom:12px;">¿Tu receta mejora un objeto existente creando uno nuevo, o solo sirve para fabricar más copias de algo que ya existe?</div>'
+    +'<button class="btn btn-block" style="margin-bottom:8px;" onclick="elegirModoReceta(true)">🔧 MEJORAR (crea un objeto nuevo)</button>'
+    +'<button class="btn btn-block" onclick="elegirModoReceta(false)">📦 CREAR (fabricar un objeto ya existente, sin modificar)</button>'
+    +'<button class="btn btn-warn" style="margin-top:14px;width:100%;" onclick="cancelarPropuestaReceta()">✕ CANCELAR</button>'
+    +'</div></div>';
+}
+
+function renderRecetaPasoElegirBase(j,draft){
   const grupos={};
   (APP.tienda||[]).forEach(function(o){ if(!o||!o.tipo||!o.n) return; (grupos[o.tipo]=grupos[o.tipo]||[]).push(o); });
-  return '<div class="card"><div class="card-hdr">▸ PROPONER RECETA (1/3) — OBJETO BASE</div><div style="padding:10px 12px;">'
-    +'<div style="font-size:10px;color:var(--pip-dim);margin-bottom:8px;">Elige el objeto que usarás de plantilla para tu receta.</div>'
-    +'<label style="display:flex;align-items:center;gap:6px;margin-bottom:10px;font-size:11px;color:var(--pip-bright);border:1px solid var(--pip-border);padding:8px;">'
-    +'<input type="checkbox" id="rc-mejora" '+(draft.esMejora?'checked':'')+'> Es una MEJORA — el objeto base elegido se gastará al fabricar'
-    +'</label>'
+  const titulo=draft.esMejora?'OBJETO A MEJORAR':'OBJETO A FABRICAR';
+  const nota=draft.esMejora?'Elige el objeto que quieres mejorar — se gastará 1 unidad al fabricar.':'Elige el objeto que quieres poder fabricar — se creará tal cual, sin modificar.';
+  const botonSiguiente=draft.esMejora?'SIGUIENTE ▸':'IR AL COSTE ▸';
+  return '<div class="card"><div class="card-hdr">▸ PROPONER RECETA (1/'+(draft.esMejora?'3':'2')+') — '+titulo+'</div><div style="padding:10px 12px;">'
+    +'<div style="font-size:10px;color:var(--pip-dim);margin-bottom:8px;">'+nota+'</div>'
     +Object.keys(grupos).map(function(tipo){
       return '<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin:8px 0 4px;border-bottom:1px solid var(--pip-border);padding-bottom:3px;">'+tipo.toUpperCase()+'</div>'
         +grupos[tipo].map(function(o){
@@ -3401,13 +3413,14 @@ function renderRecetaPasoBase(j,draft){
         }).join('');
     }).join('')
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px;">'
-    +'<button class="btn btn-warn" onclick="cancelarPropuestaReceta()">✕ CANCELAR</button>'
-    +'<button class="btn" '+(!draft.objetoBaseId?'disabled':'')+' onclick="avanzarRecetaEditar()">SIGUIENTE ▸</button>'
+    +'<button class="btn btn-warn" onclick="retrocederRecetaModo()">◂ ATRÁS</button>'
+    +'<button class="btn" '+(!draft.objetoBaseId?'disabled':'')+' onclick="avanzarRecetaEditar()">'+botonSiguiente+'</button>'
     +'</div></div></div>';
 }
 
 function renderRecetaPasoEditar(j,draft){
-  const base=getObjById(draft.objetoBaseId); if(!base) return renderRecetaPasoBase(j,draft);
+  const base=getObjById(draft.objetoBaseId);
+  if(!base) return renderRecetaPasoModo(j,draft);
   const s='style="font-family:VT323,monospace;font-size:15px;padding:4px 6px;background:var(--pip-dark);border:1px solid var(--pip-border);color:var(--pip-bright);width:100%;"';
   const sm='style="font-family:VT323,monospace;font-size:15px;padding:4px 6px;background:var(--pip-dark);border:1px solid var(--pip-border);color:var(--pip-bright);width:65px;"';
   const catActual=APP._recetaEfCat||'atributo';
@@ -3430,8 +3443,8 @@ function renderRecetaPasoEditar(j,draft){
       +'<div><label style="font-size:9px;color:var(--pip-dim);display:block;margin-bottom:3px;">ESTADO</label><input type="number" id="rc-estado" value="'+(draft.estado!=null?draft.estado:(base.estado||0))+'" min="0" '+s+'></div>'
       +'</div>';
   }
-  return '<div class="card"><div class="card-hdr">▸ PROPONER RECETA (2/3) — basado en: '+base.n+'</div><div style="padding:10px 12px;">'
-    +'<div style="margin-bottom:8px;"><label style="font-size:9px;color:var(--pip-dim);display:block;margin-bottom:3px;">NOMBRE NUEVO (obligatorio, distinto del original)</label><input type="text" id="rc-n" value="'+(draft.nombre||'')+'" placeholder="Nombre de tu receta" '+s+'></div>'
+  return '<div class="card"><div class="card-hdr">▸ PROPONER RECETA (2/3) — '+(draft.esMejora?'basado en: '+base.n:'nuevo objeto tipo '+base.tipo)+'</div><div style="padding:10px 12px;">'
+    +'<div style="margin-bottom:8px;"><label style="font-size:9px;color:var(--pip-dim);display:block;margin-bottom:3px;">NOMBRE'+(draft.esMejora?' NUEVO (obligatorio, distinto del original)':' (obligatorio)')+'</label><input type="text" id="rc-n" value="'+(draft.nombre||'')+'" placeholder="Nombre de tu receta" '+s+'></div>'
     +'<div style="margin-bottom:8px;"><label style="font-size:9px;color:var(--pip-dim);display:block;margin-bottom:3px;">DESCRIPCIÓN / NOTAS</label><textarea id="rc-d" rows="2" '+s+'>'+(draft.desc!=null?draft.desc:(base.desc||''))+'</textarea></div>'
     +camposExtra
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px;">'
@@ -3472,15 +3485,32 @@ function renderRecetaPasoCoste(j,draft){
 }
 
 window.iniciarPropuestaReceta=function(){
-  APP._recetaDraft={paso:'base',esMejora:false,objetoBaseId:null,nombre:'',desc:null,efectos:[],calidad:null,estado:null,ingredientes:[]};
+  APP._recetaDraft={paso:'modo',esMejora:false,objetoBaseId:null,nombre:'',desc:null,efectos:[],calidad:null,estado:null,ingredientes:[]};
   renderApp();
 };
 window.cancelarPropuestaReceta=function(){ APP._recetaDraft=null; renderApp(); };
+window.elegirModoReceta=function(esMejora){
+  const d=APP._recetaDraft;
+  d.esMejora=!!esMejora;
+  d.paso='elegirBase';
+  renderApp();
+};
+window.retrocederRecetaModo=function(){ APP._recetaDraft.paso='modo'; renderApp(); };
 window.elegirBaseReceta=function(oid){ APP._recetaDraft.objetoBaseId=oid; const mc=document.getElementById('main-content'); if(mc) mc.innerHTML=renderJRecetas(); };
 window.avanzarRecetaEditar=function(){
   const d=APP._recetaDraft;
-  const chk=document.getElementById('rc-mejora');
-  d.esMejora=chk?chk.checked:false;
+  if(!d.esMejora){
+    // Crear = fabricar copia de un objeto existente, sin modificar: saltar directo a coste
+    const base=getObjById(d.objetoBaseId);
+    d.nombre=base?base.n:'';
+    d.desc=base?base.desc:'';
+    d.efectos=(base&&base.efectos)?JSON.parse(JSON.stringify(base.efectos)):[];
+    d.calidad=base?base.calidad:null;
+    d.estado=base?base.estado:null;
+    d.paso='coste';
+    renderApp();
+    return;
+  }
   d.paso='editar';
   renderApp();
 };
@@ -3491,7 +3521,7 @@ function guardarCamposEditarDraft(){
   const cal=document.getElementById('rc-calidad'); if(cal) d.calidad=parseInt(cal.value)||0;
   const est=document.getElementById('rc-estado'); if(est) d.estado=parseInt(est.value)||0;
 }
-window.retrocederRecetaBase=function(){ guardarCamposEditarDraft(); APP._recetaDraft.paso='base'; renderApp(); };
+window.retrocederRecetaBase=function(){ guardarCamposEditarDraft(); const d=APP._recetaDraft; d.paso=d.esMejora?'elegirBase':'elegirTipo'; renderApp(); };
 window.recetaCambiarCatEfecto=function(cat){ guardarCamposEditarDraft(); APP._recetaEfCat=cat; const mc=document.getElementById('main-content'); if(mc) mc.innerHTML=renderJRecetas(); };
 window.recetaAddEfecto=function(){
   guardarCamposEditarDraft();
@@ -3518,7 +3548,7 @@ window.avanzarRecetaCoste=function(){
   d.paso='coste';
   renderApp();
 };
-window.retrocederRecetaEditar=function(){ APP._recetaDraft.paso='editar'; renderApp(); };
+window.retrocederRecetaEditar=function(){ const d=APP._recetaDraft; d.paso=d.esMejora?'editar':'elegirBase'; renderApp(); };
 window.recetaAddIngredienteRecurso=function(){
   const d=APP._recetaDraft;
   const k=(document.getElementById('rc-ing-recurso')||{}).value;
@@ -3558,7 +3588,6 @@ window.enviarPropuestaReceta=function(){
   const misPendientes=(APP.recetasPendientes||[]).filter(function(p){return p.jugadorId===j.id;});
   if(misPendientes.length>=5) return showNotif('Máximo 5 propuestas pendientes');
   if(!d.ingredientes.length) return showNotif('Añade al menos un ingrediente');
-  const base=getObjById(d.objetoBaseId);
   const propuesta={
     id:'recp_'+Date.now(), jugadorId:j.id, jugadorNombre:j.nombre,
     objetoBaseId:d.objetoBaseId, esMejora:d.esMejora,
@@ -4983,15 +5012,21 @@ function renderMObjetos(){
     +'<div style="padding:10px 12px;">'
     +'<div style="font-size:9px;color:var(--pip-dim);margin-bottom:8px;">Mientras esté EN CIUDAD, los jugadores pueden guardar y sacar recursos del Cofre común desde su inventario.</div>'
     +'<button class="btn btn-block '+(APP.enCiudad?'btn-danger':'btn-warn')+'" onclick="masterToggleCiudad()">'+(APP.enCiudad?'⏸ SALIR DE CIUDAD':'▶ ENTRAR EN CIUDAD / REFUGIO')+'</button>'
-    +'<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin:12px 0 4px;border-bottom:1px solid var(--pip-border);padding-bottom:3px;">🗃 COFRE COMÚN</div>'
+    +'<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin:12px 0 4px;border-bottom:1px solid var(--pip-border);padding-bottom:3px;">🗃 COFRE COMÚN — RECURSOS DE FABRICACIÓN</div>'
+    +'<div style="font-size:9px;color:var(--pip-dim);margin-bottom:6px;">Los recursos solo los entrega el Master: al Cofre común (+/−) o a un jugador en concreto.</div>'
     +'<div class="form-row"><span class="form-lbl">CANTIDAD:</span><input type="number" id="m-cofre-cant" class="mod-input" value="10" min="1"></div>'
+    +'<div class="form-row"><span class="form-lbl">JUGADOR:</span><select id="m-cofre-jugador" class="mod-input">'
+      +'<option value="">— Elegir jugador —</option>'
+      +Object.values(APP.jugadores||{}).filter(function(j){return j.confirmada;}).map(function(j){return '<option value="'+j.id+'">'+j.nombre+'</option>';}).join('')
+      +'</select></div>'
     +RECURSOS_FABRICACION.map(function(r){
       var cant=(APP.cofre&&APP.cofre[r.k])||0;
-      return '<div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid rgba(74,254,130,.08);">'
+      return '<div style="display:flex;align-items:center;gap:4px;padding:4px 0;border-bottom:1px solid rgba(74,254,130,.08);flex-wrap:wrap;">'
         +'<span style="flex:1;font-size:12px;color:var(--pip-bright);">'+r.icono+' '+r.n+'</span>'
         +'<span style="font-family:VT323,monospace;font-size:18px;color:var(--pip-warn);min-width:32px;text-align:right;">'+cant+'</span>'
         +'<button class="chip chip-r" data-k="'+r.k+'" onclick="masterCofreMod(this.dataset.k,-1)">−</button>'
         +'<button class="chip chip-g" data-k="'+r.k+'" onclick="masterCofreMod(this.dataset.k,1)">+</button>'
+        +'<button class="chip" style="border-color:var(--pip-warn);color:var(--pip-warn);" data-k="'+r.k+'" onclick="masterRecursoAJugador(this.dataset.k)">→ JUGADOR</button>'
         +'</div>';
     }).join('')
     +'</div></div>';
@@ -5547,30 +5582,36 @@ function renderMRecetaEditar(p){
   const sm='style="font-family:VT323,monospace;font-size:15px;padding:4px 6px;background:var(--pip-dark);border:1px solid var(--pip-border);color:var(--pip-bright);width:65px;"';
   const catActual=APP._mRecetaEfCat||'atributo';
   const paramsActuales=CATALOGO_PARAMS[catActual]||[];
-  var camposExtra='';
-  if(base.tipo==='droga'){
-    const efectos=p.efectos||[];
-    camposExtra='<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin:10px 0 4px;border-bottom:1px solid var(--pip-border);padding-bottom:3px;">EFECTOS</div>'
-      +(!efectos.length?'<div style="font-size:10px;color:var(--pip-dim);">Sin efectos</div>'
-        :efectos.map(function(ef,i){return '<div style="display:flex;justify-content:space-between;border:1px solid var(--pip-border);padding:4px 8px;margin-bottom:4px;"><span style="font-size:12px;color:var(--pip-bright);">'+(ef.signo==='-'?'−':'+')+ef.valor+' '+nombreParam(ef.cat,ef.param)+'</span><button class="chip chip-r" data-i="'+i+'" onclick="masterRecetaDelEfecto(parseInt(this.dataset.i))">×</button></div>';}).join(''))
-      +'<div style="display:grid;grid-template-columns:1fr;gap:6px;margin-top:6px;padding:8px;border:1px dashed var(--pip-border);">'
-      +'<select id="mr-ef-cat" onchange="masterRecetaCambiarCatEfecto(this.value)" '+s+'>'+CATEGORIAS_EFECTO.map(function(c){return '<option value="'+c.k+'"'+(catActual===c.k?' selected':'')+'>'+c.n+'</option>';}).join('')+'</select>'
-      +'<select id="mr-ef-param" '+s+'>'+paramsActuales.map(function(pm){return '<option value="'+pm.k+'">'+pm.n+'</option>';}).join('')+'</select>'
-      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;"><select id="mr-ef-signo" '+s+'><option value="+">+ (suma)</option><option value="-">− (resta)</option></select><input type="number" id="mr-ef-valor" value="1" min="0" '+sm+'></div>'
-      +'<button class="btn btn-sm" onclick="masterRecetaAddEfecto()">+ AÑADIR EFECTO</button>'
-      +'</div>';
-  } else if(base.tipo==='arma'){
-    camposExtra='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">'
-      +'<div><label style="font-size:9px;color:var(--pip-dim);display:block;margin-bottom:3px;">CALIDAD</label><input type="number" id="mr-calidad" value="'+(p.calidad!=null?p.calidad:0)+'" min="0" '+s+'></div>'
-      +'<div><label style="font-size:9px;color:var(--pip-dim);display:block;margin-bottom:3px;">ESTADO</label><input type="number" id="mr-estado" value="'+(p.estado!=null?p.estado:0)+'" min="0" '+s+'></div>'
-      +'</div>';
+  var camposObjeto='';
+  if(!p.esMejora){
+    camposObjeto='<div style="font-size:10px;color:var(--pip-dim);margin-bottom:8px;padding:8px;border:1px solid var(--pip-border);">📦 Receta para fabricar más copias de <b style="color:var(--pip-bright);">'+base.n+'</b>, sin modificar. Solo se revisa el coste.</div>';
+  } else {
+    var camposExtra='';
+    if(base.tipo==='droga'){
+      const efectos=p.efectos||[];
+      camposExtra='<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin:10px 0 4px;border-bottom:1px solid var(--pip-border);padding-bottom:3px;">EFECTOS</div>'
+        +(!efectos.length?'<div style="font-size:10px;color:var(--pip-dim);">Sin efectos</div>'
+          :efectos.map(function(ef,i){return '<div style="display:flex;justify-content:space-between;border:1px solid var(--pip-border);padding:4px 8px;margin-bottom:4px;"><span style="font-size:12px;color:var(--pip-bright);">'+(ef.signo==='-'?'−':'+')+ef.valor+' '+nombreParam(ef.cat,ef.param)+'</span><button class="chip chip-r" data-i="'+i+'" onclick="masterRecetaDelEfecto(parseInt(this.dataset.i))">×</button></div>';}).join(''))
+        +'<div style="display:grid;grid-template-columns:1fr;gap:6px;margin-top:6px;padding:8px;border:1px dashed var(--pip-border);">'
+        +'<select id="mr-ef-cat" onchange="masterRecetaCambiarCatEfecto(this.value)" '+s+'>'+CATEGORIAS_EFECTO.map(function(c){return '<option value="'+c.k+'"'+(catActual===c.k?' selected':'')+'>'+c.n+'</option>';}).join('')+'</select>'
+        +'<select id="mr-ef-param" '+s+'>'+paramsActuales.map(function(pm){return '<option value="'+pm.k+'">'+pm.n+'</option>';}).join('')+'</select>'
+        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;"><select id="mr-ef-signo" '+s+'><option value="+">+ (suma)</option><option value="-">− (resta)</option></select><input type="number" id="mr-ef-valor" value="1" min="0" '+sm+'></div>'
+        +'<button class="btn btn-sm" onclick="masterRecetaAddEfecto()">+ AÑADIR EFECTO</button>'
+        +'</div>';
+    } else if(base.tipo==='arma'){
+      camposExtra='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">'
+        +'<div><label style="font-size:9px;color:var(--pip-dim);display:block;margin-bottom:3px;">CALIDAD</label><input type="number" id="mr-calidad" value="'+(p.calidad!=null?p.calidad:0)+'" min="0" '+s+'></div>'
+        +'<div><label style="font-size:9px;color:var(--pip-dim);display:block;margin-bottom:3px;">ESTADO</label><input type="number" id="mr-estado" value="'+(p.estado!=null?p.estado:0)+'" min="0" '+s+'></div>'
+        +'</div>';
+    }
+    camposObjeto='<div style="margin-bottom:8px;"><label style="font-size:9px;color:var(--pip-dim);display:block;margin-bottom:3px;">NOMBRE</label><input type="text" id="mr-n" value="'+p.nombre+'" '+s+'></div>'
+      +'<div style="margin-bottom:8px;"><label style="font-size:9px;color:var(--pip-dim);display:block;margin-bottom:3px;">DESCRIPCIÓN</label><textarea id="mr-d" rows="2" '+s+'>'+(p.desc||'')+'</textarea></div>'
+      +camposExtra;
   }
   const ingHtml=(p.ingredientes||[]).map(function(ing,i){var d=detalleIngrediente(ing); return '<div style="display:flex;justify-content:space-between;border:1px solid var(--pip-border);padding:4px 8px;margin-bottom:4px;"><span style="font-size:12px;color:var(--pip-bright);">'+d.cant+'x '+d.label+'</span><button class="chip chip-r" data-i="'+i+'" onclick="masterRecetaDelIngrediente(parseInt(this.dataset.i))">×</button></div>';}).join('');
 
-  return '<div class="card" style="border-color:rgba(245,185,66,.4);"><div class="card-hdr" style="color:var(--pip-warn);">✎ RECETA DE '+p.jugadorNombre+' (basada en '+base.n+')</div><div style="padding:10px 12px;">'
-    +'<div style="margin-bottom:8px;"><label style="font-size:9px;color:var(--pip-dim);display:block;margin-bottom:3px;">NOMBRE</label><input type="text" id="mr-n" value="'+p.nombre+'" '+s+'></div>'
-    +'<div style="margin-bottom:8px;"><label style="font-size:9px;color:var(--pip-dim);display:block;margin-bottom:3px;">DESCRIPCIÓN</label><textarea id="mr-d" rows="2" '+s+'>'+(p.desc||'')+'</textarea></div>'
-    +camposExtra
+  return '<div class="card" style="border-color:rgba(245,185,66,.4);"><div class="card-hdr" style="color:var(--pip-warn);">✎ RECETA DE '+p.jugadorNombre+' — '+(p.esMejora?'MEJORA de '+base.n:'CREAR: '+base.n)+'</div><div style="padding:10px 12px;">'
+    +camposObjeto
     +'<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin:10px 0 4px;border-bottom:1px solid var(--pip-border);padding-bottom:3px;">INGREDIENTES</div>'
     +ingHtml
     +'<div style="display:grid;grid-template-columns:2fr 1fr auto;gap:6px;margin-bottom:6px;">'
@@ -5669,24 +5710,34 @@ window.masterRechazarReceta=function(id){
 window.masterAceptarReceta=function(id){
   masterGuardarCamposReceta();
   const p=(APP.recetasPendientes||[]).find(function(x){return x.id===id;}); if(!p) return;
-  if(!p.nombre||!p.nombre.trim()) return showNotif('Falta un nombre');
-  const nombreOcupado=(APP.tienda||[]).some(function(o){return o&&o.n&&o.n.toLowerCase()===p.nombre.trim().toLowerCase();});
-  if(nombreOcupado) return showNotif('Ya existe un objeto con ese nombre');
-  const base=getObjById(p.objetoBaseId)||{};
-  const nuevoObj=Object.assign({},base,{id:Date.now(),n:p.nombre.trim(),desc:p.desc||''});
-  if(p.efectos&&p.efectos.length) nuevoObj.efectos=p.efectos;
-  if(p.calidad!=null) nuevoObj.calidad=p.calidad;
-  if(p.estado!=null) nuevoObj.estado=p.estado;
-  if(!APP.tienda) APP.tienda=[];
-  APP.tienda.push(nuevoObj);
   const sala=getMockSala(APP.salaId);
-  sala.tienda=APP.tienda;
-  fbSet('salas/'+APP.salaId+'/tienda',APP.tienda);
+  let resultadoObjId, nombreFinal;
+
+  if(p.esMejora){
+    if(!p.nombre||!p.nombre.trim()) return showNotif('Falta un nombre');
+    const nombreOcupado=(APP.tienda||[]).some(function(o){return o&&o.n&&o.n.toLowerCase()===p.nombre.trim().toLowerCase();});
+    if(nombreOcupado) return showNotif('Ya existe un objeto con ese nombre');
+    const base=getObjById(p.objetoBaseId)||{};
+    const nuevoObj=Object.assign({},base,{id:Date.now(),n:p.nombre.trim(),desc:p.desc||''});
+    if(p.efectos&&p.efectos.length) nuevoObj.efectos=p.efectos;
+    if(p.calidad!=null) nuevoObj.calidad=p.calidad;
+    if(p.estado!=null) nuevoObj.estado=p.estado;
+    if(!APP.tienda) APP.tienda=[];
+    APP.tienda.push(nuevoObj);
+    sala.tienda=APP.tienda;
+    fbSet('salas/'+APP.salaId+'/tienda',APP.tienda);
+    resultadoObjId=nuevoObj.id; nombreFinal=nuevoObj.n;
+  } else {
+    // Crear = fabricar copias de un objeto ya existente, sin modificar: no se crea ningún objeto nuevo
+    const base=getObjById(p.objetoBaseId);
+    if(!base) return showNotif('El objeto base ya no existe');
+    resultadoObjId=base.id; nombreFinal=base.n;
+  }
 
   const jugador=sala.jugadores[p.jugadorId];
   if(jugador){
     if(!jugador.recetas) jugador.recetas=[];
-    jugador.recetas.push({id:'rec_'+Date.now(),nombre:p.nombre.trim(),resultadoObjId:nuevoObj.id,ingredientes:p.ingredientes});
+    jugador.recetas.push({id:'rec_'+Date.now(),nombre:nombreFinal,resultadoObjId:resultadoObjId,ingredientes:p.ingredientes});
     fbSet('salas/'+APP.salaId+'/jugadores/'+p.jugadorId,jugador);
   }
 
@@ -6314,6 +6365,9 @@ window.abrirDetalle=function(objId,origen){
       const sala2=getMockSala(APP.salaId);
       const tiendaAct=(sala2.tiendas||[]).find(function(t){return t.activa;});
       const precioVenta=o.val?Math.floor(o.val/2):0;
+      if(APP.enCiudad){
+        acciones+='<button class="obj-equip-btn" style="border-color:#64c8ff;color:#64c8ff;" data-oid="'+o.id+'" onclick="jugadorObjACofre(this.dataset.oid)">🗃 ENVIAR AL COFRE</button>';
+      }
       acciones+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:4px;">'
         +(tiendaAct&&precioVenta>0
           ?'<button class="obj-equip-btn" style="border-color:var(--pip-warn);color:var(--pip-warn);" data-idx="'+idxT+'" onclick="venderObjeto(parseInt(this.dataset.idx));cerrarDetalle()">💰 VENDER ('+precioVenta+'¢)</button>'
