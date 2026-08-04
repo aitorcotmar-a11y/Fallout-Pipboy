@@ -578,7 +578,7 @@ function startRealtime(salaId){
     var jugsRaw=s.jugadores||{};
     Object.keys(jugsRaw).forEach(function(k){ normalizarFicha(jugsRaw[k]); });
     APP.jugadores=jugsRaw;
-    APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[]; APP.extrasCustom=s.extrasCustom||[]; APP.rasgosOverride=s.rasgosOverride||{}; APP.extrasOverride=s.extrasOverride||{}; APP.radZona=s.radZona||{activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0}; APP.cofre=s.cofre||{chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0}; APP.enCiudad=s.enCiudad||false; aplicarOverridesContenido();
+    APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[]; APP.extrasCustom=s.extrasCustom||[]; APP.rasgosOverride=s.rasgosOverride||{}; APP.extrasOverride=s.extrasOverride||{}; APP.radZona=s.radZona||{activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0}; APP.cofre=s.cofre||{chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0}; APP.cofreObjetos=s.cofreObjetos||[]; APP.recetasPendientes=s.recetasPendientes||[]; APP.enCiudad=s.enCiudad||false; aplicarOverridesContenido();
     APP.enemigos=s.enemigos||[];
     APP.combate=s.combate||[];
     APP.tiendas=s.tiendas||[];
@@ -1360,6 +1360,8 @@ function getMockSala(id){
       rasgosCustom:[], extrasCustom:[], rasgosOverride:{}, extrasOverride:{},
       radZona:{activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0},
       cofre:{chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0},
+      cofreObjetos:[],
+      recetasPendientes:[],
       enCiudad:false,
       enVenta:[], enemigos:[...ENEMIGOS_EJEMPLO], combate:[],
       notificaciones:{},
@@ -1438,7 +1440,7 @@ function salirApp(){
   // Reset completo del estado
   APP.rol=null; APP.jugadorId=null; APP.salaId=null;
   APP.masterTab='fichas'; APP.fichaInner='estado';
-  APP.jugadores={}; APP.tienda=[]; APP.enemigos=[]; APP.combate=[]; APP.rasgosCustom=[]; APP.extrasCustom=[]; APP.rasgosOverride={}; APP.extrasOverride={}; APP.radZona={activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0}; APP.cofre={chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0}; APP.enCiudad=false;
+  APP.jugadores={}; APP.tienda=[]; APP.enemigos=[]; APP.combate=[]; APP.rasgosCustom=[]; APP.extrasCustom=[]; APP.rasgosOverride={}; APP.extrasOverride={}; APP.radZona={activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0}; APP.cofre={chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0}; APP.cofreObjetos=[]; APP.recetasPendientes=[]; APP.enCiudad=false;
   APP.tiendas=[]; APP.notificaciones={}; APP._gruposAbiertos={};
   MOCK.salas={};
   showScreen('login-screen');
@@ -1560,7 +1562,7 @@ function entrarMaster(){
         fbSaveSala(APP.salaId);
       }
       const s=getMockSala(APP.salaId);
-      APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[]; APP.extrasCustom=s.extrasCustom||[]; APP.rasgosOverride=s.rasgosOverride||{}; APP.extrasOverride=s.extrasOverride||{}; APP.radZona=s.radZona||{activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0}; APP.cofre=s.cofre||{chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0}; APP.enCiudad=s.enCiudad||false; aplicarOverridesContenido();
+      APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[]; APP.extrasCustom=s.extrasCustom||[]; APP.rasgosOverride=s.rasgosOverride||{}; APP.extrasOverride=s.extrasOverride||{}; APP.radZona=s.radZona||{activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0}; APP.cofre=s.cofre||{chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0}; APP.cofreObjetos=s.cofreObjetos||[]; APP.recetasPendientes=s.recetasPendientes||[]; APP.enCiudad=s.enCiudad||false; aplicarOverridesContenido();
       APP.enemigos=s.enemigos||[]; APP.combate=s.combate||[];
       APP.tiendas=s.tiendas||[]; APP.notificaciones=s.notificaciones||{};
       // Comprobar si master ya está conectado (con tolerancia de 15s)
@@ -1592,7 +1594,7 @@ function entrarMaster(){
 
 function entrarMasterLocal(){
   const s=getMockSala(APP.salaId);
-  APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[]; APP.extrasCustom=s.extrasCustom||[]; APP.rasgosOverride=s.rasgosOverride||{}; APP.extrasOverride=s.extrasOverride||{}; APP.radZona=s.radZona||{activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0}; APP.cofre=s.cofre||{chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0}; APP.enCiudad=s.enCiudad||false; aplicarOverridesContenido();
+  APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[]; APP.extrasCustom=s.extrasCustom||[]; APP.rasgosOverride=s.rasgosOverride||{}; APP.extrasOverride=s.extrasOverride||{}; APP.radZona=s.radZona||{activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0}; APP.cofre=s.cofre||{chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0}; APP.cofreObjetos=s.cofreObjetos||[]; APP.recetasPendientes=s.recetasPendientes||[]; APP.enCiudad=s.enCiudad||false; aplicarOverridesContenido();
   APP.enemigos=s.enemigos||[]; APP.combate=s.combate||[];
   APP.tiendas=s.tiendas||[]; APP.notificaciones=s.notificaciones||{};
   renderApp();
@@ -1712,7 +1714,7 @@ function completarEntradaJugador(id){
       const data=snap.val();
       if(data) MOCK.salas[APP.salaId]=Object.assign(getMockSala(APP.salaId), data);
       const s=getMockSala(APP.salaId);
-      APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[]; APP.extrasCustom=s.extrasCustom||[]; APP.rasgosOverride=s.rasgosOverride||{}; APP.extrasOverride=s.extrasOverride||{}; APP.radZona=s.radZona||{activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0}; APP.cofre=s.cofre||{chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0}; APP.enCiudad=s.enCiudad||false; aplicarOverridesContenido();
+      APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[]; APP.extrasCustom=s.extrasCustom||[]; APP.rasgosOverride=s.rasgosOverride||{}; APP.extrasOverride=s.extrasOverride||{}; APP.radZona=s.radZona||{activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0}; APP.cofre=s.cofre||{chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0}; APP.cofreObjetos=s.cofreObjetos||[]; APP.recetasPendientes=s.recetasPendientes||[]; APP.enCiudad=s.enCiudad||false; aplicarOverridesContenido();
       APP.tiendas=s.tiendas||[]; APP.notificaciones=s.notificaciones||{};
       const j=APP.jugadores[id];
       if(!j){ showNotif('Error: jugador no encontrado'); return; }
@@ -1747,7 +1749,7 @@ function completarEntradaJugador(id){
 
 function entrarJugadorLocal(id){
   const s=getMockSala(APP.salaId);
-  APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[]; APP.extrasCustom=s.extrasCustom||[]; APP.rasgosOverride=s.rasgosOverride||{}; APP.extrasOverride=s.extrasOverride||{}; APP.radZona=s.radZona||{activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0}; APP.cofre=s.cofre||{chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0}; APP.enCiudad=s.enCiudad||false; aplicarOverridesContenido();
+  APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[]; APP.extrasCustom=s.extrasCustom||[]; APP.rasgosOverride=s.rasgosOverride||{}; APP.extrasOverride=s.extrasOverride||{}; APP.radZona=s.radZona||{activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0}; APP.cofre=s.cofre||{chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0}; APP.cofreObjetos=s.cofreObjetos||[]; APP.recetasPendientes=s.recetasPendientes||[]; APP.enCiudad=s.enCiudad||false; aplicarOverridesContenido();
   APP.tiendas=s.tiendas||[]; APP.notificaciones=s.notificaciones||{};
   const j=APP.jugadores[id];
   if(!j){ showNotif('Error: jugador no encontrado'); showScreen('selector-screen'); return; }
@@ -1767,17 +1769,17 @@ function entrarJugador(id){ entrarJugadorConPin(id); }
 function buildTabs(){
   const el=document.getElementById('main-tabs');
   if(APP.rol==='master'){
-    el.innerHTML=[{k:'fichas',l:'FICHAS'},{k:'modif',l:'MODIF.'},{k:'objetos',l:'OBJETOS'},{k:'rasgos',l:'RASGOS'},{k:'extras',l:'EXTRAS'},{k:'tiendas',l:'TIENDAS'},{k:'combate',l:'COMBATE'}]
+    el.innerHTML=[{k:'fichas',l:'FICHAS'},{k:'modif',l:'MODIF.'},{k:'objetos',l:'OBJETOS'},{k:'rasgos',l:'RASGOS'},{k:'extras',l:'EXTRAS'},{k:'recetas',l:'RECETAS'},{k:'tiendas',l:'TIENDAS'},{k:'combate',l:'COMBATE'}]
       .map(function(t){return '<button class="tab '+(APP.masterTab===t.k?'active':'')+'" data-k="'+t.k+'" onclick="switchMT(this.dataset.k)">'+t.l+'</button>';}).join('');
   } else {
     const fi=APP.fichaInner;
-    const at=fi==='estado'?'estado':fi==='armas'||fi==='habs'||fi==='special'||fi==='creacion'?'habs':fi==='inv'?'inv':fi==='municion'?'municion':'tienda';
-    el.innerHTML=[{k:'estado',l:'ESTADO'},{k:'habs',l:'HABILID.'},{k:'inv',l:'EQUIPO'},{k:'municion',l:'MUNICIÓN'},{k:'tienda',l:'TIENDA'}]
+    const at=fi==='estado'?'estado':fi==='armas'||fi==='habs'||fi==='special'||fi==='creacion'?'habs':fi==='inv'?'inv':fi==='municion'?'municion':fi==='recetas'?'recetas':'tienda';
+    el.innerHTML=[{k:'estado',l:'ESTADO'},{k:'habs',l:'HABILID.'},{k:'inv',l:'EQUIPO'},{k:'municion',l:'MUNICIÓN'},{k:'recetas',l:'RECETAS'},{k:'tienda',l:'TIENDA'}]
       .map(function(t){return '<button class="tab '+(at===t.k?'active':'')+'" data-k="'+t.k+'" onclick="switchJT(this.dataset.k)">'+t.l+'</button>';}).join('');
   }
 }
 window.switchMT=function(t){APP.masterTab=t;APP._gruposAbiertos={};buildTabs();renderApp();};
-window.switchJT=function(t){var m={estado:'estado',habs:'armas',inv:'inv',municion:'municion',tienda:'tienda'};APP.fichaInner=m[t]||t;buildTabs();renderApp();};
+window.switchJT=function(t){var m={estado:'estado',habs:'armas',inv:'inv',municion:'municion',tienda:'tienda',recetas:'recetas'};APP.fichaInner=m[t]||t;buildTabs();renderApp();};
 window.switchFI=function(t){APP.fichaInner=t;renderApp()};
 
 /* ═══════════════════════════════════════════
@@ -1830,6 +1832,7 @@ function renderApp(){
       case 'extras':  el.innerHTML=renderMExtras(); break;
       case 'tiendas': el.innerHTML=renderMTiendas(); break;
       case 'combate': el.innerHTML=renderMCombate(); break;
+      case 'recetas': el.innerHTML=renderMRecetas(); break;
     }
   } else {
     switch(APP.fichaInner){
@@ -1842,6 +1845,7 @@ function renderApp(){
       case 'inv':      el.innerHTML=renderJInv(); break;
       case 'municion': el.innerHTML=renderJMunicion(); break;
       case 'tienda':   el.innerHTML=renderJTienda(); break;
+      case 'recetas':  el.innerHTML=renderJRecetas(); break;
     }
   }
 }
@@ -1865,6 +1869,7 @@ function normalizarFicha(j){
   if(j.fatiga===undefined)    j.fatiga=0;
   if(j.rads===undefined)      j.rads=0;
   if(!j.recursos)      j.recursos={chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0};
+  if(!j.recetas)       j.recetas=[];
   if(j.chapas===undefined)    j.chapas=250;
   if(j.karma===undefined)     j.karma=0;
   if(j.puntossuerte===undefined) j.puntossuerte=0;
@@ -2296,6 +2301,116 @@ function saveCofre(){
   sala.cofre=APP.cofre;
   fbSet('salas/'+APP.salaId+'/cofre',APP.cofre);
 }
+
+function saveCofreObjetos(){
+  const sala=getMockSala(APP.salaId);
+  sala.cofreObjetos=APP.cofreObjetos;
+  fbSet('salas/'+APP.salaId+'/cofreObjetos',APP.cofreObjetos);
+}
+
+/* ── Recetas: resolución de coste (compartido jugador/master) ── */
+function detalleIngrediente(ing){
+  if(ing.tipo==='chapas') return {label:'Chapas',cant:ing.cantidad};
+  if(ing.tipo==='recurso'){ var r=RECURSOS_FABRICACION.find(function(x){return x.k===ing.k;}); return {label:r?r.icono+' '+r.n:ing.k,cant:ing.cantidad}; }
+  if(ing.tipo==='objeto'){ var o=getObjById(ing.objId); return {label:o?o.n:'Objeto #'+ing.objId,cant:ing.cantidad}; }
+  return {label:'?',cant:ing.cantidad};
+}
+function disponibilidadIngrediente(j,ing){
+  var propio=0, cofre=0;
+  if(ing.tipo==='chapas'){ propio=j.chapas||0; }
+  else if(ing.tipo==='recurso'){ propio=(j.recursos&&j.recursos[ing.k])||0; cofre=(APP.enCiudad&&APP.cofre&&APP.cofre[ing.k])||0; }
+  else if(ing.tipo==='objeto'){
+    var it=(j.inventario||[]).find(function(x){return x.objId===ing.objId;});
+    propio=it?it.qty:0;
+    var ci=(APP.cofreObjetos||[]).find(function(x){return x.objId===ing.objId;});
+    cofre=(APP.enCiudad&&ci)?ci.qty:0;
+  }
+  return {propio:propio,cofre:cofre,total:propio+cofre};
+}
+function verificarCoste(j,ingredientes){
+  var faltantes=[];
+  (ingredientes||[]).forEach(function(ing){
+    var d=disponibilidadIngrediente(j,ing);
+    if(d.total<ing.cantidad){
+      var det=detalleIngrediente(ing);
+      faltantes.push({label:det.label,faltan:ing.cantidad-d.total});
+    }
+  });
+  return {ok:faltantes.length===0,faltantes:faltantes};
+}
+function descontarCoste(j,ingredientes){
+  (ingredientes||[]).forEach(function(ing){
+    var necesita=ing.cantidad;
+    if(ing.tipo==='chapas'){ j.chapas=Math.max(0,(j.chapas||0)-necesita); return; }
+    if(ing.tipo==='recurso'){
+      if(!j.recursos) j.recursos={};
+      var propio=Math.min(necesita,j.recursos[ing.k]||0);
+      j.recursos[ing.k]=(j.recursos[ing.k]||0)-propio;
+      necesita-=propio;
+      if(necesita>0&&APP.enCiudad&&APP.cofre){
+        var delCofre=Math.min(necesita,APP.cofre[ing.k]||0);
+        APP.cofre[ing.k]=(APP.cofre[ing.k]||0)-delCofre;
+        necesita-=delCofre;
+      }
+      return;
+    }
+    if(ing.tipo==='objeto'){
+      var idx=(j.inventario||[]).findIndex(function(x){return x.objId===ing.objId;});
+      if(idx>=0){
+        var usarPropio=Math.min(necesita,j.inventario[idx].qty);
+        j.inventario[idx].qty-=usarPropio;
+        if(j.inventario[idx].qty<=0) j.inventario.splice(idx,1);
+        necesita-=usarPropio;
+      }
+      if(necesita>0&&APP.enCiudad){
+        var cidx=(APP.cofreObjetos||[]).findIndex(function(x){return x.objId===ing.objId;});
+        if(cidx>=0){
+          var usarCofre=Math.min(necesita,APP.cofreObjetos[cidx].qty);
+          APP.cofreObjetos[cidx].qty-=usarCofre;
+          if(APP.cofreObjetos[cidx].qty<=0) APP.cofreObjetos.splice(cidx,1);
+          necesita-=usarCofre;
+        }
+      }
+    }
+  });
+  saveCofre(); saveCofreObjetos();
+}
+
+window.jugadorObjACofre=function(){
+  if(!APP.enCiudad) return showNotif('El Cofre solo está disponible en ciudad/refugio');
+  const sel=document.getElementById('cofre-obj-sel');
+  if(!sel||!sel.value) return;
+  const objId=parseInt(sel.value)||sel.value;
+  const j=myFicha();
+  const idx=(j.inventario||[]).findIndex(function(it){return it.objId===objId;});
+  if(idx<0) return showNotif('No tienes ese objeto');
+  j.inventario[idx].qty--;
+  if(j.inventario[idx].qty<=0) j.inventario.splice(idx,1);
+  if(!APP.cofreObjetos) APP.cofreObjetos=[];
+  const existente=APP.cofreObjetos.find(function(i){return i.objId===objId;});
+  if(existente) existente.qty=(existente.qty||0)+1;
+  else APP.cofreObjetos.push({objId:objId,qty:1});
+  saveJ(); saveCofreObjetos();
+  const o=getObjById(objId);
+  showNotif((o?o.n:'Objeto')+' guardado en el Cofre');
+  renderApp();
+};
+
+window.jugadorObjDeCofre=function(objId){
+  if(!APP.enCiudad) return showNotif('El Cofre solo está disponible en ciudad/refugio');
+  objId=parseInt(objId)||objId;
+  if(!APP.cofreObjetos) APP.cofreObjetos=[];
+  const idx=APP.cofreObjetos.findIndex(function(i){return i.objId===objId;});
+  if(idx<0) return showNotif('El Cofre no tiene ese objeto');
+  APP.cofreObjetos[idx].qty--;
+  if(APP.cofreObjetos[idx].qty<=0) APP.cofreObjetos.splice(idx,1);
+  const j=myFicha();
+  addItemToJugador(j,objId,1);
+  saveJ(); saveCofreObjetos();
+  const o=getObjById(objId);
+  showNotif((o?o.n:'Objeto')+' sacado del Cofre');
+  renderApp();
+};
 
 window.masterToggleCiudad=function(){
   APP.enCiudad=!APP.enCiudad;
@@ -3184,6 +3299,34 @@ function renderJInv(){
     +RECURSOS_FABRICACION.filter(function(r){return !r.consumible;}).map(function(r){return renderRecursoRow(j,r);}).join('')
     +'<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin:10px 0 4px;border-bottom:1px solid var(--pip-border);padding-bottom:3px;">CONSUMIBLES</div>'
     +RECURSOS_FABRICACION.filter(function(r){return r.consumible;}).map(function(r){return renderRecursoRow(j,r);}).join('')
+    +'</div></div>'
+
+    // ── COFRE COMÚN (OBJETOS) ──
+    +'<div class="card" style="margin-top:8px;"><div class="card-hdr">🗃 COFRE COMÚN</div>'
+    +'<div style="padding:8px 10px;">'
+    +(!APP.enCiudad
+      ?'<div style="font-size:9px;color:var(--pip-dim);">Fuera de ciudad: el Cofre no está disponible ahora mismo</div>'
+      :(function(){
+        const cofreItems=(APP.cofreObjetos||[]).map(function(ci){return {ci:ci,o:getObjById(ci.objId)};}).filter(function(x){return x.o;});
+        const misItems=(j.inventario||[]).map(function(it){return {it:it,o:getObjById(it.objId)};}).filter(function(x){return x.o;});
+        return '<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin-bottom:4px;">EN EL COFRE ('+cofreItems.length+')</div>'
+          +(!cofreItems.length?'<div class="empty" style="padding:8px;">Vacío</div>'
+            :cofreItems.map(function(x){
+              return '<div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid rgba(74,254,130,.08);">'
+                +'<span style="flex:1;font-size:12px;color:var(--pip-bright);">'+x.o.n+'</span>'
+                +'<span style="font-family:VT323,monospace;font-size:16px;color:var(--pip-warn);">x'+x.ci.qty+'</span>'
+                +'<button class="chip chip-g" data-oid="'+x.ci.objId+'" onclick="jugadorObjDeCofre(this.dataset.oid)">SACAR</button>'
+                +'</div>';
+            }).join(''))
+          +'<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin:10px 0 4px;border-bottom:1px solid var(--pip-border);padding-bottom:3px;">GUARDAR UN OBJETO MÍO</div>'
+          +(!misItems.length?'<div class="empty" style="padding:8px;">No tienes objetos en el inventario</div>'
+            :'<div style="display:flex;gap:6px;">'
+              +'<select id="cofre-obj-sel" style="flex:1;font-family:VT323,monospace;font-size:14px;padding:4px 6px;background:var(--pip-dark);border:1px solid var(--pip-border);color:var(--pip-bright);">'
+              +misItems.map(function(x){return '<option value="'+x.it.objId+'">'+x.o.n+' (x'+x.it.qty+')</option>';}).join('')
+              +'</select>'
+              +'<button class="chip chip-g" onclick="jugadorObjACofre()">GUARDAR</button>'
+              +'</div>');
+      })())
     +'</div></div>';
 
   function renderRecursoRow(j,r){
@@ -3200,6 +3343,284 @@ function renderJInv(){
       +'</div>';
   }
 }
+
+/* ═══════════════════════════════════════════
+   RECETAS — JUGADOR
+   ═══════════════════════════════════════════ */
+function renderJRecetas(){
+  const j=myFicha();
+  const draft=APP._recetaDraft;
+  if(draft){
+    if(draft.paso==='editar') return renderRecetaPasoEditar(j,draft);
+    if(draft.paso==='coste') return renderRecetaPasoCoste(j,draft);
+    return renderRecetaPasoBase(j,draft);
+  }
+  const misPendientes=(APP.recetasPendientes||[]).filter(function(p){return p.jugadorId===j.id;});
+  const limite=5;
+  return '<div class="card" style="margin-bottom:8px;"><div class="card-hdr">RECETAS</div><div style="padding:10px 12px;">'
+    +'<button class="btn btn-block" '+(misPendientes.length>=limite?'disabled':'')+' onclick="iniciarPropuestaReceta()">+ PROPONER RECETA</button>'
+    +(misPendientes.length>=limite?'<div style="font-size:9px;color:var(--pip-warn);margin-top:4px;">Máximo '+limite+' propuestas pendientes</div>':'')
+    +'</div></div>'
+    +'<div class="card" style="margin-bottom:8px;"><div class="card-hdr">PENDIENTES DE ACEPTAR ('+misPendientes.length+')</div><div style="padding:0;">'
+    +(!misPendientes.length?'<div class="empty">Sin propuestas pendientes</div>'
+      :misPendientes.map(function(p){
+        return '<div class="shop-item"><div class="shop-info">'
+          +'<div class="shop-name">'+p.nombre+' <span style="font-size:8px;color:var(--pip-warn);border:1px solid var(--pip-warn);padding:0 4px;">PENDIENTE</span></div>'
+          +'<div class="shop-desc" style="font-size:10px;color:var(--pip-dim);">'+(p.ingredientes||[]).map(function(ing){var d=detalleIngrediente(ing);return d.cant+'x '+d.label;}).join(' · ')+'</div>'
+          +'</div><button class="chip chip-r" data-id="'+p.id+'" onclick="jugadorBorrarPropuesta(this.dataset.id)">×</button></div>';
+      }).join(''))
+    +'</div></div>'
+    +'<div class="card"><div class="card-hdr">MIS RECETAS ('+(j.recetas||[]).length+')</div><div style="padding:0;">'
+    +(!(j.recetas||[]).length?'<div class="empty">Sin recetas aceptadas todavía</div>'
+      :(j.recetas||[]).map(function(r){
+        return '<div class="shop-item"><div class="shop-info">'
+          +'<div class="shop-name">'+r.nombre+'</div>'
+          +'<div class="shop-desc" style="font-size:10px;color:var(--pip-dim);">'+(r.ingredientes||[]).map(function(ing){var d=detalleIngrediente(ing);return d.cant+'x '+d.label;}).join(' · ')+'</div>'
+          +'</div><div style="display:flex;gap:3px;flex-shrink:0;">'
+          +'<button class="chip chip-g" data-id="'+r.id+'" onclick="abrirFabricar(this.dataset.id)">FABRICAR</button>'
+          +'<button class="chip chip-r" data-id="'+r.id+'" onclick="confirmarBorrarReceta(this.dataset.id)">×</button>'
+          +'</div></div>';
+      }).join(''))
+    +'</div></div>';
+}
+
+function renderRecetaPasoBase(j,draft){
+  const grupos={};
+  (APP.tienda||[]).forEach(function(o){ if(!o||!o.tipo||!o.n) return; (grupos[o.tipo]=grupos[o.tipo]||[]).push(o); });
+  return '<div class="card"><div class="card-hdr">▸ PROPONER RECETA (1/3) — OBJETO BASE</div><div style="padding:10px 12px;">'
+    +'<div style="font-size:10px;color:var(--pip-dim);margin-bottom:8px;">Elige el objeto que usarás de plantilla para tu receta.</div>'
+    +'<label style="display:flex;align-items:center;gap:6px;margin-bottom:10px;font-size:11px;color:var(--pip-bright);border:1px solid var(--pip-border);padding:8px;">'
+    +'<input type="checkbox" id="rc-mejora" '+(draft.esMejora?'checked':'')+'> Es una MEJORA — el objeto base elegido se gastará al fabricar'
+    +'</label>'
+    +Object.keys(grupos).map(function(tipo){
+      return '<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin:8px 0 4px;border-bottom:1px solid var(--pip-border);padding-bottom:3px;">'+tipo.toUpperCase()+'</div>'
+        +grupos[tipo].map(function(o){
+          const sel=draft.objetoBaseId===o.id;
+          return '<div style="display:flex;align-items:center;padding:6px 8px;border:1px solid '+(sel?'var(--pip-warn)':'var(--pip-border)')+';margin-bottom:3px;cursor:pointer;" data-oid="'+o.id+'" onclick="elegirBaseReceta(parseInt(this.dataset.oid))">'
+            +'<span style="flex:1;font-size:12px;color:var(--pip-bright);">'+o.n+'</span>'+(sel?'<span style="color:var(--pip-warn);">✓</span>':'')+'</div>';
+        }).join('');
+    }).join('')
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px;">'
+    +'<button class="btn btn-warn" onclick="cancelarPropuestaReceta()">✕ CANCELAR</button>'
+    +'<button class="btn" '+(!draft.objetoBaseId?'disabled':'')+' onclick="avanzarRecetaEditar()">SIGUIENTE ▸</button>'
+    +'</div></div></div>';
+}
+
+function renderRecetaPasoEditar(j,draft){
+  const base=getObjById(draft.objetoBaseId); if(!base) return renderRecetaPasoBase(j,draft);
+  const s='style="font-family:VT323,monospace;font-size:15px;padding:4px 6px;background:var(--pip-dark);border:1px solid var(--pip-border);color:var(--pip-bright);width:100%;"';
+  const sm='style="font-family:VT323,monospace;font-size:15px;padding:4px 6px;background:var(--pip-dark);border:1px solid var(--pip-border);color:var(--pip-bright);width:65px;"';
+  const catActual=APP._recetaEfCat||'atributo';
+  const paramsActuales=CATALOGO_PARAMS[catActual]||[];
+  const efectos=draft.efectos||[];
+  var camposExtra='';
+  if(base.tipo==='droga'){
+    camposExtra='<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin:10px 0 4px;border-bottom:1px solid var(--pip-border);padding-bottom:3px;">EFECTOS</div>'
+      +(!efectos.length?'<div style="font-size:10px;color:var(--pip-dim);">Sin efectos</div>'
+        :efectos.map(function(ef,i){return '<div style="display:flex;justify-content:space-between;border:1px solid var(--pip-border);padding:4px 8px;margin-bottom:4px;"><span style="font-size:12px;color:var(--pip-bright);">'+(ef.signo==='-'?'−':'+')+ef.valor+' '+nombreParam(ef.cat,ef.param)+'</span><button class="chip chip-r" data-i="'+i+'" onclick="recetaDelEfecto(parseInt(this.dataset.i))">×</button></div>';}).join(''))
+      +'<div style="display:grid;grid-template-columns:1fr;gap:6px;margin-top:6px;padding:8px;border:1px dashed var(--pip-border);">'
+      +'<select id="rc-ef-cat" onchange="recetaCambiarCatEfecto(this.value)" '+s+'>'+CATEGORIAS_EFECTO.map(function(c){return '<option value="'+c.k+'"'+(catActual===c.k?' selected':'')+'>'+c.n+'</option>';}).join('')+'</select>'
+      +'<select id="rc-ef-param" '+s+'>'+paramsActuales.map(function(p){return '<option value="'+p.k+'">'+p.n+'</option>';}).join('')+'</select>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;"><select id="rc-ef-signo" '+s+'><option value="+">+ (suma)</option><option value="-">− (resta)</option></select><input type="number" id="rc-ef-valor" value="1" min="0" '+sm+'></div>'
+      +'<button class="btn btn-sm" onclick="recetaAddEfecto()">+ AÑADIR EFECTO</button>'
+      +'</div>';
+  } else if(base.tipo==='arma'){
+    camposExtra='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">'
+      +'<div><label style="font-size:9px;color:var(--pip-dim);display:block;margin-bottom:3px;">CALIDAD</label><input type="number" id="rc-calidad" value="'+(draft.calidad!=null?draft.calidad:(base.calidad||0))+'" min="0" '+s+'></div>'
+      +'<div><label style="font-size:9px;color:var(--pip-dim);display:block;margin-bottom:3px;">ESTADO</label><input type="number" id="rc-estado" value="'+(draft.estado!=null?draft.estado:(base.estado||0))+'" min="0" '+s+'></div>'
+      +'</div>';
+  }
+  return '<div class="card"><div class="card-hdr">▸ PROPONER RECETA (2/3) — basado en: '+base.n+'</div><div style="padding:10px 12px;">'
+    +'<div style="margin-bottom:8px;"><label style="font-size:9px;color:var(--pip-dim);display:block;margin-bottom:3px;">NOMBRE NUEVO (obligatorio, distinto del original)</label><input type="text" id="rc-n" value="'+(draft.nombre||'')+'" placeholder="Nombre de tu receta" '+s+'></div>'
+    +'<div style="margin-bottom:8px;"><label style="font-size:9px;color:var(--pip-dim);display:block;margin-bottom:3px;">DESCRIPCIÓN / NOTAS</label><textarea id="rc-d" rows="2" '+s+'>'+(draft.desc!=null?draft.desc:(base.desc||''))+'</textarea></div>'
+    +camposExtra
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px;">'
+    +'<button class="btn btn-warn" onclick="retrocederRecetaBase()">◂ ATRÁS</button>'
+    +'<button class="btn" onclick="avanzarRecetaCoste()">SIGUIENTE ▸</button>'
+    +'</div></div></div>';
+}
+
+function renderRecetaPasoCoste(j,draft){
+  const s='style="font-family:VT323,monospace;font-size:15px;padding:4px 6px;background:var(--pip-dark);border:1px solid var(--pip-border);color:var(--pip-bright);width:100%;"';
+  const sm='style="font-family:VT323,monospace;font-size:15px;padding:4px 6px;background:var(--pip-dark);border:1px solid var(--pip-border);color:var(--pip-bright);width:65px;"';
+  const ingredientes=draft.ingredientes||[];
+  const listaHtml=!ingredientes.length?'<div style="font-size:10px;color:var(--pip-dim);">Sin ingredientes añadidos</div>'
+    :ingredientes.map(function(ing,i){var d=detalleIngrediente(ing); return '<div style="display:flex;justify-content:space-between;border:1px solid var(--pip-border);padding:4px 8px;margin-bottom:4px;"><span style="font-size:12px;color:var(--pip-bright);">'+d.cant+'x '+d.label+'</span><button class="chip chip-r" data-i="'+i+'" onclick="recetaDelIngrediente(parseInt(this.dataset.i))">×</button></div>';}).join('');
+  return '<div class="card"><div class="card-hdr">▸ PROPONER RECETA (3/3) — COSTE</div><div style="padding:10px 12px;">'
+    +'<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin-bottom:4px;">INGREDIENTES</div>'
+    +listaHtml
+    +'<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin:10px 0 4px;border-bottom:1px solid var(--pip-border);padding-bottom:3px;">AÑADIR RECURSO</div>'
+    +'<div style="display:grid;grid-template-columns:2fr 1fr auto;gap:6px;margin-bottom:8px;">'
+    +'<select id="rc-ing-recurso" '+s+'>'+RECURSOS_FABRICACION.map(function(r){return '<option value="'+r.k+'">'+r.n+'</option>';}).join('')+'</select>'
+    +'<input type="number" id="rc-ing-recurso-cant" value="1" min="1" '+sm+'>'
+    +'<button class="chip chip-g" onclick="recetaAddIngredienteRecurso()">+</button>'
+    +'</div>'
+    +'<div style="display:grid;grid-template-columns:2fr auto;gap:6px;margin-bottom:8px;">'
+    +'<input type="number" id="rc-ing-chapas" placeholder="Cantidad de chapas" min="1" '+s+'>'
+    +'<button class="chip chip-g" onclick="recetaAddIngredienteChapas()">+ CHAPAS</button>'
+    +'</div>'
+    +'<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin:10px 0 4px;border-bottom:1px solid var(--pip-border);padding-bottom:3px;">AÑADIR OBJETO ADICIONAL</div>'
+    +'<div style="display:grid;grid-template-columns:2fr 1fr auto;gap:6px;">'
+    +'<select id="rc-ing-obj" '+s+'>'+(APP.tienda||[]).filter(function(o){return o&&o.n;}).map(function(o){return '<option value="'+o.id+'">'+o.n+'</option>';}).join('')+'</select>'
+    +'<input type="number" id="rc-ing-obj-cant" value="1" min="1" '+sm+'>'
+    +'<button class="chip chip-g" onclick="recetaAddIngredienteObjeto()">+</button>'
+    +'</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:14px;">'
+    +'<button class="btn btn-warn" onclick="retrocederRecetaEditar()">◂ ATRÁS</button>'
+    +'<button class="btn" onclick="enviarPropuestaReceta()">▸ ENVIAR PROPUESTA</button>'
+    +'</div></div></div>';
+}
+
+window.iniciarPropuestaReceta=function(){
+  APP._recetaDraft={paso:'base',esMejora:false,objetoBaseId:null,nombre:'',desc:null,efectos:[],calidad:null,estado:null,ingredientes:[]};
+  renderApp();
+};
+window.cancelarPropuestaReceta=function(){ APP._recetaDraft=null; renderApp(); };
+window.elegirBaseReceta=function(oid){ APP._recetaDraft.objetoBaseId=oid; const mc=document.getElementById('main-content'); if(mc) mc.innerHTML=renderJRecetas(); };
+window.avanzarRecetaEditar=function(){
+  const d=APP._recetaDraft;
+  const chk=document.getElementById('rc-mejora');
+  d.esMejora=chk?chk.checked:false;
+  d.paso='editar';
+  renderApp();
+};
+function guardarCamposEditarDraft(){
+  const d=APP._recetaDraft; if(!d) return;
+  const n=document.getElementById('rc-n'); if(n) d.nombre=n.value;
+  const de=document.getElementById('rc-d'); if(de) d.desc=de.value;
+  const cal=document.getElementById('rc-calidad'); if(cal) d.calidad=parseInt(cal.value)||0;
+  const est=document.getElementById('rc-estado'); if(est) d.estado=parseInt(est.value)||0;
+}
+window.retrocederRecetaBase=function(){ guardarCamposEditarDraft(); APP._recetaDraft.paso='base'; renderApp(); };
+window.recetaCambiarCatEfecto=function(cat){ guardarCamposEditarDraft(); APP._recetaEfCat=cat; const mc=document.getElementById('main-content'); if(mc) mc.innerHTML=renderJRecetas(); };
+window.recetaAddEfecto=function(){
+  guardarCamposEditarDraft();
+  const d=APP._recetaDraft;
+  const cat=(document.getElementById('rc-ef-cat')||{}).value||'atributo';
+  const param=(document.getElementById('rc-ef-param')||{}).value;
+  const signo=(document.getElementById('rc-ef-signo')||{}).value||'+';
+  const valor=parseInt((document.getElementById('rc-ef-valor')||{}).value)||0;
+  if(!param||!valor) return showNotif('Selecciona parámetro y valor');
+  if(!d.efectos) d.efectos=[];
+  d.efectos.push({cat:cat,param:param,signo:signo,valor:valor});
+  const mc=document.getElementById('main-content'); if(mc) mc.innerHTML=renderJRecetas();
+};
+window.recetaDelEfecto=function(i){ guardarCamposEditarDraft(); APP._recetaDraft.efectos.splice(i,1); const mc=document.getElementById('main-content'); if(mc) mc.innerHTML=renderJRecetas(); };
+window.avanzarRecetaCoste=function(){
+  guardarCamposEditarDraft();
+  const d=APP._recetaDraft;
+  if(!d.nombre||!d.nombre.trim()) return showNotif('Escribe un nombre');
+  const nombreOcupado=(APP.tienda||[]).some(function(o){return o&&o.n&&o.n.toLowerCase()===d.nombre.trim().toLowerCase();});
+  if(nombreOcupado) return showNotif('Ya existe un objeto con ese nombre, elige otro');
+  if(d.esMejora&&!d.ingredientes.some(function(ing){return ing.tipo==='objeto'&&ing.objId===d.objetoBaseId;})){
+    d.ingredientes.unshift({tipo:'objeto',objId:d.objetoBaseId,cantidad:1});
+  }
+  d.paso='coste';
+  renderApp();
+};
+window.retrocederRecetaEditar=function(){ APP._recetaDraft.paso='editar'; renderApp(); };
+window.recetaAddIngredienteRecurso=function(){
+  const d=APP._recetaDraft;
+  const k=(document.getElementById('rc-ing-recurso')||{}).value;
+  const cant=parseInt((document.getElementById('rc-ing-recurso-cant')||{}).value)||1;
+  if(!k) return;
+  const ex=d.ingredientes.find(function(i){return i.tipo==='recurso'&&i.k===k;});
+  if(ex) ex.cantidad+=cant; else d.ingredientes.push({tipo:'recurso',k:k,cantidad:cant});
+  const mc=document.getElementById('main-content'); if(mc) mc.innerHTML=renderJRecetas();
+};
+window.recetaAddIngredienteChapas=function(){
+  const d=APP._recetaDraft;
+  const cant=parseInt((document.getElementById('rc-ing-chapas')||{}).value)||0;
+  if(cant<1) return showNotif('Pon una cantidad de chapas válida');
+  const ex=d.ingredientes.find(function(i){return i.tipo==='chapas';});
+  if(ex) ex.cantidad+=cant; else d.ingredientes.push({tipo:'chapas',cantidad:cant});
+  const mc=document.getElementById('main-content'); if(mc) mc.innerHTML=renderJRecetas();
+};
+window.recetaAddIngredienteObjeto=function(){
+  const d=APP._recetaDraft;
+  const objId=parseInt((document.getElementById('rc-ing-obj')||{}).value);
+  const cant=parseInt((document.getElementById('rc-ing-obj-cant')||{}).value)||1;
+  if(!objId) return;
+  const ex=d.ingredientes.find(function(i){return i.tipo==='objeto'&&i.objId===objId;});
+  if(ex) ex.cantidad+=cant; else d.ingredientes.push({tipo:'objeto',objId:objId,cantidad:cant});
+  const mc=document.getElementById('main-content'); if(mc) mc.innerHTML=renderJRecetas();
+};
+window.recetaDelIngrediente=function(i){
+  const d=APP._recetaDraft;
+  const ing=d.ingredientes[i];
+  if(d.esMejora&&ing&&ing.tipo==='objeto'&&ing.objId===d.objetoBaseId) return showNotif('El objeto base no se puede quitar de una receta de mejora');
+  d.ingredientes.splice(i,1);
+  const mc=document.getElementById('main-content'); if(mc) mc.innerHTML=renderJRecetas();
+};
+window.enviarPropuestaReceta=function(){
+  const d=APP._recetaDraft;
+  const j=myFicha();
+  const misPendientes=(APP.recetasPendientes||[]).filter(function(p){return p.jugadorId===j.id;});
+  if(misPendientes.length>=5) return showNotif('Máximo 5 propuestas pendientes');
+  if(!d.ingredientes.length) return showNotif('Añade al menos un ingrediente');
+  const base=getObjById(d.objetoBaseId);
+  const propuesta={
+    id:'recp_'+Date.now(), jugadorId:j.id, jugadorNombre:j.nombre,
+    objetoBaseId:d.objetoBaseId, esMejora:d.esMejora,
+    nombre:d.nombre.trim(), desc:d.desc||'', efectos:d.efectos||[],
+    calidad:d.calidad, estado:d.estado, ingredientes:d.ingredientes,
+  };
+  if(!APP.recetasPendientes) APP.recetasPendientes=[];
+  APP.recetasPendientes.push(propuesta);
+  const sala=getMockSala(APP.salaId);
+  sala.recetasPendientes=APP.recetasPendientes;
+  fbSet('salas/'+APP.salaId+'/recetasPendientes',APP.recetasPendientes);
+  APP._recetaDraft=null;
+  showNotif('Propuesta enviada al Master');
+  renderApp();
+};
+window.jugadorBorrarPropuesta=function(id){
+  APP.recetasPendientes=(APP.recetasPendientes||[]).filter(function(p){return p.id!==id;});
+  const sala=getMockSala(APP.salaId);
+  sala.recetasPendientes=APP.recetasPendientes;
+  fbSet('salas/'+APP.salaId+'/recetasPendientes',APP.recetasPendientes);
+  renderApp();
+};
+
+/* ── Fabricar (jugador) ── */
+window.abrirFabricar=function(recetaId){
+  const j=myFicha();
+  const r=(j.recetas||[]).find(function(x){return x.id===recetaId;});
+  if(!r) return;
+  const chk=verificarCoste(j,r.ingredientes);
+  const modal=document.getElementById('obj-detail-modal');
+  const box=document.getElementById('obj-detail-box');
+  box.innerHTML='<div style="padding:20px;">'
+    +'<div style="font-family:VT323,monospace;font-size:18px;color:var(--pip-bright);margin-bottom:10px;">🛠 FABRICAR: '+r.nombre+'</div>'
+    +'<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin-bottom:6px;">INGREDIENTES NECESARIOS</div>'
+    +(r.ingredientes||[]).map(function(ing){var d=detalleIngrediente(ing); return '<div style="font-size:12px;color:var(--pip-bright);padding:3px 0;">'+d.cant+'x '+d.label+'</div>';}).join('')
+    +(!chk.ok?('<div style="margin-top:10px;padding:8px;border:1px solid var(--pip-danger);color:var(--pip-danger);font-size:11px;">⚠ Te falta: '+chk.faltantes.map(function(f){return f.faltan+'x '+f.label;}).join(', ')+(APP.enCiudad?'':' (y no estás en ciudad para usar el Cofre)')+'</div>'):'')
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px;">'
+    +'<button class="btn btn-warn" onclick="cerrarDetalle()">CANCELAR</button>'
+    +'<button class="btn" data-id="'+recetaId+'" onclick="confirmarFabricar(this.dataset.id)" '+(!chk.ok?'disabled':'')+'>▸ FABRICAR</button>'
+    +'</div></div>';
+  modal.style.display='flex';
+};
+window.confirmarFabricar=function(recetaId){
+  const j=myFicha();
+  const r=(j.recetas||[]).find(function(x){return x.id===recetaId;});
+  if(!r) return;
+  const chk=verificarCoste(j,r.ingredientes);
+  if(!chk.ok) return showNotif('Te faltan ingredientes');
+  descontarCoste(j,r.ingredientes);
+  addItemToJugador(j,r.resultadoObjId,1);
+  saveJ();
+  cerrarDetalle();
+  showNotif(r.nombre+' fabricado');
+  renderApp();
+};
+window.confirmarBorrarReceta=function(recetaId){
+  if(!confirm('¿Eliminar esta receta? No podrás deshacerlo.')) return;
+  const j=myFicha();
+  j.recetas=(j.recetas||[]).filter(function(r){return r.id!==recetaId;});
+  saveJ(); renderApp();
+  showNotif('Receta eliminada');
+};
 
 function renderJTienda(){
   const j=myFicha();
@@ -5100,6 +5521,183 @@ window.masterDelExtra=function(eid){
 };
 
 /* ── TIENDAS ── */
+/* ═══════════════════════════════════════════
+   RECETAS — MASTER
+   ═══════════════════════════════════════════ */
+function renderMRecetas(){
+  const pendientes=APP.recetasPendientes||[];
+  const editId=APP._editRecetaId||null;
+  const editP=editId?pendientes.find(function(p){return p.id===editId;}):null;
+  if(editP) return renderMRecetaEditar(editP);
+
+  return '<div class="card"><div class="card-hdr">RECETAS PENDIENTES ('+pendientes.length+')</div><div style="padding:0;">'
+    +(!pendientes.length?'<div class="empty">Sin propuestas pendientes</div>'
+      :pendientes.map(function(p){
+        return '<div class="shop-item"><div class="shop-info">'
+          +'<div class="shop-name">'+p.nombre+' <span style="font-size:8px;color:var(--pip-dim);">de '+p.jugadorNombre+'</span></div>'
+          +'<div class="shop-desc" style="font-size:10px;color:var(--pip-dim);">'+(p.ingredientes||[]).map(function(ing){var d=detalleIngrediente(ing);return d.cant+'x '+d.label;}).join(' · ')+'</div>'
+          +'</div><button class="chip chip-g" style="border-color:var(--pip-warn);color:var(--pip-warn);" data-id="'+p.id+'" onclick="masterEditarReceta(this.dataset.id)">VER/EDITAR</button></div>';
+      }).join(''))
+    +'</div></div>';
+}
+
+function renderMRecetaEditar(p){
+  const base=getObjById(p.objetoBaseId)||{tipo:'misc',n:'?'};
+  const s='style="font-family:VT323,monospace;font-size:15px;padding:4px 6px;background:var(--pip-dark);border:1px solid var(--pip-border);color:var(--pip-bright);width:100%;"';
+  const sm='style="font-family:VT323,monospace;font-size:15px;padding:4px 6px;background:var(--pip-dark);border:1px solid var(--pip-border);color:var(--pip-bright);width:65px;"';
+  const catActual=APP._mRecetaEfCat||'atributo';
+  const paramsActuales=CATALOGO_PARAMS[catActual]||[];
+  var camposExtra='';
+  if(base.tipo==='droga'){
+    const efectos=p.efectos||[];
+    camposExtra='<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin:10px 0 4px;border-bottom:1px solid var(--pip-border);padding-bottom:3px;">EFECTOS</div>'
+      +(!efectos.length?'<div style="font-size:10px;color:var(--pip-dim);">Sin efectos</div>'
+        :efectos.map(function(ef,i){return '<div style="display:flex;justify-content:space-between;border:1px solid var(--pip-border);padding:4px 8px;margin-bottom:4px;"><span style="font-size:12px;color:var(--pip-bright);">'+(ef.signo==='-'?'−':'+')+ef.valor+' '+nombreParam(ef.cat,ef.param)+'</span><button class="chip chip-r" data-i="'+i+'" onclick="masterRecetaDelEfecto(parseInt(this.dataset.i))">×</button></div>';}).join(''))
+      +'<div style="display:grid;grid-template-columns:1fr;gap:6px;margin-top:6px;padding:8px;border:1px dashed var(--pip-border);">'
+      +'<select id="mr-ef-cat" onchange="masterRecetaCambiarCatEfecto(this.value)" '+s+'>'+CATEGORIAS_EFECTO.map(function(c){return '<option value="'+c.k+'"'+(catActual===c.k?' selected':'')+'>'+c.n+'</option>';}).join('')+'</select>'
+      +'<select id="mr-ef-param" '+s+'>'+paramsActuales.map(function(pm){return '<option value="'+pm.k+'">'+pm.n+'</option>';}).join('')+'</select>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;"><select id="mr-ef-signo" '+s+'><option value="+">+ (suma)</option><option value="-">− (resta)</option></select><input type="number" id="mr-ef-valor" value="1" min="0" '+sm+'></div>'
+      +'<button class="btn btn-sm" onclick="masterRecetaAddEfecto()">+ AÑADIR EFECTO</button>'
+      +'</div>';
+  } else if(base.tipo==='arma'){
+    camposExtra='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">'
+      +'<div><label style="font-size:9px;color:var(--pip-dim);display:block;margin-bottom:3px;">CALIDAD</label><input type="number" id="mr-calidad" value="'+(p.calidad!=null?p.calidad:0)+'" min="0" '+s+'></div>'
+      +'<div><label style="font-size:9px;color:var(--pip-dim);display:block;margin-bottom:3px;">ESTADO</label><input type="number" id="mr-estado" value="'+(p.estado!=null?p.estado:0)+'" min="0" '+s+'></div>'
+      +'</div>';
+  }
+  const ingHtml=(p.ingredientes||[]).map(function(ing,i){var d=detalleIngrediente(ing); return '<div style="display:flex;justify-content:space-between;border:1px solid var(--pip-border);padding:4px 8px;margin-bottom:4px;"><span style="font-size:12px;color:var(--pip-bright);">'+d.cant+'x '+d.label+'</span><button class="chip chip-r" data-i="'+i+'" onclick="masterRecetaDelIngrediente(parseInt(this.dataset.i))">×</button></div>';}).join('');
+
+  return '<div class="card" style="border-color:rgba(245,185,66,.4);"><div class="card-hdr" style="color:var(--pip-warn);">✎ RECETA DE '+p.jugadorNombre+' (basada en '+base.n+')</div><div style="padding:10px 12px;">'
+    +'<div style="margin-bottom:8px;"><label style="font-size:9px;color:var(--pip-dim);display:block;margin-bottom:3px;">NOMBRE</label><input type="text" id="mr-n" value="'+p.nombre+'" '+s+'></div>'
+    +'<div style="margin-bottom:8px;"><label style="font-size:9px;color:var(--pip-dim);display:block;margin-bottom:3px;">DESCRIPCIÓN</label><textarea id="mr-d" rows="2" '+s+'>'+(p.desc||'')+'</textarea></div>'
+    +camposExtra
+    +'<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin:10px 0 4px;border-bottom:1px solid var(--pip-border);padding-bottom:3px;">INGREDIENTES</div>'
+    +ingHtml
+    +'<div style="display:grid;grid-template-columns:2fr 1fr auto;gap:6px;margin-bottom:6px;">'
+    +'<select id="mr-ing-recurso" '+s+'>'+RECURSOS_FABRICACION.map(function(r){return '<option value="'+r.k+'">'+r.n+'</option>';}).join('')+'</select>'
+    +'<input type="number" id="mr-ing-recurso-cant" value="1" min="1" '+sm+'>'
+    +'<button class="chip chip-g" onclick="masterRecetaAddIngRecurso()">+</button>'
+    +'</div>'
+    +'<div style="display:grid;grid-template-columns:2fr auto;gap:6px;margin-bottom:6px;">'
+    +'<input type="number" id="mr-ing-chapas" placeholder="Chapas" min="1" '+s+'>'
+    +'<button class="chip chip-g" onclick="masterRecetaAddIngChapas()">+ CHAPAS</button>'
+    +'</div>'
+    +'<div style="display:grid;grid-template-columns:2fr 1fr auto;gap:6px;">'
+    +'<select id="mr-ing-obj" '+s+'>'+(APP.tienda||[]).filter(function(o){return o&&o.n;}).map(function(o){return '<option value="'+o.id+'">'+o.n+'</option>';}).join('')+'</select>'
+    +'<input type="number" id="mr-ing-obj-cant" value="1" min="1" '+sm+'>'
+    +'<button class="chip chip-g" onclick="masterRecetaAddIngObjeto()">+</button>'
+    +'</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:14px;">'
+    +'<button class="btn btn-warn" onclick="masterCancelarEditarReceta()">◂ VOLVER</button>'
+    +'<button class="btn btn-danger" data-id="'+p.id+'" onclick="masterRechazarReceta(this.dataset.id)">✕ RECHAZAR</button>'
+    +'<button class="btn" data-id="'+p.id+'" onclick="masterAceptarReceta(this.dataset.id)">✓ ACEPTAR</button>'
+    +'</div></div></div>';
+}
+
+window.masterEditarReceta=function(id){ APP._editRecetaId=id; renderApp(); };
+window.masterCancelarEditarReceta=function(){ APP._editRecetaId=null; renderApp(); };
+function masterGuardarCamposReceta(){
+  const p=(APP.recetasPendientes||[]).find(function(x){return x.id===APP._editRecetaId;}); if(!p) return;
+  const n=document.getElementById('mr-n'); if(n) p.nombre=n.value;
+  const de=document.getElementById('mr-d'); if(de) p.desc=de.value;
+  const cal=document.getElementById('mr-calidad'); if(cal) p.calidad=parseInt(cal.value)||0;
+  const est=document.getElementById('mr-estado'); if(est) p.estado=parseInt(est.value)||0;
+}
+window.masterRecetaCambiarCatEfecto=function(cat){ masterGuardarCamposReceta(); APP._mRecetaEfCat=cat; const mc=document.getElementById('main-content'); if(mc) mc.innerHTML=renderMRecetas(); };
+window.masterRecetaAddEfecto=function(){
+  masterGuardarCamposReceta();
+  const p=(APP.recetasPendientes||[]).find(function(x){return x.id===APP._editRecetaId;}); if(!p) return;
+  const cat=(document.getElementById('mr-ef-cat')||{}).value||'atributo';
+  const param=(document.getElementById('mr-ef-param')||{}).value;
+  const signo=(document.getElementById('mr-ef-signo')||{}).value||'+';
+  const valor=parseInt((document.getElementById('mr-ef-valor')||{}).value)||0;
+  if(!param||!valor) return showNotif('Selecciona parámetro y valor');
+  if(!p.efectos) p.efectos=[];
+  p.efectos.push({cat:cat,param:param,signo:signo,valor:valor});
+  const mc=document.getElementById('main-content'); if(mc) mc.innerHTML=renderMRecetas();
+};
+window.masterRecetaDelEfecto=function(i){
+  masterGuardarCamposReceta();
+  const p=(APP.recetasPendientes||[]).find(function(x){return x.id===APP._editRecetaId;}); if(!p) return;
+  p.efectos.splice(i,1);
+  const mc=document.getElementById('main-content'); if(mc) mc.innerHTML=renderMRecetas();
+};
+window.masterRecetaAddIngRecurso=function(){
+  masterGuardarCamposReceta();
+  const p=(APP.recetasPendientes||[]).find(function(x){return x.id===APP._editRecetaId;}); if(!p) return;
+  const k=(document.getElementById('mr-ing-recurso')||{}).value;
+  const cant=parseInt((document.getElementById('mr-ing-recurso-cant')||{}).value)||1;
+  if(!k) return;
+  const ex=p.ingredientes.find(function(i){return i.tipo==='recurso'&&i.k===k;});
+  if(ex) ex.cantidad+=cant; else p.ingredientes.push({tipo:'recurso',k:k,cantidad:cant});
+  const mc=document.getElementById('main-content'); if(mc) mc.innerHTML=renderMRecetas();
+};
+window.masterRecetaAddIngChapas=function(){
+  masterGuardarCamposReceta();
+  const p=(APP.recetasPendientes||[]).find(function(x){return x.id===APP._editRecetaId;}); if(!p) return;
+  const cant=parseInt((document.getElementById('mr-ing-chapas')||{}).value)||0;
+  if(cant<1) return;
+  const ex=p.ingredientes.find(function(i){return i.tipo==='chapas';});
+  if(ex) ex.cantidad+=cant; else p.ingredientes.push({tipo:'chapas',cantidad:cant});
+  const mc=document.getElementById('main-content'); if(mc) mc.innerHTML=renderMRecetas();
+};
+window.masterRecetaAddIngObjeto=function(){
+  masterGuardarCamposReceta();
+  const p=(APP.recetasPendientes||[]).find(function(x){return x.id===APP._editRecetaId;}); if(!p) return;
+  const objId=parseInt((document.getElementById('mr-ing-obj')||{}).value);
+  const cant=parseInt((document.getElementById('mr-ing-obj-cant')||{}).value)||1;
+  if(!objId) return;
+  const ex=p.ingredientes.find(function(i){return i.tipo==='objeto'&&i.objId===objId;});
+  if(ex) ex.cantidad+=cant; else p.ingredientes.push({tipo:'objeto',objId:objId,cantidad:cant});
+  const mc=document.getElementById('main-content'); if(mc) mc.innerHTML=renderMRecetas();
+};
+window.masterRecetaDelIngrediente=function(i){
+  masterGuardarCamposReceta();
+  const p=(APP.recetasPendientes||[]).find(function(x){return x.id===APP._editRecetaId;}); if(!p) return;
+  p.ingredientes.splice(i,1);
+  const mc=document.getElementById('main-content'); if(mc) mc.innerHTML=renderMRecetas();
+};
+window.masterRechazarReceta=function(id){
+  APP.recetasPendientes=(APP.recetasPendientes||[]).filter(function(p){return p.id!==id;});
+  const sala=getMockSala(APP.salaId);
+  sala.recetasPendientes=APP.recetasPendientes;
+  fbSet('salas/'+APP.salaId+'/recetasPendientes',APP.recetasPendientes);
+  APP._editRecetaId=null;
+  showNotif('Receta rechazada');
+  renderApp();
+};
+window.masterAceptarReceta=function(id){
+  masterGuardarCamposReceta();
+  const p=(APP.recetasPendientes||[]).find(function(x){return x.id===id;}); if(!p) return;
+  if(!p.nombre||!p.nombre.trim()) return showNotif('Falta un nombre');
+  const nombreOcupado=(APP.tienda||[]).some(function(o){return o&&o.n&&o.n.toLowerCase()===p.nombre.trim().toLowerCase();});
+  if(nombreOcupado) return showNotif('Ya existe un objeto con ese nombre');
+  const base=getObjById(p.objetoBaseId)||{};
+  const nuevoObj=Object.assign({},base,{id:Date.now(),n:p.nombre.trim(),desc:p.desc||''});
+  if(p.efectos&&p.efectos.length) nuevoObj.efectos=p.efectos;
+  if(p.calidad!=null) nuevoObj.calidad=p.calidad;
+  if(p.estado!=null) nuevoObj.estado=p.estado;
+  if(!APP.tienda) APP.tienda=[];
+  APP.tienda.push(nuevoObj);
+  const sala=getMockSala(APP.salaId);
+  sala.tienda=APP.tienda;
+  fbSet('salas/'+APP.salaId+'/tienda',APP.tienda);
+
+  const jugador=sala.jugadores[p.jugadorId];
+  if(jugador){
+    if(!jugador.recetas) jugador.recetas=[];
+    jugador.recetas.push({id:'rec_'+Date.now(),nombre:p.nombre.trim(),resultadoObjId:nuevoObj.id,ingredientes:p.ingredientes});
+    fbSet('salas/'+APP.salaId+'/jugadores/'+p.jugadorId,jugador);
+  }
+
+  APP.recetasPendientes=(APP.recetasPendientes||[]).filter(function(x){return x.id!==id;});
+  sala.recetasPendientes=APP.recetasPendientes;
+  fbSet('salas/'+APP.salaId+'/recetasPendientes',APP.recetasPendientes);
+  APP._editRecetaId=null;
+  showNotif('Receta de '+p.jugadorNombre+' aceptada');
+  renderApp();
+};
+
 function renderMTiendas(){
   const tiendas=APP.tiendas||[];
   const subTab=APP.masterSubTab||'lista';
@@ -5410,14 +6008,35 @@ window.abrirEnviarMaster=function(oid){
       }).join('')
     :'<div style="font-size:10px;color:var(--pip-dim);padding:6px 0;">Sin tiendas creadas</div>';
 
+  let cofreHtml='<div style="font-size:10px;color:var(--pip-dim);letter-spacing:1px;margin:10px 0 5px;">▸ AL COFRE COMÚN</div>'
+    +'<div style="display:flex;align-items:center;padding:8px 10px;border:1px solid rgba(100,200,255,.4);margin-bottom:4px;cursor:pointer;background:var(--pip-mid);" data-oid="'+oid+'" onclick="masterEnviarACofre(parseInt(this.dataset.oid))">'
+    +'<div style="flex:1;"><div style="font-family:VT323,monospace;font-size:17px;color:#64c8ff;">🗃 Cofre</div>'
+    +'<div style="font-size:9px;color:var(--pip-dim);">Disponible para todos los jugadores en ciudad</div></div>'
+    +'<span style="font-size:10px;color:#64c8ff;">ENVIAR ▸</span></div>';
+
   box.innerHTML='<div style="padding:14px 14px 0;">'
     +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;border-bottom:1px solid var(--pip-border);padding-bottom:8px;">'
     +'<div style="flex:1;font-family:VT323,monospace;font-size:20px;color:var(--pip-bright);">ENVIAR: '+o.n+'</div>'
     +'<button onclick="cerrarDetalle()" style="background:none;border:1px solid var(--pip-border);color:var(--pip-dim);font-family:VT323,monospace;font-size:18px;padding:4px 10px;cursor:pointer;">✕</button>'
     +'</div>'
-    +jugsHtml+tndHtml
+    +cofreHtml+jugsHtml+tndHtml
     +'</div><div style="height:14px;"></div>';
   modal.style.display='flex';
+};
+
+window.masterEnviarACofre=function(oid){
+  const sala=getMockSala(APP.salaId);
+  const o=getObjById(oid)||APP.tienda.find(function(x){return x.id===oid||x.id===parseInt(oid);});
+  if(!o) return;
+  if(!APP.cofreObjetos) APP.cofreObjetos=[];
+  const existente=APP.cofreObjetos.find(function(i){return i.objId===oid;});
+  if(existente) existente.qty=(existente.qty||0)+1;
+  else APP.cofreObjetos.push({objId:oid,qty:1});
+  sala.cofreObjetos=APP.cofreObjetos;
+  fbSet('salas/'+APP.salaId+'/cofreObjetos',APP.cofreObjetos);
+  cerrarDetalle();
+  showNotif(o.n+' enviado al Cofre común');
+  renderApp();
 };
 
 
