@@ -69,6 +69,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 .hdr-top{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;margin-bottom:4px}
 .logo{font-family:'VT323',monospace;font-size:30px;color:var(--pip-bright);text-shadow:var(--glow-s);letter-spacing:4px;animation:flicker 8s infinite}
 @keyframes flicker{0%,100%{opacity:1}91%{opacity:1}92%{opacity:.5}93%{opacity:1}96%{opacity:.7}97%{opacity:1}}
+@keyframes enviando-spin{to{transform:rotate(360deg);}}
 .hdr-sala-block{display:flex;flex-direction:column;font-size:9px;color:var(--pip-dim);line-height:1.5}
 .hdr-sala-block .on{color:var(--pip)}
 .rbadge{font-size:9px;border:1px solid;padding:1px 5px;letter-spacing:1px}
@@ -456,6 +457,10 @@ input:focus,select:focus{border-color:var(--pip);box-shadow:0 0 4px rgba(74,254,
 </div>
 
 <!-- DETALLE OBJETO -->
+<div id="enviando-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:1300;align-items:center;justify-content:center;flex-direction:column;">
+  <div id="enviando-texto" style="font-family:VT323,monospace;font-size:20px;color:var(--pip-bright);letter-spacing:2px;text-shadow:var(--glow);">📡 ENVIANDO...</div>
+  <div style="margin-top:16px;width:34px;height:34px;border:3px solid var(--pip-border);border-top-color:var(--pip);border-radius:50%;animation:enviando-spin .8s linear infinite;"></div>
+</div>
 <div id="obj-detail-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:1100;display:none;align-items:flex-start;justify-content:center;padding-top:20px;overflow-y:auto;">
   <div id="obj-detail-box" style="background:var(--pip-dark);border:2px solid var(--pip-border);width:100%;max-width:480px;margin:0 auto 20px;overflow-y:auto;">
   </div>
@@ -592,7 +597,7 @@ function startRealtime(salaId){
     // Cofre y objetos del cofre: si hemos escrito localmente hace muy poco, no dejar que un snapshot remoto en tránsito nos pise el cambio
     if(Date.now()>=_cofreLocalGuardUntil){
       APP.cofre=s.cofre||{chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0};
-      APP.cofreObjetos=s.cofreObjetos||[];
+      APP.cofreObjetos=s.cofreObjetos||{};
     }
     APP.recetasPendientes=s.recetasPendientes||[]; APP.enCiudad=s.enCiudad||false; aplicarOverridesContenido();
     APP.enemigos=s.enemigos||[];
@@ -630,7 +635,25 @@ function fbSaveSala(salaId){
   if(FB_MOCK||!db) return;
   db.ref('salas/'+salaId).set(MOCK.salas[salaId]);
 }
-function fbSet(path,data){if(!FB_MOCK&&db)db.ref(path).set(data); /* también actualiza MOCK vía listener */ }
+function fbSet(path,data){ if(!FB_MOCK&&db) return db.ref(path).set(data); return Promise.resolve(); }
+
+/* ── Overlay de bloqueo mientras se confirma una operación con el servidor ── */
+function mostrarEnviando(texto){
+  const ov=document.getElementById('enviando-overlay');
+  const tx=document.getElementById('enviando-texto');
+  if(tx) tx.textContent=texto||'📡 ENVIANDO...';
+  if(ov) ov.style.display='flex';
+}
+function ocultarEnviando(){
+  const ov=document.getElementById('enviando-overlay');
+  if(ov) ov.style.display='none';
+}
+function esperarConfirmacion(promesa, msMax){
+  return Promise.race([
+    Promise.resolve(promesa).catch(function(){}),
+    new Promise(function(resolve){ setTimeout(resolve, msMax||5000); })
+  ]);
+}
 function fbUpdate(path,data){if(!FB_MOCK&&db)db.ref(path).update(data)}
 function fbOn(path,cb){if(!FB_MOCK&&db){db.ref(path).on('value',s=>cb(s.val()))}}
 
@@ -1376,7 +1399,7 @@ function getMockSala(id){
       rasgosCustom:[], extrasCustom:[], rasgosOverride:{}, extrasOverride:{},
       radZona:{activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0},
       cofre:{chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0},
-      cofreObjetos:[],
+      cofreObjetos:{},
       recetasPendientes:[],
       enCiudad:false,
       enVenta:[], enemigos:[...ENEMIGOS_EJEMPLO], combate:[],
@@ -1456,7 +1479,7 @@ function salirApp(){
   // Reset completo del estado
   APP.rol=null; APP.jugadorId=null; APP.salaId=null;
   APP.masterTab='fichas'; APP.fichaInner='estado';
-  APP.jugadores={}; APP.tienda=[]; APP.enemigos=[]; APP.combate=[]; APP.rasgosCustom=[]; APP.extrasCustom=[]; APP.rasgosOverride={}; APP.extrasOverride={}; APP.radZona={activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0}; APP.cofre={chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0}; APP.cofreObjetos=[]; APP.recetasPendientes=[]; APP.enCiudad=false;
+  APP.jugadores={}; APP.tienda=[]; APP.enemigos=[]; APP.combate=[]; APP.rasgosCustom=[]; APP.extrasCustom=[]; APP.rasgosOverride={}; APP.extrasOverride={}; APP.radZona={activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0}; APP.cofre={chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0}; APP.cofreObjetos={}; APP.recetasPendientes=[]; APP.enCiudad=false;
   APP.tiendas=[]; APP.notificaciones={}; APP._gruposAbiertos={};
   MOCK.salas={};
   showScreen('login-screen');
@@ -1579,7 +1602,7 @@ function entrarMaster(){
         fbSaveSala(APP.salaId);
       }
       const s=getMockSala(APP.salaId);
-      APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[]; APP.extrasCustom=s.extrasCustom||[]; APP.rasgosOverride=s.rasgosOverride||{}; APP.extrasOverride=s.extrasOverride||{}; APP.radZona=s.radZona||{activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0}; APP.cofre=s.cofre||{chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0}; APP.cofreObjetos=s.cofreObjetos||[]; APP.recetasPendientes=s.recetasPendientes||[]; APP.enCiudad=s.enCiudad||false; aplicarOverridesContenido();
+      APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[]; APP.extrasCustom=s.extrasCustom||[]; APP.rasgosOverride=s.rasgosOverride||{}; APP.extrasOverride=s.extrasOverride||{}; APP.radZona=s.radZona||{activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0}; APP.cofre=s.cofre||{chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0}; APP.cofreObjetos=s.cofreObjetos||{}; APP.recetasPendientes=s.recetasPendientes||[]; APP.enCiudad=s.enCiudad||false; aplicarOverridesContenido();
       APP.enemigos=s.enemigos||[]; APP.combate=s.combate||[];
       APP.tiendas=s.tiendas||[]; APP.notificaciones=s.notificaciones||{};
       // Comprobar si master ya está conectado (con tolerancia de 15s)
@@ -1611,7 +1634,7 @@ function entrarMaster(){
 
 function entrarMasterLocal(){
   const s=getMockSala(APP.salaId);
-  APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[]; APP.extrasCustom=s.extrasCustom||[]; APP.rasgosOverride=s.rasgosOverride||{}; APP.extrasOverride=s.extrasOverride||{}; APP.radZona=s.radZona||{activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0}; APP.cofre=s.cofre||{chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0}; APP.cofreObjetos=s.cofreObjetos||[]; APP.recetasPendientes=s.recetasPendientes||[]; APP.enCiudad=s.enCiudad||false; aplicarOverridesContenido();
+  APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[]; APP.extrasCustom=s.extrasCustom||[]; APP.rasgosOverride=s.rasgosOverride||{}; APP.extrasOverride=s.extrasOverride||{}; APP.radZona=s.radZona||{activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0}; APP.cofre=s.cofre||{chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0}; APP.cofreObjetos=s.cofreObjetos||{}; APP.recetasPendientes=s.recetasPendientes||[]; APP.enCiudad=s.enCiudad||false; aplicarOverridesContenido();
   APP.enemigos=s.enemigos||[]; APP.combate=s.combate||[];
   APP.tiendas=s.tiendas||[]; APP.notificaciones=s.notificaciones||{};
   renderApp();
@@ -1731,7 +1754,7 @@ function completarEntradaJugador(id){
       const data=snap.val();
       if(data) MOCK.salas[APP.salaId]=Object.assign(getMockSala(APP.salaId), data);
       const s=getMockSala(APP.salaId);
-      APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[]; APP.extrasCustom=s.extrasCustom||[]; APP.rasgosOverride=s.rasgosOverride||{}; APP.extrasOverride=s.extrasOverride||{}; APP.radZona=s.radZona||{activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0}; APP.cofre=s.cofre||{chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0}; APP.cofreObjetos=s.cofreObjetos||[]; APP.recetasPendientes=s.recetasPendientes||[]; APP.enCiudad=s.enCiudad||false; aplicarOverridesContenido();
+      APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[]; APP.extrasCustom=s.extrasCustom||[]; APP.rasgosOverride=s.rasgosOverride||{}; APP.extrasOverride=s.extrasOverride||{}; APP.radZona=s.radZona||{activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0}; APP.cofre=s.cofre||{chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0}; APP.cofreObjetos=s.cofreObjetos||{}; APP.recetasPendientes=s.recetasPendientes||[]; APP.enCiudad=s.enCiudad||false; aplicarOverridesContenido();
       APP.tiendas=s.tiendas||[]; APP.notificaciones=s.notificaciones||{};
       const j=APP.jugadores[id];
       if(!j){ showNotif('Error: jugador no encontrado'); return; }
@@ -1766,7 +1789,7 @@ function completarEntradaJugador(id){
 
 function entrarJugadorLocal(id){
   const s=getMockSala(APP.salaId);
-  APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[]; APP.extrasCustom=s.extrasCustom||[]; APP.rasgosOverride=s.rasgosOverride||{}; APP.extrasOverride=s.extrasOverride||{}; APP.radZona=s.radZona||{activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0}; APP.cofre=s.cofre||{chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0}; APP.cofreObjetos=s.cofreObjetos||[]; APP.recetasPendientes=s.recetasPendientes||[]; APP.enCiudad=s.enCiudad||false; aplicarOverridesContenido();
+  APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[]; APP.extrasCustom=s.extrasCustom||[]; APP.rasgosOverride=s.rasgosOverride||{}; APP.extrasOverride=s.extrasOverride||{}; APP.radZona=s.radZona||{activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0}; APP.cofre=s.cofre||{chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0}; APP.cofreObjetos=s.cofreObjetos||{}; APP.recetasPendientes=s.recetasPendientes||[]; APP.enCiudad=s.enCiudad||false; aplicarOverridesContenido();
   APP.tiendas=s.tiendas||[]; APP.notificaciones=s.notificaciones||{};
   const j=APP.jugadores[id];
   if(!j){ showNotif('Error: jugador no encontrado'); showScreen('selector-screen'); return; }
@@ -2342,18 +2365,52 @@ function saveJ(){
   if(!FB_MOCK&&db) db.ref('salas/'+APP.salaId+'/jugadores/'+j.id).set(j);
 }
 
+/* ── Cofre: actualización atómica por transacción de Firebase (evita pisar cambios recientes) ──
+   subpath: 'cofre/chatarra' o 'cofreObjetos/123'. delta puede ser + o -.
+   cb(valorFinal) se llama al terminar, tanto en local como tras confirmar la transacción. */
+function cofreTx(subpath, delta, cb){
+  const ruta='salas/'+APP.salaId+'/'+subpath;
+  if(FB_MOCK||!db){
+    const sala=getMockSala(APP.salaId);
+    const partes=subpath.split('/'); // ['cofre', k] o ['cofreObjetos', objId]
+    const raiz=partes[0]==='cofre'?APP.cofre:APP.cofreObjetos;
+    const key=partes[1];
+    const actual=raiz[key]||0;
+    const solicitado=delta<0?Math.min(-delta,actual):null; // si es resta, cuánto se puede quitar de verdad
+    const nuevo=delta<0?Math.max(0,actual-(-delta)):actual+delta;
+    if(nuevo<=0&&partes[0]==='cofreObjetos') delete raiz[key]; else raiz[key]=nuevo;
+    sala[partes[0]]=raiz;
+    if(cb) cb(nuevo, solicitado===null?delta:solicitado);
+    return;
+  }
+  let aplicado=0;
+  db.ref(ruta).transaction(function(actual){
+    actual=actual||0;
+    if(delta<0){
+      aplicado=Math.min(-delta,actual);
+      return actual-aplicado;
+    }
+    aplicado=delta;
+    return actual+delta;
+  }, function(err,committed,snap){
+    if(err||!committed){ showNotif('No se pudo actualizar el Cofre, inténtalo de nuevo'); if(cb) cb(null,0); return; }
+    const val=snap?snap.val():0;
+    if(cb) cb(val||0, aplicado);
+  });
+}
+
 function saveCofre(){
   const sala=getMockSala(APP.salaId);
   sala.cofre=APP.cofre;
   marcarEscrituraCofreLocal();
-  fbSet('salas/'+APP.salaId+'/cofre',APP.cofre);
+  return fbSet('salas/'+APP.salaId+'/cofre',APP.cofre);
 }
 
 function saveCofreObjetos(){
   const sala=getMockSala(APP.salaId);
   sala.cofreObjetos=APP.cofreObjetos;
   marcarEscrituraCofreLocal();
-  fbSet('salas/'+APP.salaId+'/cofreObjetos',APP.cofreObjetos);
+  return fbSet('salas/'+APP.salaId+'/cofreObjetos',APP.cofreObjetos);
 }
 
 /* ── Recetas: resolución de coste (compartido jugador/master) ── */
@@ -2424,41 +2481,114 @@ function descontarCoste(j,ingredientes){
   saveCofre(); saveCofreObjetos();
 }
 
-window.jugadorObjACofre=function(objId){
+window.abrirEnviarVariosCofre=function(){
   if(!APP.enCiudad) return showNotif('El Cofre solo está disponible en ciudad/refugio');
-  objId=parseInt(objId)||objId;
   const j=myFicha();
   const eq=j.equipo||{};
-  const estaEquipado=Object.keys(eq).some(function(s){return eq[s]===objId;});
-  if(estaEquipado) return showNotif('Desequípalo antes de mandarlo al Cofre');
-  const idx=(j.inventario||[]).findIndex(function(it){return it.objId===objId;});
-  if(idx<0) return showNotif('No tienes ese objeto');
-  j.inventario[idx].qty--;
-  if(j.inventario[idx].qty<=0) j.inventario.splice(idx,1);
-  if(!APP.cofreObjetos) APP.cofreObjetos=[];
-  const existente=APP.cofreObjetos.find(function(i){return i.objId===objId;});
-  if(existente) existente.qty=(existente.qty||0)+1;
-  else APP.cofreObjetos.push({objId:objId,qty:1});
-  saveJ(); saveCofreObjetos();
-  const o=getObjById(objId);
-  showNotif((o?o.n:'Objeto')+' guardado en el Cofre');
+  const items=(j.inventario||[]).map(function(it){
+    const equipado=Object.keys(eq).some(function(s){return eq[s]===it.objId;});
+    return {it:it,o:getObjById(it.objId),equipado:equipado};
+  }).filter(function(x){return x.o&&!x.equipado;});
+  if(!items.length) return showNotif('No tienes objetos disponibles para enviar (los equipados no cuentan)');
+  const modal=document.getElementById('obj-detail-modal');
+  const box=document.getElementById('obj-detail-box');
+  box.innerHTML='<div style="padding:16px;">'
+    +'<div style="font-family:VT323,monospace;font-size:20px;color:var(--pip-bright);margin-bottom:4px;">📤 ENVIAR AL COFRE</div>'
+    +'<div style="font-size:9px;color:var(--pip-dim);margin-bottom:12px;">Marca los objetos y la cantidad que quieres mandar.</div>'
+    +items.map(function(x){
+      return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(74,254,130,.08);">'
+        +'<input type="checkbox" class="chk-env-cofre" data-objid="'+x.it.objId+'" data-max="'+x.it.qty+'">'
+        +'<span style="flex:1;font-size:12px;color:var(--pip-bright);">'+x.o.n+' <span style="color:var(--pip-dim);">(tienes '+x.it.qty+')</span></span>'
+        +'<input type="number" class="cant-env-cofre" data-objid="'+x.it.objId+'" value="1" min="1" max="'+x.it.qty+'" style="width:44px;font-family:VT323,monospace;font-size:14px;padding:3px;background:var(--pip-dark);border:1px solid var(--pip-border);color:var(--pip-bright);text-align:center;">'
+        +'</div>';
+    }).join('')
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px;">'
+    +'<button class="btn btn-warn" onclick="cerrarDetalle()">CANCELAR</button>'
+    +'<button class="btn" onclick="confirmarEnvioVariosCofre()">▸ CONFIRMAR ENVÍO</button>'
+    +'</div></div>';
+  modal.style.display='flex';
+};
+
+window.confirmarEnvioVariosCofre=async function(){
+  const checks=document.querySelectorAll('.chk-env-cofre:checked');
+  if(!checks.length) return showNotif('Selecciona al menos un objeto');
+  const seleccion=[];
+  checks.forEach(function(chk){
+    const objId=parseInt(chk.dataset.objid);
+    const max=parseInt(chk.dataset.max)||1;
+    const cantEl=document.querySelector('.cant-env-cofre[data-objid="'+chk.dataset.objid+'"]');
+    seleccion.push({objId:objId,cant:Math.max(1,Math.min(max,parseInt(cantEl?cantEl.value:1)||1))});
+  });
   cerrarDetalle();
+  mostrarEnviando('📡 ENVIANDO AL COFRE...');
+  const j=myFicha();
+  if(!APP.cofreObjetos) APP.cofreObjetos=[];
+  seleccion.forEach(function(s){
+    const idx=(j.inventario||[]).findIndex(function(it){return it.objId===s.objId;});
+    if(idx<0) return;
+    const restar=Math.min(s.cant,j.inventario[idx].qty);
+    j.inventario[idx].qty-=restar;
+    if(j.inventario[idx].qty<=0) j.inventario.splice(idx,1);
+    const existente=APP.cofreObjetos.find(function(i){return i.objId===s.objId;});
+    if(existente) existente.qty=(existente.qty||0)+restar;
+    else APP.cofreObjetos.push({objId:s.objId,qty:restar});
+  });
+  saveJ();
+  await esperarConfirmacion(saveCofreObjetos(),5000);
+  ocultarEnviando();
+  showNotif('Enviado al Cofre');
   renderApp();
 };
 
-window.jugadorObjDeCofre=function(objId){
+window.abrirCogerVariosCofre=function(){
   if(!APP.enCiudad) return showNotif('El Cofre solo está disponible en ciudad/refugio');
-  objId=parseInt(objId)||objId;
-  if(!APP.cofreObjetos) APP.cofreObjetos=[];
-  const idx=APP.cofreObjetos.findIndex(function(i){return i.objId===objId;});
-  if(idx<0) return showNotif('El Cofre no tiene ese objeto');
-  APP.cofreObjetos[idx].qty--;
-  if(APP.cofreObjetos[idx].qty<=0) APP.cofreObjetos.splice(idx,1);
+  const items=(APP.cofreObjetos||[]).map(function(ci){return {ci:ci,o:getObjById(ci.objId)};}).filter(function(x){return x.o;});
+  if(!items.length) return showNotif('El Cofre no tiene objetos');
+  const modal=document.getElementById('obj-detail-modal');
+  const box=document.getElementById('obj-detail-box');
+  box.innerHTML='<div style="padding:16px;">'
+    +'<div style="font-family:VT323,monospace;font-size:20px;color:var(--pip-bright);margin-bottom:4px;">📥 COGER DEL COFRE</div>'
+    +'<div style="font-size:9px;color:var(--pip-dim);margin-bottom:12px;">Marca los objetos y la cantidad que quieres coger.</div>'
+    +items.map(function(x){
+      return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(74,254,130,.08);">'
+        +'<input type="checkbox" class="chk-coger-cofre" data-objid="'+x.ci.objId+'" data-max="'+x.ci.qty+'">'
+        +'<span style="flex:1;font-size:12px;color:var(--pip-bright);">'+x.o.n+' <span style="color:var(--pip-dim);">(hay '+x.ci.qty+')</span></span>'
+        +'<input type="number" class="cant-coger-cofre" data-objid="'+x.ci.objId+'" value="1" min="1" max="'+x.ci.qty+'" style="width:44px;font-family:VT323,monospace;font-size:14px;padding:3px;background:var(--pip-dark);border:1px solid var(--pip-border);color:var(--pip-bright);text-align:center;">'
+        +'</div>';
+    }).join('')
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px;">'
+    +'<button class="btn btn-warn" onclick="cerrarDetalle()">CANCELAR</button>'
+    +'<button class="btn" onclick="confirmarCogerVariosCofre()">▸ CONFIRMAR</button>'
+    +'</div></div>';
+  modal.style.display='flex';
+};
+
+window.confirmarCogerVariosCofre=async function(){
+  const checks=document.querySelectorAll('.chk-coger-cofre:checked');
+  if(!checks.length) return showNotif('Selecciona al menos un objeto');
+  const seleccion=[];
+  checks.forEach(function(chk){
+    const objId=parseInt(chk.dataset.objid);
+    const max=parseInt(chk.dataset.max)||1;
+    const cantEl=document.querySelector('.cant-coger-cofre[data-objid="'+chk.dataset.objid+'"]');
+    seleccion.push({objId:objId,cant:Math.max(1,Math.min(max,parseInt(cantEl?cantEl.value:1)||1))});
+  });
+  cerrarDetalle();
+  mostrarEnviando('📡 RECIBIENDO DEL COFRE...');
   const j=myFicha();
-  addItemToJugador(j,objId,1);
-  saveJ(); saveCofreObjetos();
-  const o=getObjById(objId);
-  showNotif((o?o.n:'Objeto')+' sacado del Cofre');
+  if(!APP.cofreObjetos) APP.cofreObjetos=[];
+  seleccion.forEach(function(s){
+    const idx=APP.cofreObjetos.findIndex(function(i){return i.objId===s.objId;});
+    if(idx<0) return;
+    const restar=Math.min(s.cant,APP.cofreObjetos[idx].qty);
+    APP.cofreObjetos[idx].qty-=restar;
+    if(APP.cofreObjetos[idx].qty<=0) APP.cofreObjetos.splice(idx,1);
+    addItemToJugador(j,s.objId,restar);
+  });
+  saveJ();
+  await esperarConfirmacion(saveCofreObjetos(),5000);
+  ocultarEnviando();
+  showNotif('Cogido del Cofre');
   renderApp();
 };
 
@@ -2532,7 +2662,7 @@ window.abrirMandarRecurso=function(k){
     +'</div></div>';
   modal.style.display='flex';
 };
-window.confirmarMandarRecurso=function(k){
+window.confirmarMandarRecurso=async function(k){
   const j=myFicha();
   if(!j.recursos) j.recursos={};
   const disponible=j.recursos[k]||0;
@@ -2541,8 +2671,11 @@ window.confirmarMandarRecurso=function(k){
   j.recursos[k]=disponible-cant;
   if(!APP.cofre) APP.cofre={};
   APP.cofre[k]=(APP.cofre[k]||0)+cant;
-  saveJ(); saveCofre();
   cerrarDetalle();
+  mostrarEnviando('📡 ENVIANDO AL COFRE...');
+  saveJ();
+  await esperarConfirmacion(saveCofre(),5000);
+  ocultarEnviando();
   showNotif('Enviado al Cofre: '+cant);
   renderApp();
 };
@@ -2564,7 +2697,7 @@ window.abrirCogerRecurso=function(k){
     +'</div></div>';
   modal.style.display='flex';
 };
-window.confirmarCogerRecurso=function(k){
+window.confirmarCogerRecurso=async function(k){
   const disponible=(APP.cofre&&APP.cofre[k])||0;
   const cantEl=document.getElementById('coger-recurso-cant');
   const cant=Math.max(1,Math.min(disponible,parseInt(cantEl?cantEl.value:1)||1));
@@ -2572,8 +2705,11 @@ window.confirmarCogerRecurso=function(k){
   const j=myFicha();
   if(!j.recursos) j.recursos={};
   j.recursos[k]=(j.recursos[k]||0)+cant;
-  saveJ(); saveCofre();
   cerrarDetalle();
+  mostrarEnviando('📡 RECIBIENDO DEL COFRE...');
+  saveJ();
+  await esperarConfirmacion(saveCofre(),5000);
+  ocultarEnviando();
   showNotif('Cogido del Cofre: '+cant);
   renderApp();
 };
@@ -3387,6 +3523,7 @@ function renderJInv(){
     +'<div class="card"><div class="card-hdr">INVENTARIO</div>'
     +'<div style="padding:0;">'
     +(!(j.inventario||[]).length?'<div class="empty">Sin objetos</div>':renderInvGrupos(j, eq))
+    +(APP.enCiudad&&(j.inventario||[]).length?'<div style="padding:8px;"><button class="btn btn-block" onclick="abrirEnviarVariosCofre()">📤 ENVIAR AL COFRE</button></div>':'')
     +'</div></div>'
 
     // ── RECURSOS DE FABRICACIÓN (los que lleva encima el jugador) ──
@@ -3419,7 +3556,7 @@ function renderJCofre(){
   return '<div class="card"><div class="card-hdr">🗃 COFRE COMÚN</div>'
     +'<div style="padding:8px 10px;">'
     +(APP.enCiudad
-      ?'<div style="font-size:9px;color:#64c8ff;margin-bottom:6px;">🏙 EN CIUDAD/REFUGIO · puedes coger recursos y objetos del Cofre. Para guardar un objeto tuyo, ábrelo desde el Inventario y pulsa "Enviar al Cofre".</div>'
+      ?'<div style="font-size:9px;color:#64c8ff;margin-bottom:6px;">🏙 EN CIUDAD/REFUGIO · puedes coger recursos y objetos del Cofre. Para guardar objetos tuyos, ve a Inventario y pulsa "Enviar al Cofre".</div>'
       :'<div style="font-size:9px;color:var(--pip-dim);margin-bottom:6px;">Fuera de ciudad: el Cofre no está disponible ahora mismo</div>')
     +'<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin-bottom:4px;">RECURSOS (los entrega el Master)</div>'
     +RECURSOS_FABRICACION.filter(function(r){return !r.consumible;}).map(function(r){return renderRecursoRowCofre(r);}).join('')
@@ -3433,9 +3570,9 @@ function renderJCofre(){
               return '<div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid rgba(74,254,130,.08);">'
                 +'<span style="flex:1;font-size:12px;color:var(--pip-bright);">'+x.o.n+'</span>'
                 +'<span style="font-family:VT323,monospace;font-size:16px;color:var(--pip-warn);">x'+x.ci.qty+'</span>'
-                +(APP.enCiudad?'<button class="chip chip-g" data-oid="'+x.ci.objId+'" onclick="jugadorObjDeCofre(this.dataset.oid)">SACAR</button>':'')
                 +'</div>';
-            }).join(''));
+            }).join(''))
+          +(APP.enCiudad&&cofreItems.length?'<button class="btn btn-block" style="margin-top:8px;" onclick="abrirCogerVariosCofre()">📥 COGER DEL COFRE</button>':'');
       })()
     +'</div></div>';
 }
@@ -6182,7 +6319,7 @@ window.masterEnviarACofre=function(oid){
   const sala=getMockSala(APP.salaId);
   const o=getObjById(oid)||APP.tienda.find(function(x){return x.id===oid||x.id===parseInt(oid);});
   if(!o) return;
-  if(!APP.cofreObjetos) APP.cofreObjetos=[];
+  if(!APP.cofreObjetos) APP.cofreObjetos={};
   const existente=APP.cofreObjetos.find(function(i){return i.objId===oid;});
   if(existente) existente.qty=(existente.qty||0)+1;
   else APP.cofreObjetos.push({objId:oid,qty:1});
@@ -6468,11 +6605,6 @@ window.abrirDetalle=function(objId,origen){
       const sala2=getMockSala(APP.salaId);
       const tiendaAct=(sala2.tiendas||[]).find(function(t){return t.activa;});
       const precioVenta=o.val?Math.floor(o.val/2):0;
-      if(APP.enCiudad&&!equipadoEn){
-        acciones+='<button class="obj-equip-btn" style="border-color:#64c8ff;color:#64c8ff;" data-oid="'+o.id+'" onclick="jugadorObjACofre(this.dataset.oid)">🗃 ENVIAR AL COFRE</button>';
-      } else if(APP.enCiudad&&equipadoEn){
-        acciones+='<div style="font-size:9px;color:var(--pip-dim);padding:4px 0;">Desequípalo para poder enviarlo al Cofre</div>';
-      }
       acciones+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:4px;">'
         +(tiendaAct&&precioVenta>0
           ?'<button class="obj-equip-btn" style="border-color:var(--pip-warn);color:var(--pip-warn);" data-idx="'+idxT+'" onclick="venderObjeto(parseInt(this.dataset.idx));cerrarDetalle()">💰 VENDER ('+precioVenta+'¢)</button>'
