@@ -581,7 +581,7 @@ window.toggleRadZonaActiva=function(){
 };
 
 var _cofreLocalGuardUntil=0;
-function marcarEscrituraCofreLocal(){ _cofreLocalGuardUntil=Date.now()+2500; }
+function marcarEscrituraCofreLocal(){ _cofreLocalGuardUntil=Date.now()+4000; }
 function normalizarArrayCofre(v){
   if(Array.isArray(v)) return v;
   if(v&&typeof v==='object') return Object.values(v).filter(function(x){return x!=null;});
@@ -593,16 +593,28 @@ function startRealtime(salaId){
   db.ref('salas/'+salaId).on('value', function(snap){
     const data=snap.val();
     if(!data) return;
-    MOCK.salas[salaId]=Object.assign(getMockSala(salaId), data);
+    const salaAntes=getMockSala(salaId);
+    const dentroGuardia=Date.now()<_cofreLocalGuardUntil;
+    const cofreLocal=salaAntes.cofre;
+    const cofreObjetosLocal=salaAntes.cofreObjetos;
+    MOCK.salas[salaId]=Object.assign(salaAntes, data);
     const s=MOCK.salas[salaId];
+    if(dentroGuardia){
+      // Restaurar lo que teníamos en memoria: el snapshot remoto puede no reflejar aún nuestra última escritura
+      s.cofre=cofreLocal;
+      s.cofreObjetos=cofreObjetosLocal;
+    }
     var jugsRaw=s.jugadores||{};
     Object.keys(jugsRaw).forEach(function(k){ normalizarFicha(jugsRaw[k]); });
     APP.jugadores=jugsRaw;
     APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[]; APP.extrasCustom=s.extrasCustom||[]; APP.rasgosOverride=s.rasgosOverride||{}; APP.extrasOverride=s.extrasOverride||{}; APP.radZona=s.radZona||{activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0};
     // Cofre y objetos del cofre: si hemos escrito localmente hace muy poco, no dejar que un snapshot remoto en tránsito nos pise el cambio
-    if(Date.now()>=_cofreLocalGuardUntil){
+    if(!dentroGuardia){
       APP.cofre=s.cofre||{chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0};
       APP.cofreObjetos=normalizarArrayCofre(s.cofreObjetos);
+    } else {
+      s.cofre=APP.cofre;
+      s.cofreObjetos=APP.cofreObjetos;
     }
     APP.recetasPendientes=s.recetasPendientes||[]; APP.enCiudad=s.enCiudad||false; aplicarOverridesContenido();
     APP.enemigos=s.enemigos||[];
