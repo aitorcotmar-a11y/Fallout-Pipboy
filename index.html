@@ -353,8 +353,7 @@ input:focus,select:focus{border-color:var(--pip);box-shadow:0 0 4px rgba(74,254,
   <div class="login-box">
     <div class="login-title">¿QUIÉN ERES?</div>
     <button class="btn btn-block" onclick="goMasterPW()" style="margin-bottom:8px;font-size:16px;">▸ SOY EL MASTER</button>
-    <button class="btn btn-block" onclick="goSelector()" style="margin-bottom:8px;font-size:16px;">▸ SOY UN JUGADOR</button>
-    <button class="btn btn-block" onclick="entrarTest()" style="font-size:14px;border-color:rgba(245,185,66,.4);color:var(--pip-warn);">⚗ MODO TEST</button>
+    <button class="btn btn-block" onclick="goSelector()" style="font-size:16px;">▸ SOY UN JUGADOR</button>
   </div>
   <div style="font-size:9px;color:var(--pip-dim);text-align:center;margin-top:8px;letter-spacing:1px;">VAULT-TEC DOCUMENTATION DEPT. · ENERO 2077</div>
 </div>
@@ -503,6 +502,72 @@ function initFB(){
 // Listener en tiempo real para la sala — sincroniza cambios de otros usuarios
 var _heartbeatInterval=null;
 
+/* ── Aplicador automático de radiación por zona (Rads/hora → por minuto) ── */
+function radZonaTick(){
+  if(APP.rol!=='master'||!APP.salaId) return;
+  const rz=APP.radZona;
+  if(!rz||!rz.activo) return;
+  const msPerMin=60000;
+  const ahora=Date.now();
+  const ultimo=rz.ultimoTick||ahora;
+  const minutos=Math.floor((ahora-ultimo)/msPerMin);
+  if(minutos<1) return;
+  const sala=getMockSala(APP.salaId);
+  const idsAfectados=[];
+  (rz.jugadoresIds||[]).forEach(function(id){
+    const j=sala.jugadores[id]; if(!j) return;
+    if((j.extras||[]).includes('Uranium Fever')) return; // inmune
+    const reduccionExtra=(j.extras||[]).includes('Resistente a la radiación')?5:0; // -5 Rads/hora
+    const tasaEfectivaHora=Math.max(0,(rz.radsHora||0)-reduccionExtra);
+    const factorIridiscente=(j.rasgos||[]).includes('iridiscente')?0.5:1;
+    const perMin=(tasaEfectivaHora/60)*factorIridiscente;
+    j.rads=Math.max(0,Math.min(1000,(j.rads||0)+perMin*minutos));
+    idsAfectados.push(id);
+  });
+  rz.ultimoTick=ultimo+minutos*msPerMin;
+  APP.radZona=rz;
+  sala.radZona=rz;
+  fbSet('salas/'+APP.salaId+'/radZona',rz);
+  idsAfectados.forEach(function(id){
+    fbSet('salas/'+APP.salaId+'/jugadores/'+id+'/rads',sala.jugadores[id].rads);
+  });
+  if(APP.masterTab==='modif'){ const mc=document.getElementById('main-content'); if(mc) mc.innerHTML=renderMModif(); }
+}
+setInterval(radZonaTick,15000);
+
+window.toggleRadZonaJugador=function(id,checked){
+  if(!APP.radZona) APP.radZona={activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0};
+  if(!APP.radZona.jugadoresIds) APP.radZona.jugadoresIds=[];
+  if(checked){ if(!APP.radZona.jugadoresIds.includes(id)) APP.radZona.jugadoresIds.push(id); }
+  else { APP.radZona.jugadoresIds=APP.radZona.jugadoresIds.filter(function(x){return x!==id;}); }
+  const sala=getMockSala(APP.salaId);
+  sala.radZona=APP.radZona;
+  fbSet('salas/'+APP.salaId+'/radZona',APP.radZona);
+};
+
+window.masterAplicarRateRadZona=function(){
+  const v=parseFloat((document.getElementById('m-radzona-rate')||{}).value)||0;
+  if(!APP.radZona) APP.radZona={activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0};
+  APP.radZona.radsHora=v;
+  const sala=getMockSala(APP.salaId);
+  sala.radZona=APP.radZona;
+  fbSet('salas/'+APP.salaId+'/radZona',APP.radZona);
+  showNotif('Tasa actualizada: '+v+' rads/hora');
+};
+
+window.toggleRadZonaActiva=function(){
+  if(!APP.radZona) APP.radZona={activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0};
+  const rateEl=document.getElementById('m-radzona-rate');
+  if(rateEl) APP.radZona.radsHora=parseFloat(rateEl.value)||0;
+  APP.radZona.activo=!APP.radZona.activo;
+  if(APP.radZona.activo) APP.radZona.ultimoTick=Date.now(); // empieza a contar desde ahora, no desde un valor antiguo
+  const sala=getMockSala(APP.salaId);
+  sala.radZona=APP.radZona;
+  fbSet('salas/'+APP.salaId+'/radZona',APP.radZona);
+  showNotif(APP.radZona.activo?'☢ Zona de radiación ACTIVADA':'Zona de radiación desactivada');
+  renderApp();
+};
+
 function startRealtime(salaId){
   if(FB_MOCK||!db) return;
   db.ref('salas/'+salaId).on('value', function(snap){
@@ -513,7 +578,7 @@ function startRealtime(salaId){
     var jugsRaw=s.jugadores||{};
     Object.keys(jugsRaw).forEach(function(k){ normalizarFicha(jugsRaw[k]); });
     APP.jugadores=jugsRaw;
-    APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[]; APP.extrasCustom=s.extrasCustom||[]; APP.rasgosOverride=s.rasgosOverride||{}; APP.extrasOverride=s.extrasOverride||{}; aplicarOverridesContenido();
+    APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[]; APP.extrasCustom=s.extrasCustom||[]; APP.rasgosOverride=s.rasgosOverride||{}; APP.extrasOverride=s.extrasOverride||{}; APP.radZona=s.radZona||{activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0}; APP.cofre=s.cofre||{chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0}; APP.enCiudad=s.enCiudad||false; aplicarOverridesContenido();
     APP.enemigos=s.enemigos||[];
     APP.combate=s.combate||[];
     APP.tiendas=s.tiendas||[];
@@ -600,6 +665,17 @@ function nombreParam(cat,k){
   const f=lista.find(function(p){return p.k===k;});
   return f?f.n:k;
 }
+/* ── Recursos de fabricación: se comportan como moneda (cantidades simples, sin instancias) ── */
+const RECURSOS_FABRICACION=[
+  {k:'chatarra',n:'Chatarra',icono:'⚙',consumible:false},
+  {k:'medicinas',n:'Medicinas',icono:'💊',consumible:false},
+  {k:'quimicos',n:'Químicos',icono:'🧪',consumible:false},
+  {k:'electronica',n:'Electrónica',icono:'🔌',consumible:false},
+  {k:'comida_irr',n:'Comida irradiada',icono:'☢',consumible:true,rads:10},
+  {k:'agua_irr',n:'Agua irradiada',icono:'☢',consumible:true,rads:10},
+  {k:'raciones',n:'Raciones',icono:'🍖',consumible:true,rads:0},
+  {k:'agua',n:'Agua',icono:'💧',consumible:true,rads:0},
+];
 function aplicarOverridesContenido(){
   // Ediciones guardadas sobre rasgos/extras YA EXISTENTES (id fijo, nombre bloqueado).
   // Se mutan los objetos de los arrays estáticos: cualquier ficha que ya tenga
@@ -1282,6 +1358,9 @@ function getMockSala(id){
       config:{pwHash:simplehash('master123')},
       jugadores:{}, tienda:OBJETOS_EJEMPLO.filter(function(o){return o!=null;}),
       rasgosCustom:[], extrasCustom:[], rasgosOverride:{}, extrasOverride:{},
+      radZona:{activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0},
+      cofre:{chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0},
+      enCiudad:false,
       enVenta:[], enemigos:[...ENEMIGOS_EJEMPLO], combate:[],
       notificaciones:{},
       tiendas:[{
@@ -1345,7 +1424,7 @@ function fichaVacia(nombre,clase){
 function salirApp(){
   if(_heartbeatInterval){ clearInterval(_heartbeatInterval); _heartbeatInterval=null; }
   // Marcar offline
-  if(APP.jugadorId&&APP.salaId&&APP.rol!=='test'){
+  if(APP.jugadorId&&APP.salaId){
     const j=myFicha();
     if(j){ j.online=false; saveJ(); }
     if(!FB_MOCK&&db) db.ref('salas/'+APP.salaId+'/jugadores/'+APP.jugadorId+'/online').set(false);
@@ -1359,7 +1438,7 @@ function salirApp(){
   // Reset completo del estado
   APP.rol=null; APP.jugadorId=null; APP.salaId=null;
   APP.masterTab='fichas'; APP.fichaInner='estado';
-  APP.jugadores={}; APP.tienda=[]; APP.enemigos=[]; APP.combate=[]; APP.rasgosCustom=[]; APP.extrasCustom=[]; APP.rasgosOverride={}; APP.extrasOverride={};
+  APP.jugadores={}; APP.tienda=[]; APP.enemigos=[]; APP.combate=[]; APP.rasgosCustom=[]; APP.extrasCustom=[]; APP.rasgosOverride={}; APP.extrasOverride={}; APP.radZona={activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0}; APP.cofre={chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0}; APP.enCiudad=false;
   APP.tiendas=[]; APP.notificaciones={}; APP._gruposAbiertos={};
   MOCK.salas={};
   showScreen('login-screen');
@@ -1437,62 +1516,6 @@ window.masterPinKey=function(k){
   updateMasterPinDots();
 };
 
-// ══ MODO TEST ══
-var TEST_FICHA_ID='__test__';
-
-function crearFichaTest(){
-  var j=normalizarFicha(fichaVacia('TEST','heroe'));
-  j.id=TEST_FICHA_ID;
-  j.nombre='TEST';
-  j.confirmada=true; j.bloqueada=false;
-  j.nivel=1; j.pe=0;
-  j.attrs={fue:10,agi:10,res:10,int:10,per:10,car:10,sue:10};
-  j.pvMax=20; j.pvAct=20;
-  j.chapas=9999;
-  j.rasgos=[];
-  j.extras=[];
-  // Todos los objetos en inventario
-  OBJETOS_EJEMPLO.filter(function(o){return o!=null;}).forEach(function(o){
-    if(o.tipo==='municion'&&o.muniId){
-      if(o.muniId==='muni_fusion') j.fusion_total+=10;
-      else j.municion[o.muniId]=(j.municion[o.muniId]||0)+50;
-    } else {
-      j.inventario.push({objId:o.id,qty:5});
-    }
-  });
-  j.cuadros=[
-    {id:'atk',label:'ATAQUE',valor:'',auto:true},
-    {id:'ini',label:'INIC.',valor:'',auto:true},
-    {id:'crit',label:'CRIT',valor:'',auto:true},
-    {id:'mov',label:'MOV',valor:'',auto:true},
-    {id:'pif',label:'PIFIA',valor:'',auto:true},
-    {id:'c1',label:'—',valor:'',auto:false},
-    {id:'c2',label:'—',valor:'',auto:false},
-    {id:'c3',label:'—',valor:'',auto:false},
-    {id:'c4',label:'—',valor:'',auto:false},
-  ];
-  return j;
-}
-
-window.entrarTest=function(){
-  APP.rol='test'; APP.jugadorId=TEST_FICHA_ID; APP.salaId='__test__';
-  var j=crearFichaTest();
-  APP.jugadores={};
-  APP.jugadores[TEST_FICHA_ID]=j;
-  APP.tienda=OBJETOS_EJEMPLO.filter(function(o){return o!=null;});
-  APP.tiendas=[]; APP.enemigos=[]; APP.combate=[]; APP.notificaciones={}; APP.rasgosCustom=[]; APP.extrasCustom=[]; APP.rasgosOverride={}; APP.extrasOverride={};
-  document.getElementById('hdr-sala').textContent='MODO TEST';
-  document.getElementById('hdr-badge').innerHTML='<span class="rbadge jugador" style="color:var(--pip-warn);">⚗ TEST</span>';
-  buildTabs(); showScreen('shell'); renderApp();
-};
-
-// saveJ en modo test — solo en memoria
-var _origSaveJ=null;
-function saveJTest(){
-  var j=myFicha(); if(!j) return;
-  APP.jugadores[j.id]=j;
-}
-
 window.goSelector=function(){
   APP.salaId=SALA_ID;
   // Limpiar estado de sesión anterior
@@ -1537,7 +1560,7 @@ function entrarMaster(){
         fbSaveSala(APP.salaId);
       }
       const s=getMockSala(APP.salaId);
-      APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[]; APP.extrasCustom=s.extrasCustom||[]; APP.rasgosOverride=s.rasgosOverride||{}; APP.extrasOverride=s.extrasOverride||{}; aplicarOverridesContenido();
+      APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[]; APP.extrasCustom=s.extrasCustom||[]; APP.rasgosOverride=s.rasgosOverride||{}; APP.extrasOverride=s.extrasOverride||{}; APP.radZona=s.radZona||{activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0}; APP.cofre=s.cofre||{chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0}; APP.enCiudad=s.enCiudad||false; aplicarOverridesContenido();
       APP.enemigos=s.enemigos||[]; APP.combate=s.combate||[];
       APP.tiendas=s.tiendas||[]; APP.notificaciones=s.notificaciones||{};
       // Comprobar si master ya está conectado (con tolerancia de 15s)
@@ -1569,7 +1592,7 @@ function entrarMaster(){
 
 function entrarMasterLocal(){
   const s=getMockSala(APP.salaId);
-  APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[]; APP.extrasCustom=s.extrasCustom||[]; APP.rasgosOverride=s.rasgosOverride||{}; APP.extrasOverride=s.extrasOverride||{}; aplicarOverridesContenido();
+  APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[]; APP.extrasCustom=s.extrasCustom||[]; APP.rasgosOverride=s.rasgosOverride||{}; APP.extrasOverride=s.extrasOverride||{}; APP.radZona=s.radZona||{activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0}; APP.cofre=s.cofre||{chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0}; APP.enCiudad=s.enCiudad||false; aplicarOverridesContenido();
   APP.enemigos=s.enemigos||[]; APP.combate=s.combate||[];
   APP.tiendas=s.tiendas||[]; APP.notificaciones=s.notificaciones||{};
   renderApp();
@@ -1689,7 +1712,7 @@ function completarEntradaJugador(id){
       const data=snap.val();
       if(data) MOCK.salas[APP.salaId]=Object.assign(getMockSala(APP.salaId), data);
       const s=getMockSala(APP.salaId);
-      APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[]; APP.extrasCustom=s.extrasCustom||[]; APP.rasgosOverride=s.rasgosOverride||{}; APP.extrasOverride=s.extrasOverride||{}; aplicarOverridesContenido();
+      APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[]; APP.extrasCustom=s.extrasCustom||[]; APP.rasgosOverride=s.rasgosOverride||{}; APP.extrasOverride=s.extrasOverride||{}; APP.radZona=s.radZona||{activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0}; APP.cofre=s.cofre||{chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0}; APP.enCiudad=s.enCiudad||false; aplicarOverridesContenido();
       APP.tiendas=s.tiendas||[]; APP.notificaciones=s.notificaciones||{};
       const j=APP.jugadores[id];
       if(!j){ showNotif('Error: jugador no encontrado'); return; }
@@ -1724,7 +1747,7 @@ function completarEntradaJugador(id){
 
 function entrarJugadorLocal(id){
   const s=getMockSala(APP.salaId);
-  APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[]; APP.extrasCustom=s.extrasCustom||[]; APP.rasgosOverride=s.rasgosOverride||{}; APP.extrasOverride=s.extrasOverride||{}; aplicarOverridesContenido();
+  APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[]; APP.extrasCustom=s.extrasCustom||[]; APP.rasgosOverride=s.rasgosOverride||{}; APP.extrasOverride=s.extrasOverride||{}; APP.radZona=s.radZona||{activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0}; APP.cofre=s.cofre||{chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0}; APP.enCiudad=s.enCiudad||false; aplicarOverridesContenido();
   APP.tiendas=s.tiendas||[]; APP.notificaciones=s.notificaciones||{};
   const j=APP.jugadores[id];
   if(!j){ showNotif('Error: jugador no encontrado'); showScreen('selector-screen'); return; }
@@ -1743,13 +1766,6 @@ function entrarJugador(id){ entrarJugadorConPin(id); }
    ═══════════════════════════════════════════ */
 function buildTabs(){
   const el=document.getElementById('main-tabs');
-  if(APP.rol==='test'){
-    const fi=APP.fichaInner;
-    const at=fi==='estado'?'estado':fi==='armas'||fi==='habs'||fi==='special'||fi==='creacion'?'habs':fi==='inv'?'inv':fi==='municion'?'municion':'test_config';
-    el.innerHTML=[{k:'estado',l:'ESTADO'},{k:'habs',l:'HABILID.'},{k:'inv',l:'EQUIPO'},{k:'municion',l:'MUNICIÓN'},{k:'test_config',l:'⚗ TEST'}]
-      .map(function(t){return '<button class="tab '+(at===t.k?'active':'')+'" data-k="'+t.k+'" onclick="switchJT(this.dataset.k)">'+t.l+'</button>';}).join('');
-    return;
-  }
   if(APP.rol==='master'){
     el.innerHTML=[{k:'fichas',l:'FICHAS'},{k:'modif',l:'MODIF.'},{k:'objetos',l:'OBJETOS'},{k:'rasgos',l:'RASGOS'},{k:'extras',l:'EXTRAS'},{k:'tiendas',l:'TIENDAS'},{k:'combate',l:'COMBATE'}]
       .map(function(t){return '<button class="tab '+(APP.masterTab===t.k?'active':'')+'" data-k="'+t.k+'" onclick="switchMT(this.dataset.k)">'+t.l+'</button>';}).join('');
@@ -1761,7 +1777,7 @@ function buildTabs(){
   }
 }
 window.switchMT=function(t){APP.masterTab=t;APP._gruposAbiertos={};buildTabs();renderApp();};
-window.switchJT=function(t){var m={estado:'estado',habs:'armas',inv:'inv',municion:'municion',tienda:'tienda',test_config:'test_config'};APP.fichaInner=m[t]||t;buildTabs();renderApp();};
+window.switchJT=function(t){var m={estado:'estado',habs:'armas',inv:'inv',municion:'municion',tienda:'tienda'};APP.fichaInner=m[t]||t;buildTabs();renderApp();};
 window.switchFI=function(t){APP.fichaInner=t;renderApp()};
 
 /* ═══════════════════════════════════════════
@@ -1826,7 +1842,6 @@ function renderApp(){
       case 'inv':      el.innerHTML=renderJInv(); break;
       case 'municion': el.innerHTML=renderJMunicion(); break;
       case 'tienda':   el.innerHTML=renderJTienda(); break;
-      case 'test_config': el.innerHTML=renderTestConfig(); break;
     }
   }
 }
@@ -1849,6 +1864,7 @@ function normalizarFicha(j){
   if(j.penMod===undefined)    j.penMod=0;
   if(j.fatiga===undefined)    j.fatiga=0;
   if(j.rads===undefined)      j.rads=0;
+  if(!j.recursos)      j.recursos={chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0};
   if(j.chapas===undefined)    j.chapas=250;
   if(j.karma===undefined)     j.karma=0;
   if(j.puntossuerte===undefined) j.puntossuerte=0;
@@ -2271,10 +2287,82 @@ window.dispararArma=function(modo,coste){
 
 function saveJ(){
   const j=myFicha();
-  if(APP.rol==='test'){ APP.jugadores[j.id]=j; return; }
   getMockSala(APP.salaId).jugadores[j.id]=j;
   if(!FB_MOCK&&db) db.ref('salas/'+APP.salaId+'/jugadores/'+j.id).set(j);
 }
+
+function saveCofre(){
+  const sala=getMockSala(APP.salaId);
+  sala.cofre=APP.cofre;
+  fbSet('salas/'+APP.salaId+'/cofre',APP.cofre);
+}
+
+window.masterToggleCiudad=function(){
+  APP.enCiudad=!APP.enCiudad;
+  const sala=getMockSala(APP.salaId);
+  sala.enCiudad=APP.enCiudad;
+  fbSet('salas/'+APP.salaId+'/enCiudad',APP.enCiudad);
+  showNotif(APP.enCiudad?'🏙 Zona: EN CIUDAD / REFUGIO':'Zona: fuera de ciudad');
+  renderApp();
+};
+
+window.masterCofreMod=function(k,delta){
+  const cantEl=document.getElementById('m-cofre-cant');
+  const cant=Math.max(1,parseInt(cantEl?cantEl.value:1)||1);
+  if(!APP.cofre) APP.cofre={};
+  APP.cofre[k]=Math.max(0,(APP.cofre[k]||0)+(parseInt(delta)*cant));
+  saveCofre();
+  renderApp();
+};
+
+window.jugadorConsumirRecurso=function(k){
+  const j=myFicha();
+  const r=RECURSOS_FABRICACION.find(function(x){return x.k===k;});
+  if(!r||!r.consumible) return;
+  if(!j.recursos) j.recursos={};
+  if((j.recursos[k]||0)<1) return showNotif('No te queda '+r.n);
+  j.recursos[k]--;
+  if(r.rads>0){
+    j.rads=Math.max(0,Math.min(1000,(j.rads||0)+r.rads));
+    showNotif(r.n+' consumido · +'+r.rads+' rads');
+  } else {
+    showNotif(r.n+' consumido');
+  }
+  saveJ(); renderApp();
+};
+
+window.jugadorMoverACofre=function(k){
+  if(!APP.enCiudad) return showNotif('El Cofre solo está disponible en ciudad/refugio');
+  const j=myFicha();
+  if(!j.recursos) j.recursos={};
+  const cantEl=document.getElementById('rec-mov-'+k);
+  const cant=Math.max(1,parseInt(cantEl?cantEl.value:1)||1);
+  const disponible=j.recursos[k]||0;
+  if(disponible<1) return showNotif('No tienes ese recurso');
+  const mover=Math.min(cant,disponible);
+  j.recursos[k]=disponible-mover;
+  if(!APP.cofre) APP.cofre={};
+  APP.cofre[k]=(APP.cofre[k]||0)+mover;
+  saveJ(); saveCofre();
+  showNotif('Guardado en el Cofre: '+mover);
+  renderApp();
+};
+
+window.jugadorSacarDeCofre=function(k){
+  if(!APP.enCiudad) return showNotif('El Cofre solo está disponible en ciudad/refugio');
+  const j=myFicha();
+  if(!j.recursos) j.recursos={};
+  const cantEl=document.getElementById('rec-mov-'+k);
+  const cant=Math.max(1,parseInt(cantEl?cantEl.value:1)||1);
+  const disponible=(APP.cofre&&APP.cofre[k])||0;
+  if(disponible<1) return showNotif('El Cofre no tiene ese recurso');
+  const sacar=Math.min(cant,disponible);
+  APP.cofre[k]=disponible-sacar;
+  j.recursos[k]=(j.recursos[k]||0)+sacar;
+  saveJ(); saveCofre();
+  showNotif('Sacado del Cofre: '+sacar);
+  renderApp();
+};
 
 function renderJEstado(){
   const j=myFicha();
@@ -2482,7 +2570,7 @@ function renderJEstado(){
     +'<span class="bar-nums" style="color:'+pvColor+';">'+j.pvAct+'/'+j.pvMax+'</span></div>'
     +'<div class="bar-row"><span class="bar-lbl" style="color:var(--pip-rad)">RAD</span>'
     +'<div class="bar-track"><div class="bar-fill bfrad" style="width:'+radPct+'%"></div></div>'
-    +'<span class="bar-nums" style="color:var(--pip-rad);">'+j.rads+'</span></div>'
+    +'<span class="bar-nums" style="color:var(--pip-rad);">'+Math.ceil(j.rads||0)+'</span></div>'
 
     // ── Controles PV/RAD en línea: input | -DAÑO +CURAR | +RAD -RAD ──
     +'<div style="display:flex;align-items:center;gap:5px;margin-top:8px;">'
@@ -2540,7 +2628,7 @@ function renderJEstado(){
       var ultimo=ef[ef.length-1];
       var col=ultimo.muerte?'var(--pip-danger)':ultimo.muerteInminente?'var(--pip-danger)':ultimo.incapacitado?'var(--pip-danger)':'var(--pip-warn)';
       var descs=ef.map(function(e){return '• '+e.desc;}).join('<br>');
-      return '<div style="border:2px solid '+col+';background:rgba(255,60,60,.08);padding:8px 10px;margin-bottom:6px;">'        +'<div style="font-size:10px;color:'+col+';letter-spacing:1px;margin-bottom:4px;">☢ EFECTOS DE RADIACIÓN ('+j.rads+' rads)</div>'        +'<div style="font-size:10px;color:var(--pip-bright);line-height:1.7;">'+descs+'</div>'        +'</div>';
+      return '<div style="border:2px solid '+col+';background:rgba(255,60,60,.08);padding:8px 10px;margin-bottom:6px;">'        +'<div style="font-size:10px;color:'+col+';letter-spacing:1px;margin-bottom:4px;">☢ EFECTOS DE RADIACIÓN ('+Math.ceil(j.rads||0)+' rads)</div>'        +'<div style="font-size:10px;color:var(--pip-bright);line-height:1.7;">'+descs+'</div>'        +'</div>';
     })()
     // ── Banner fatiga ──
     +(function(){
@@ -3085,7 +3173,32 @@ function renderJInv(){
     +'<div class="card"><div class="card-hdr">INVENTARIO</div>'
     +'<div style="padding:0;">'
     +(!(j.inventario||[]).length?'<div class="empty">Sin objetos</div>':renderInvGrupos(j, eq))
+    +'</div></div>'
+
+    // ── RECURSOS DE FABRICACIÓN ──
+    +'<div class="card" style="margin-top:8px;"><div class="card-hdr">RECURSOS DE FABRICACIÓN</div>'
+    +'<div style="padding:8px 10px;">'
+    +(APP.enCiudad
+      ?'<div style="font-size:9px;color:#64c8ff;margin-bottom:6px;">🏙 EN CIUDAD/REFUGIO · puedes guardar y sacar del Cofre común</div>'
+      :'<div style="font-size:9px;color:var(--pip-dim);margin-bottom:6px;">Fuera de ciudad: el Cofre común no está disponible ahora mismo</div>')
+    +RECURSOS_FABRICACION.filter(function(r){return !r.consumible;}).map(function(r){return renderRecursoRow(j,r);}).join('')
+    +'<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin:10px 0 4px;border-bottom:1px solid var(--pip-border);padding-bottom:3px;">CONSUMIBLES</div>'
+    +RECURSOS_FABRICACION.filter(function(r){return r.consumible;}).map(function(r){return renderRecursoRow(j,r);}).join('')
     +'</div></div>';
+
+  function renderRecursoRow(j,r){
+    const cant=(j.recursos&&j.recursos[r.k])||0;
+    return '<div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;padding:5px 0;border-bottom:1px solid rgba(74,254,130,.08);">'
+      +'<span style="flex:1;min-width:110px;font-size:12px;color:var(--pip-bright);">'+r.icono+' '+r.n+'</span>'
+      +'<span style="font-family:VT323,monospace;font-size:18px;color:var(--pip-warn);min-width:26px;text-align:right;">'+cant+'</span>'
+      +(r.consumible?'<button class="chip" style="border-color:var(--pip);color:var(--pip);" data-k="'+r.k+'" onclick="jugadorConsumirRecurso(this.dataset.k)" '+(cant<1?'disabled':'')+'>USAR</button>':'')
+      +(APP.enCiudad?(
+        '<input type="number" min="1" value="1" id="rec-mov-'+r.k+'" style="width:38px;font-family:VT323,monospace;font-size:13px;padding:2px 4px;background:var(--pip-dark);border:1px solid var(--pip-border);color:var(--pip-bright);">'
+        +'<button class="chip chip-g" data-k="'+r.k+'" onclick="jugadorMoverACofre(this.dataset.k)" '+(cant<1?'disabled':'')+' title="Guardar en el Cofre">→🗃</button>'
+        +'<button class="chip" data-k="'+r.k+'" onclick="jugadorSacarDeCofre(this.dataset.k)" title="Sacar del Cofre">🗃→</button>'
+      ):'')
+      +'</div>';
+  }
 }
 
 function renderJTienda(){
@@ -3717,68 +3830,6 @@ window.wizardNext=function(){
 /* ═══════════════════════════════════════════
    NIVEL UP
    ═══════════════════════════════════════════ */
-function renderTestConfig(){
-  var j=myFicha(); if(!j) return '';
-  var todosRasgos=RASGOS;
-  var todosExtras=[...EXTRAS_COMUNES,...EXTRAS_AVANZADOS,...EXTRAS_LEGENDARIOS];
-
-  // Rasgos activos
-  var rasgosHtml=todosRasgos.map(function(r){
-    var sel=(j.rasgos||[]).includes(r.id);
-    return '<div style="display:flex;align-items:center;padding:6px 10px;border-bottom:1px solid rgba(74,254,130,.07);gap:8px;">'      +'<div style="flex:1;"><div style="font-size:11px;color:var(--pip-bright);">'+r.n+'</div><div style="font-size:9px;color:var(--pip-dim);">'+r.d+'</div></div>'      +'<button class="btn btn-sm '+(sel?'btn-danger':'')+'" data-rid="'+r.id+'" onclick="testToggleRasgo(this.dataset.rid)">'+(sel?'QUITAR':'AÑADIR')+'</button>'      +'</div>';
-  }).join('');
-
-  // Extras activos
-  var extrasHtml=todosExtras.map(function(e){
-    var sel=(j.extras||[]).includes(e.n);
-    var cat=EXTRAS_COMUNES.some(function(x){return x.id===e.id;})?'COMÚN':EXTRAS_AVANZADOS.some(function(x){return x.id===e.id;})?'AVANZADO':'LEGENDARIO';
-    return '<div style="display:flex;align-items:center;padding:6px 10px;border-bottom:1px solid rgba(74,254,130,.07);gap:8px;">'      +'<div style="flex:1;"><div style="font-size:11px;color:var(--pip-bright);">'+e.n+' <span style="font-size:8px;color:var(--pip-dim);">'+cat+'</span></div><div style="font-size:9px;color:var(--pip-dim);">'+e.d+'</div></div>'      +'<button class="btn btn-sm '+(sel?'btn-danger':'')+'" data-en="'+e.n.replace(/"/g,'&quot;')+'" onclick="testToggleExtra(this.dataset.en)">'+(sel?'QUITAR':'AÑADIR')+'</button>'      +'</div>';
-  }).join('');
-
-  return '<div class="card" style="border-color:rgba(245,185,66,.4);">'    +'<div class="card-hdr" style="color:var(--pip-warn);">⚗ PANEL DE PRUEBAS</div>'    +'<div style="padding:8px 12px;display:grid;grid-template-columns:1fr 1fr;gap:6px;">'    +'<button class="btn btn-sm" onclick="testSubirNivel()">⬆ SUBIR NIVEL ('+j.nivel+'→'+(j.nivel<12?j.nivel+1:12)+')</button>'    +'<button class="btn btn-sm btn-danger" onclick="testReset()">↺ RESET FICHA</button>'    +'<button class="btn btn-sm" onclick="testDarPE(10)">+10 PE ('+j.pe+')</button>'    +'<button class="btn btn-sm" onclick="testDarChapas()">+1000 Chapas</button>'    +'</div>'    +'</div>'    +'<div class="card"><div class="card-hdr">RASGOS ('+j.rasgos.length+'/2)</div><div style="padding:0;">'+rasgosHtml+'</div></div>'    +'<div class="card"><div class="card-hdr">EXTRAS ('+j.extras.length+')</div><div style="padding:0;">'+extrasHtml+'</div></div>';
-}
-
-window.testToggleRasgo=function(rid){
-  var j=myFicha();
-  var idx=(j.rasgos||[]).indexOf(rid);
-  if(idx>=0) j.rasgos.splice(idx,1);
-  else if(j.rasgos.length<2) j.rasgos.push(rid);
-  else { showNotif('Máximo 2 rasgos'); return; }
-  saveJ(); renderApp();
-};
-
-window.testToggleExtra=function(nombre){
-  var j=myFicha();
-  var idx=(j.extras||[]).indexOf(nombre);
-  if(idx>=0) j.extras.splice(idx,1);
-  else j.extras.push(nombre);
-  saveJ(); renderApp();
-};
-
-window.testSubirNivel=function(){
-  var j=myFicha();
-  if(j.nivel>=12){ showNotif('Nivel máximo'); return; }
-  j.nivel++;
-  j.pvMax+=Math.floor(Math.random()*10)+1;
-  j.pvAct=j.pvMax;
-  j.pe=j.nivel*10;
-  saveJ(); renderApp();
-  showNotif('Nivel '+j.nivel+' · ¡Ficha actualizada!');
-};
-
-window.testDarPE=function(n){
-  var j=myFicha(); j.pe+=n; saveJ(); renderApp();
-};
-
-window.testDarChapas=function(){
-  var j=myFicha(); j.chapas+=1000; saveJ(); renderApp();
-};
-
-window.testReset=function(){
-  APP.jugadores[TEST_FICHA_ID]=crearFichaTest();
-  renderApp(); showNotif('Ficha TEST reseteada');
-};
-
 window.abrirWizard=function(){
   const j=myFicha();
   if(!j) return;
@@ -4172,7 +4223,7 @@ function renderMFichas(){
       <div class="mini-bar-row">
         <span class="mini-lbl" style="color:var(--pip-rad);">RAD</span>
         <div class="mini-track"><div style="height:100%;background:var(--pip-rad);width:${radPct}%;"></div></div>
-        <span class="mini-val" style="color:var(--pip-rad);">${j.rads}</span>
+        <span class="mini-val" style="color:var(--pip-rad);">${Math.ceil(j.rads||0)}</span>
       </div>
       ${(j.fatiga||0)>0?`<div style="padding:3px 10px;font-size:9px;color:${calcEstadoFatiga(j)?calcEstadoFatiga(j).color:'var(--pip-warn)'};">😴 Fatiga: ${calcFatigaEfectiva(j)} ${calcEstadoFatiga(j)?'· '+calcEstadoFatiga(j).label:''}</div>`:''}
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:3px;padding:6px 10px;">
@@ -4217,6 +4268,22 @@ function renderMModif(){
       <button class="btn btn-warn" onclick="masterMod('rad+')">+ RADIACIÓN</button>
       <button class="btn btn-rad" onclick="masterMod('rad-')">− RADIACIÓN</button>
     </div>
+  </div>
+  <div class="mod-panel" style="border-color:rgba(255,140,0,.5);">
+    <div class="mod-title" style="color:#ff8c00;">☢ APLICADOR AUTOMÁTICO (RADS/HORA)</div>
+    <div style="font-size:9px;color:var(--pip-dim);margin-bottom:6px;">Aplica la tasa cada minuto a los jugadores marcados mientras esté ACTIVO. Sigue corriendo aunque cambies de pestaña de Master.</div>
+    <div class="form-row"><span class="form-lbl">RADS/HORA:</span><input type="number" id="m-radzona-rate" class="mod-input" value="${(APP.radZona&&APP.radZona.radsHora)||60}" min="0" onchange="masterAplicarRateRadZona()"></div>
+    <div style="margin:8px 0;max-height:180px;overflow-y:auto;">
+      ${jugs.map(j=>{
+        const enZona=((APP.radZona&&APP.radZona.jugadoresIds)||[]).includes(j.id);
+        return `<label class="plyr-chk">
+          <input type="checkbox" class="chk-radzona" ${enZona?'checked':''} onchange="toggleRadZonaJugador('${j.id}',this.checked)">
+          <span class="plyr-chk-name">${j.nombre} <span style="font-size:9px;color:var(--pip-dim);">(${(j.rads||0).toFixed(1)} rads)</span></span>
+        </label>`;
+      }).join('')}
+    </div>
+    <button class="btn btn-block ${(APP.radZona&&APP.radZona.activo)?'btn-danger':'btn-warn'}" onclick="toggleRadZonaActiva()">${(APP.radZona&&APP.radZona.activo)?'⏸ DESACTIVAR ZONA':'▶ ACTIVAR ZONA'}</button>
+    ${(APP.radZona&&APP.radZona.activo)?`<div style="font-size:9px;color:#ff8c00;margin-top:6px;">☢ ACTIVO · +${((APP.radZona.radsHora||0)/60).toFixed(2)} rads/min a ${(APP.radZona.jugadoresIds||[]).length} jugador(es)</div>`:''}
   </div>
   <div class="mod-panel">
     <div class="mod-title">▸ PENALIZADOR DE COMBATE</div>
@@ -4490,7 +4557,25 @@ function renderMObjetos(){
     }, 'objetos', true)
     +'</div></div>';
 
-  return formHtml+listaHtml;
+  const cofreBlockHtml='<div class="card" style="border-color:'+(APP.enCiudad?'rgba(100,200,255,.5)':'rgba(255,140,0,.4)')+';margin-bottom:8px;">'
+    +'<div class="card-hdr" style="color:'+(APP.enCiudad?'#64c8ff':'#ff8c00')+';">🏙 ESTADO: '+(APP.enCiudad?'EN CIUDAD / REFUGIO':'FUERA DE CIUDAD')+'</div>'
+    +'<div style="padding:10px 12px;">'
+    +'<div style="font-size:9px;color:var(--pip-dim);margin-bottom:8px;">Mientras esté EN CIUDAD, los jugadores pueden guardar y sacar recursos del Cofre común desde su inventario.</div>'
+    +'<button class="btn btn-block '+(APP.enCiudad?'btn-danger':'btn-warn')+'" onclick="masterToggleCiudad()">'+(APP.enCiudad?'⏸ SALIR DE CIUDAD':'▶ ENTRAR EN CIUDAD / REFUGIO')+'</button>'
+    +'<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin:12px 0 4px;border-bottom:1px solid var(--pip-border);padding-bottom:3px;">🗃 COFRE COMÚN</div>'
+    +'<div class="form-row"><span class="form-lbl">CANTIDAD:</span><input type="number" id="m-cofre-cant" class="mod-input" value="10" min="1"></div>'
+    +RECURSOS_FABRICACION.map(function(r){
+      var cant=(APP.cofre&&APP.cofre[r.k])||0;
+      return '<div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid rgba(74,254,130,.08);">'
+        +'<span style="flex:1;font-size:12px;color:var(--pip-bright);">'+r.icono+' '+r.n+'</span>'
+        +'<span style="font-family:VT323,monospace;font-size:18px;color:var(--pip-warn);min-width:32px;text-align:right;">'+cant+'</span>'
+        +'<button class="chip chip-r" data-k="'+r.k+'" onclick="masterCofreMod(this.dataset.k,-1)">−</button>'
+        +'<button class="chip chip-g" data-k="'+r.k+'" onclick="masterCofreMod(this.dataset.k,1)">+</button>'
+        +'</div>';
+    }).join('')
+    +'</div></div>';
+
+  return cofreBlockHtml+formHtml+listaHtml;
 }
 
 window.toggleArmaFields=function(tipo){
