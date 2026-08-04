@@ -575,6 +575,9 @@ window.toggleRadZonaActiva=function(){
   renderApp();
 };
 
+var _cofreLocalGuardUntil=0;
+function marcarEscrituraCofreLocal(){ _cofreLocalGuardUntil=Date.now()+2500; }
+
 function startRealtime(salaId){
   if(FB_MOCK||!db) return;
   db.ref('salas/'+salaId).on('value', function(snap){
@@ -585,7 +588,13 @@ function startRealtime(salaId){
     var jugsRaw=s.jugadores||{};
     Object.keys(jugsRaw).forEach(function(k){ normalizarFicha(jugsRaw[k]); });
     APP.jugadores=jugsRaw;
-    APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[]; APP.extrasCustom=s.extrasCustom||[]; APP.rasgosOverride=s.rasgosOverride||{}; APP.extrasOverride=s.extrasOverride||{}; APP.radZona=s.radZona||{activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0}; APP.cofre=s.cofre||{chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0}; APP.cofreObjetos=s.cofreObjetos||[]; APP.recetasPendientes=s.recetasPendientes||[]; APP.enCiudad=s.enCiudad||false; aplicarOverridesContenido();
+    APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[]; APP.extrasCustom=s.extrasCustom||[]; APP.rasgosOverride=s.rasgosOverride||{}; APP.extrasOverride=s.extrasOverride||{}; APP.radZona=s.radZona||{activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0};
+    // Cofre y objetos del cofre: si hemos escrito localmente hace muy poco, no dejar que un snapshot remoto en tránsito nos pise el cambio
+    if(Date.now()>=_cofreLocalGuardUntil){
+      APP.cofre=s.cofre||{chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0};
+      APP.cofreObjetos=s.cofreObjetos||[];
+    }
+    APP.recetasPendientes=s.recetasPendientes||[]; APP.enCiudad=s.enCiudad||false; aplicarOverridesContenido();
     APP.enemigos=s.enemigos||[];
     APP.combate=s.combate||[];
     APP.tiendas=s.tiendas||[];
@@ -1789,15 +1798,15 @@ function buildTabs(){
 window.switchMT=function(t){APP.masterTab=t;APP._gruposAbiertos={};buildTabs();renderApp();};
 window.switchJT=function(t){var m={estado:'estado',inv:'inv',cofre:'cofre',municion:'municion',tienda:'tienda',recetas:'recetas'};APP.fichaInner=m[t]||t;buildTabs();renderApp();};
 window.switchFI=function(t){
+  if(APP._personajeAbierto){ APP._personajeTab=t; renderPersonajeContent(); return; }
   APP.fichaInner=t;
-  if(APP._personajeAbierto){ renderPersonajeContent(); return; }
   renderApp();
 };
 
 function renderPersonajeContent(){
   const el=document.getElementById('personaje-content');
   if(!el) return;
-  const fi=APP.fichaInner;
+  const fi=APP._personajeTab||'special';
   if(fi==='special') el.innerHTML=renderJSpecial();
   else if(fi==='creacion') el.innerHTML=renderJCreacion();
   else if(fi==='armas') el.innerHTML=renderJArmas();
@@ -1806,7 +1815,7 @@ function renderPersonajeContent(){
 
 window.abrirPersonaje=function(){
   APP._personajeAbierto=true;
-  if(!['armas','habs','special','creacion'].includes(APP.fichaInner)) APP.fichaInner='special';
+  if(!APP._personajeTab) APP._personajeTab='special';
   const ov=document.getElementById('personaje-overlay');
   if(ov) ov.style.display='flex';
   renderPersonajeContent();
@@ -2336,12 +2345,14 @@ function saveJ(){
 function saveCofre(){
   const sala=getMockSala(APP.salaId);
   sala.cofre=APP.cofre;
+  marcarEscrituraCofreLocal();
   fbSet('salas/'+APP.salaId+'/cofre',APP.cofre);
 }
 
 function saveCofreObjetos(){
   const sala=getMockSala(APP.salaId);
   sala.cofreObjetos=APP.cofreObjetos;
+  marcarEscrituraCofreLocal();
   fbSet('salas/'+APP.salaId+'/cofreObjetos',APP.cofreObjetos);
 }
 
@@ -2417,6 +2428,9 @@ window.jugadorObjACofre=function(objId){
   if(!APP.enCiudad) return showNotif('El Cofre solo está disponible en ciudad/refugio');
   objId=parseInt(objId)||objId;
   const j=myFicha();
+  const eq=j.equipo||{};
+  const estaEquipado=Object.keys(eq).some(function(s){return eq[s]===objId;});
+  if(estaEquipado) return showNotif('Desequípalo antes de mandarlo al Cofre');
   const idx=(j.inventario||[]).findIndex(function(it){return it.objId===objId;});
   if(idx<0) return showNotif('No tienes ese objeto');
   j.inventario[idx].qty--;
@@ -6454,8 +6468,10 @@ window.abrirDetalle=function(objId,origen){
       const sala2=getMockSala(APP.salaId);
       const tiendaAct=(sala2.tiendas||[]).find(function(t){return t.activa;});
       const precioVenta=o.val?Math.floor(o.val/2):0;
-      if(APP.enCiudad){
+      if(APP.enCiudad&&!equipadoEn){
         acciones+='<button class="obj-equip-btn" style="border-color:#64c8ff;color:#64c8ff;" data-oid="'+o.id+'" onclick="jugadorObjACofre(this.dataset.oid)">🗃 ENVIAR AL COFRE</button>';
+      } else if(APP.enCiudad&&equipadoEn){
+        acciones+='<div style="font-size:9px;color:var(--pip-dim);padding:4px 0;">Desequípalo para poder enviarlo al Cofre</div>';
       }
       acciones+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:4px;">'
         +(tiendaAct&&precioVenta>0
