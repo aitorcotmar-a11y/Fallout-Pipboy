@@ -37,7 +37,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 .hdr-stat-val{font-family:'VT323',monospace;font-size:16px;color:var(--pip-bright);line-height:1;text-shadow:var(--glow);}
 .hdr-stat-val.warn{color:var(--pip-warn);}
 .hdr-stat-val.danger{color:var(--pip-danger);}
-#hdr-stats{display:none;gap:8px 14px;align-items:center;flex:1;justify-content:center;}
+#hdr-stats{display:none;gap:6px 12px;align-items:center;}
 #hdr-stats.visible{display:flex !important;}
 .hdr-stat-sep{width:1px;height:18px;background:var(--pip-border);align-self:center;}
 
@@ -47,7 +47,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
   .hdr{padding:3px 10px;}
   .logo{font-size:18px;}
   .hdr-top{padding:0;flex-wrap:nowrap;gap:10px;margin-bottom:0;}
-  #hdr-stats{display:flex !important;gap:12px;flex:1;justify-content:center;align-items:center;}
+  #hdr-stats{display:flex !important;gap:10px;align-items:center;}
   .hdr-stat-val{font-size:18px;}
   .hdr-stat-sep{height:24px;}
   .tabs{overflow-x:auto;-webkit-overflow-scrolling:touch;white-space:nowrap;}
@@ -66,11 +66,11 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 
 /* HEADER */
 .hdr{flex-shrink:0;background:var(--pip-mid);border-bottom:2px solid var(--pip-border);padding:8px 14px 5px}
-.hdr-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+.hdr-top{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;margin-bottom:4px}
 .logo{font-family:'VT323',monospace;font-size:30px;color:var(--pip-bright);text-shadow:var(--glow-s);letter-spacing:4px;animation:flicker 8s infinite}
 @keyframes flicker{0%,100%{opacity:1}91%{opacity:1}92%{opacity:.5}93%{opacity:1}96%{opacity:.7}97%{opacity:1}}
-.hdr-info{text-align:right;font-size:10px;color:var(--pip-dim);line-height:1.6}
-.hdr-info .on{color:var(--pip)}
+.hdr-sala-block{display:flex;flex-direction:column;font-size:9px;color:var(--pip-dim);line-height:1.5}
+.hdr-sala-block .on{color:var(--pip)}
 .rbadge{font-size:9px;border:1px solid;padding:1px 5px;letter-spacing:1px}
 .rbadge.master{border-color:var(--pip-warn);color:var(--pip-warn)}
 .rbadge.jugador{border-color:var(--pip);color:var(--pip)}
@@ -436,19 +436,18 @@ input:focus,select:focus{border-color:var(--pip);box-shadow:0 0 4px rgba(74,254,
   <div class="hdr">
     <div class="hdr-top">
       <div class="logo">VAULT-TEC</div>
-      <div class="hdr-info">
-        <div><span id="hdr-sala" style="color:var(--pip);"></span></div>
-        <div id="hdr-badge"></div>
-        <div style="display:flex;align-items:center;gap:6px;">
-          <span class="on" style="font-size:9px;">● ONLINE</span>
-          <button id="btn-personaje" onclick="abrirPersonaje()" style="display:none;background:none;border:1px solid var(--pip-border);color:var(--pip-bright);font-family:'Share Tech Mono',monospace;font-size:9px;padding:2px 6px;cursor:pointer;letter-spacing:1px;" title="Ver personaje">PERSONAJE</button>
-          <button onclick="salirApp()" style="background:none;border:1px solid var(--pip-border);color:var(--pip-dim);font-family:'Share Tech Mono',monospace;font-size:9px;padding:2px 6px;cursor:pointer;letter-spacing:1px;" title="Volver al selector">SALIR</button>
-        </div>
+      <div id="hdr-badge"></div>
+      <div class="hdr-sala-block">
+        <span id="hdr-sala" style="color:var(--pip);"></span>
+        <span class="on">● ONLINE</span>
       </div>
+      <button id="btn-personaje" onclick="abrirPersonaje()" style="display:none;background:none;border:1px solid var(--pip-border);color:var(--pip-bright);font-family:'Share Tech Mono',monospace;font-size:9px;padding:2px 6px;cursor:pointer;letter-spacing:1px;" title="Ver personaje">PERSONAJE</button>
+      <!-- Stats rápidos en header -->
+      <div id="hdr-stats"></div>
+      <button onclick="salirApp()" style="margin-left:auto;background:none;border:1px solid var(--pip-border);color:var(--pip-dim);font-family:'Share Tech Mono',monospace;font-size:9px;padding:2px 6px;cursor:pointer;letter-spacing:1px;" title="Volver al selector">SALIR</button>
     </div>
-    <!-- Stats rápidos en header -->
-    <div id="hdr-stats"></div>
     <div class="ticker"><span class="ticker-i">▸ VAULT-TEC DOCUMENTATION DEPT. ENERO 2077 · RESTRINGIDO · MANUAL D20 · BIENVENIDO AL YERMO · WAR NEVER CHANGES ▸</span></div>
+
   </div>
   <div class="tabs" id="main-tabs"></div>
   <div id="swipe-wrap" style="flex:1;overflow-x:hidden;position:relative;display:flex;flex-direction:column;">
