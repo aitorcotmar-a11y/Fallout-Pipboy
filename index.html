@@ -1439,7 +1439,7 @@ function calcCargaUsada(j){
   },0);
   return pesoInv+pesoMuni;
 }
-function redondearPeso(v){ return Math.ceil((v||0)*10)/10; }
+function redondearPeso(v){ return Math.ceil(v||0); }
 function getPtsArm(j){let b=CLASES[j.clase].arm;if(j.rasgos.includes('capacitado'))b-=1;if(j.rasgos.includes('tecnico'))b+=2;if(j.rasgos.includes('bonachon'))b-=2;return b}
 function getPtsHab(j){let b=CLASES[j.clase].hab;if(j.rasgos.includes('capacitado'))b-=1;if(j.rasgos.includes('tecnico'))b+=2;return b}
 function getPtsAttrExtra(j){return j.rasgos.includes('capacitado')?5:0}
