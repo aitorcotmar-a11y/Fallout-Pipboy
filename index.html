@@ -1099,8 +1099,9 @@ const MUNICION_TIPOS = [
   {id:'explo_incend',     n:'Granada incendiaria',    calibre:'explo', val:45, pc:5, pkgSize:1, desc:'Incendiaria · 2D6 · Área 4m'},
   {id:'explo_shock',      n:'Granada shock',          calibre:'explo', val:60, pc:5, pkgSize:1, desc:'Defensiva · 1D6 · Aturde'},
   {id:'explo_flash',      n:'Granada flash',          calibre:'explo', val:55, pc:5, pkgSize:1, desc:'Cegadora · Sin daño · Ciega'},
-];  // fin MUNICION_TIPOS
-function getMuniById(id){ return MUNICION_TIPOS.find(function(m){return m.id===id;})||null; }
+];  // fin MUNICION_TIPOS (ya no se usa como fuente de verdad, ver getMunicionCatalogo)
+function getMunicionCatalogo(){ return (APP.tienda||[]).filter(function(o){return o&&o.tipo==='municion'&&o.muniId;}); }
+function getMuniById(id){ return getMunicionCatalogo().find(function(m){return m.muniId===id;})||null; }
 
 const ENEMIGOS_EJEMPLO=[
   {id:1,n:'Ghoul Feroz',lvl:3,pvMax:28,rol:'acechador',daño:'1D6'},
@@ -1441,7 +1442,7 @@ function getMockSala(id){
   if(!MOCK.salas[id]){
     MOCK.salas[id]={
       config:{pwHash:simplehash('master123')},
-      jugadores:{}, tienda:OBJETOS_EJEMPLO.filter(function(o){return o!=null;}),
+      jugadores:{}, tienda:[],
       rasgosCustom:[], extrasCustom:[], rasgosOverride:{}, extrasOverride:{},
       radZona:{activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0},
       cofre:{chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0},
@@ -1450,13 +1451,7 @@ function getMockSala(id){
       enCiudad:false,
       enVenta:[], enemigos:[...ENEMIGOS_EJEMPLO], combate:[],
       notificaciones:{},
-      tiendas:[{
-        id:'tienda_pruebas',
-        nombre:'🧪 TIENDA DE PRUEBAS',
-        objIds:OBJETOS_EJEMPLO.filter(function(o){return o!=null;}).map(function(o){return o.id;}),
-        activa:false,
-        descuento:100
-      }],
+      tiendas:[],
     };
   }
   return MOCK.salas[id];
@@ -1476,7 +1471,7 @@ function fichaVacia(nombre,clase){
     inventario:[],
     penMod:0, extras:[],
     levelUpPendiente:false,
-    municion:(function(){ var m={}; MUNICION_TIPOS.forEach(function(t){m[t.id]=0;}); return m; })(),
+    municion:{},
     fusion_carga:100,
     fusion_total:0,
     puntossuerte:0, // se calculan al confirmar ficha (mod SUE), el jugador los gasta/recupera
@@ -2742,18 +2737,18 @@ window.abrirPanelAdmin=function(){
     +'<button class="btn btn-danger btn-block" style="margin-bottom:16px;" onclick="masterResetearSalaCompleta()">🗑 RESETEAR SALA COMPLETA</button>'
     +'<div style="font-size:9px;color:var(--pip-dim);margin-bottom:6px;">Vacía el Cofre común (recursos y objetos), sin tocar personajes, tienda ni recetas. NO se puede deshacer.</div>'
     +'<button class="btn btn-danger btn-block" style="margin-bottom:16px;" onclick="masterResetearCofre()">🗑 RESETEAR COFRE (vaciar recursos y objetos)</button>'
-    +'<div style="font-size:9px;color:var(--pip-dim);margin-bottom:6px;">Borra armas, armaduras, drogas, explosivos, medicinas, libros/holotapes y misceláneos de la lista de objetos. NO toca munición ni recursos de fabricación. Las categorías se mantienen. NO se puede deshacer.</div>'
-    +'<button class="btn btn-danger btn-block" onclick="masterBorrarObjetosNoMunicion()">🗑 BORRAR TODOS LOS OBJETOS (excepto munición)</button>'
+    +'<div style="font-size:9px;color:var(--pip-dim);margin-bottom:6px;">Borra armas, armaduras, drogas, explosivos, medicinas, libros/holotapes, misceláneos Y munición de la lista de objetos. NO toca los recursos de fabricación. Las categorías se mantienen. NO se puede deshacer.</div>'
+    +'<button class="btn btn-danger btn-block" onclick="masterBorrarObjetosNoMunicion()">🗑 BORRAR TODOS LOS OBJETOS (incluida munición)</button>'
     +'</div>';
   modal.style.display='flex';
 };
 
 window.masterBorrarObjetosNoMunicion=async function(){
-  const tiposABorrar=['arma','armadura','explosivo','med','droga','holotape','misc'];
+  const tiposABorrar=['arma','armadura','explosivo','med','droga','holotape','misc','municion'];
   const antes=APP.tienda.length;
   const aBorrar=APP.tienda.filter(function(o){return o&&tiposABorrar.includes(o.tipo);}).length;
-  if(!aBorrar) { cerrarDetalle(); return showNotif('No hay objetos de esos tipos para borrar'); }
-  if(!confirm('¿Borrar '+aBorrar+' objetos (armas, armaduras, drogas, explosivos, medicinas, libros y misceláneos)? La munición y los recursos de fabricación no se tocan. NO se puede deshacer.')) return;
+  if(!aBorrar) { cerrarDetalle(); return showNotif('No hay objetos para borrar'); }
+  if(!confirm('¿Borrar '+aBorrar+' objetos (armas, armaduras, drogas, explosivos, medicinas, libros, misceláneos Y munición)? Los recursos de fabricación no se tocan. NO se puede deshacer.')) return;
   cerrarDetalle();
   mostrarEnviando('📡 BORRANDO OBJETOS...');
   APP.tienda=APP.tienda.filter(function(o){return !o||!tiposABorrar.includes(o.tipo);});
@@ -2761,7 +2756,7 @@ window.masterBorrarObjetosNoMunicion=async function(){
   sala.tienda=APP.tienda;
   await esperarConfirmacion(fbSet('salas/'+APP.salaId+'/tienda',APP.tienda),5000);
   ocultarEnviando();
-  showNotif((antes-APP.tienda.length)+' objetos borrados. Munición y recursos intactos.');
+  showNotif((antes-APP.tienda.length)+' objetos borrados. Recursos de fabricación intactos.');
   renderApp();
 };
 
@@ -3407,22 +3402,15 @@ function renderJArmas(){
 function renderJMunicion(){
   const j=myFicha();
   if(!j.municion) j.municion={};
-  MUNICION_TIPOS.forEach(function(t){ if(j.municion[t.id]==null) j.municion[t.id]=0; });
+  const catalogo=getMunicionCatalogo();
+  catalogo.forEach(function(t){ if(j.municion[t.muniId]==null) j.municion[t.muniId]=0; });
   if(j.fusion_carga==null) j.fusion_carga=100;
   if(j.fusion_total==null) j.fusion_total=0;
-  const grupos=[
-    {label:'CALIBRE PEQUEÑO', calibres:['peq'],                    color:'var(--pip-bright)'},
-    {label:'CALIBRE MEDIO',   calibres:['med'],                    color:'var(--pip-bright)'},
-    {label:'CALIBRE GRANDE',  calibres:['gra','misil'],  color:'var(--pip-bright)'},
-    {label:'FLECHAS',         calibres:['flecha'],        color:'var(--pip-bright)'},
-    {label:'ENERGÍA',         calibres:['fusion'],        color:'var(--pip-warn)'},
-    {label:'GRANADAS',        calibres:['explo'],         color:'#ff8844'},
-  ];
   function muniRow(t){
-    const qty=j.municion[t.id]||0;
+    const qty=j.municion[t.muniId]||0;
     return '<div style="display:flex;align-items:center;padding:8px 12px;border-bottom:1px solid rgba(74,254,130,.08);gap:10px;">'
       +'<div style="flex:1;"><div style="font-size:11px;color:'+(qty>0?'var(--pip-bright)':'var(--pip-dim)')+';">'+t.n+'</div>'
-      +'<div style="font-size:9px;color:var(--pip-dim);">x'+t.pkgSize+' por paquete · '+t.val+'¢/paquete</div></div>'
+      +(t.desc?'<div style="font-size:9px;color:var(--pip-dim);">'+t.desc+'</div>':'')+'</div>'
       +'<div style="font-family:VT323,monospace;font-size:32px;color:'+(qty>0?'var(--pip-bright)':'var(--pip-dim)')+';min-width:48px;text-align:right;line-height:1;text-shadow:'+(qty>0?'var(--glow)':'none')+';">'+qty+'</div>'
       +'</div>';
   }
@@ -3459,18 +3447,17 @@ function renderJMunicion(){
       +'</div>';
   })();
 
+  const otras=catalogo.filter(function(t){return t.muniId!=='muni_fusion';});
+  const total=otras.reduce(function(s,t){return s+(j.municion[t.muniId]||0);},0);
   let html=fusionBlock;
-  grupos.forEach(function(g){
-    if(g.esFusion) return; // ya renderizado arriba
-    const tipos=MUNICION_TIPOS.filter(function(t){return g.calibres.indexOf(t.calibre)>=0;});
-    const total=tipos.reduce(function(s,t){return s+(j.municion[t.id]||0);},0);
+  if(otras.length){
     html+='<div style="border-bottom:2px solid var(--pip-border);">'
       +'<div style="display:flex;align-items:center;padding:6px 12px;background:var(--pip-mid);">'
-      +'<span style="font-family:VT323,monospace;font-size:14px;color:'+g.color+';letter-spacing:1px;flex:1;">'+g.label+'</span>'
+      +'<span style="font-family:VT323,monospace;font-size:14px;color:var(--pip-bright);letter-spacing:1px;flex:1;">MUNICIÓN</span>'
       +'<span style="font-size:9px;color:var(--pip-dim);">Total: <span style="color:'+(total>0?'var(--pip-warn)':'var(--pip-dim)')+'">'+total+'</span></span></div>'
-      +tipos.map(muniRow).join('')+'</div>';
-  });
-  return '<div class="card"><div class="card-hdr">MUNICIÓN</div><div style="padding:0;">'+html+'</div></div>';
+      +otras.map(muniRow).join('')+'</div>';
+  }
+  return '<div class="card"><div class="card-hdr">MUNICIÓN</div><div style="padding:0;">'+html+(!catalogo.length?'<div class="empty">El Master todavía no ha creado ningún tipo de munición</div>':'')+'</div></div>';
 }
 
 
@@ -5310,13 +5297,14 @@ function renderMObjetos(){
     +'<div id="form-obj" style="padding:10px 12px;">'
     +row1('NOMBRE','<input type="text" id="no-n" value="'+fv('n','')+'" placeholder="Nombre" '+s+'>')
     +row1('TIPO','<select id="no-t" onchange="toggleArmaFields(this.value)" '+s+'>'
-      +['arma','armadura','explosivo','med','droga','holotape','misc'].map(function(t){
-        const ln={arma:'ARMA',armadura:'ARMADURA',explosivo:'EXPLOSIVO',med:'MEDICINA',droga:'DROGA',ropa:'ROPA',herramienta:'HERRAMIENTA',holotape:'LIBRO/HOLOTAPE',misc:'MISC'};
+      +['arma','armadura','explosivo','med','droga','holotape','misc','municion'].map(function(t){
+        const ln={arma:'ARMA',armadura:'ARMADURA',explosivo:'EXPLOSIVO',med:'MEDICINA',droga:'DROGA',ropa:'ROPA',herramienta:'HERRAMIENTA',holotape:'LIBRO/HOLOTAPE',misc:'MISC',municion:'MUNICIÓN'};
         return '<option value="'+t+'"'+(fv('tipo','misc')===t?' selected':'')+'>'+(ln[t]||t.toUpperCase())+'</option>';
       }).join('')+'</select>')
-    +row2({l:'PRECIO (¢)',h:'<input type="number" id="no-v" value="'+fv('val',0)+'" min="0" '+sm+'>'},
-          {l:'PESO (pc)', h:'<input type="number" id="no-pc" value="'+fv('pc',5)+'" min="1" '+sm+'>'})
-    +'<div id="arma-extra-fields" style="display:'+(esArma?'block':'none')+';">'    +row1('SUBCATEGORÍA','<select id="no-subcat" onchange="toggleSubcatFields(this.value)" '+s+'>'+      ARMA_SUBCATS.map(function(sc){        return '<option value="'+sc.id+'"'+(fv('subcat','corta')===sc.id?' selected':'')+'>'+sc.n+'</option>';      }).join('')+'</select>')    +(function(){      var sc=fv('subcat','corta');      var esCaC=sc==='cac';      var campos='';      if(!esCaC){        campos+=row1('MUNICIÓN','<select id="no-muni" '+s+'>'          +'<option value="">— Ninguna —</option>'          +MUNICION_TIPOS.map(function(m){return '<option value="'+m.id+'"'+(fv('muniId','')===m.id?' selected':'')+'>'+m.n+'</option>';}).join('')          +'</select>');        campos+=row2({l:'CARGADOR (balas)',h:'<input type="number" id="no-carg" value="'+fv('cargador',0)+'" min="0" '+sm+'>'},                     {l:'ALCANCE (m)',h:'<input type="number" id="no-alc" value="'+fv('alcance',20)+'" min="0" '+sm+'>'});      } else {        campos+='<input type="hidden" id="no-muni" value=""><input type="hidden" id="no-carg" value="0"><input type="hidden" id="no-alc" value="0">';      }      campos+='<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin-bottom:5px;">'+(esCaC?'DADO DE DAÑO':'DADOS DE DAÑO')+'</div>';      if(esCaC){        campos+=row1('Daño TT','<input type="text" id="no-daño" value="'+fv('daño','1D6')+'" placeholder="1D6" '+sm+'>');        campos+='<input type="hidden" id="no-rfdaño" value=""><input type="hidden" id="no-fadaño" value="">';        campos+='<input type="hidden" id="no-tt" value="0"><input type="hidden" id="no-rf" value="0"><input type="hidden" id="no-fa" value="0">';      } else {        campos+=row3({l:'TT',h:'<input type="text" id="no-daño" value="'+fv('daño','1D6')+'" placeholder="1D6" '+sm+'>'},                     {l:'RF',h:'<input type="text" id="no-rfdaño" value="'+fv('rf','')+'" placeholder="2D6" '+sm+'>'},                     {l:'FA',h:'<input type="text" id="no-fadaño" value="'+fv('fa','')+'" placeholder="3D6" '+sm+'>'});        campos+='<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin-bottom:5px;">BALAS CONSUMIDAS</div>';        campos+=row3({l:'Coste TT',h:'<input type="number" id="no-tt" value="'+fv('ttCost',1)+'" min="0" '+sm+'>'},                     {l:'Coste RF',h:'<input type="number" id="no-rf" value="'+fv('rfCost',0)+'" min="0" '+sm+'>'},                     {l:'Coste FA',h:'<input type="number" id="no-fa" value="'+fv('faCost',0)+'" min="0" '+sm+'>'});      }      return campos;    })()    +row2({l:'CALIDAD (suma a Ataque)',h:'<input type="number" id="no-calidad" value="'+fv('calidad',0)+'" min="0" max="6" '+sm+'>'},                  {l:'ESTADO (suma a Daño)',h:'<input type="number" id="no-estado" value="'+fv('estado',0)+'" min="0" max="6" '+sm+'>'})    +row1('MANOS','<select id="no-manos" '+s+'><option value="1"'+(String(fv('manos',1))==='1'?' selected':'')+'>Una mano (permite dos armas equipadas)</option><option value="2"'+(String(fv('manos',1))==='2'?' selected':'')+'>Dos manos (ocupa las dos)</option></select>')    +'</div>'
+    +(fv('tipo','misc')==='municion'?'':row2({l:'PRECIO (¢)',h:'<input type="number" id="no-v" value="'+fv('val',0)+'" min="0" '+sm+'>'},
+          {l:'PESO (pc)', h:'<input type="number" id="no-pc" value="'+fv('pc',5)+'" min="1" '+sm+'>'}))
+    +(fv('tipo','misc')==='municion'?'<label style="display:flex;align-items:center;gap:8px;padding:8px;margin-bottom:8px;border:1px solid var(--pip-border);font-size:11px;color:var(--pip-bright);"><input type="checkbox" id="no-muni-fusion" '+(fv('muniId','')==='muni_fusion'?'checked':'')+'> ⚡ Es batería de fusión (munición de armas de energía)</label>':'')
+    +'<div id="arma-extra-fields" style="display:'+(esArma?'block':'none')+';">'    +row1('SUBCATEGORÍA','<select id="no-subcat" onchange="toggleSubcatFields(this.value)" '+s+'>'+      ARMA_SUBCATS.map(function(sc){        return '<option value="'+sc.id+'"'+(fv('subcat','corta')===sc.id?' selected':'')+'>'+sc.n+'</option>';      }).join('')+'</select>')    +(function(){      var sc=fv('subcat','corta');      var esCaC=sc==='cac';      var campos='';      if(!esCaC){        campos+=row1('MUNICIÓN','<select id="no-muni" '+s+'>'          +'<option value="">— Ninguna —</option>'          +getMunicionCatalogo().map(function(m){return '<option value="'+m.muniId+'"'+(fv('muniId','')===m.muniId?' selected':'')+'>'+m.n+'</option>';}).join('')          +'</select>');        campos+=row2({l:'CARGADOR (balas)',h:'<input type="number" id="no-carg" value="'+fv('cargador',0)+'" min="0" '+sm+'>'},                     {l:'ALCANCE (m)',h:'<input type="number" id="no-alc" value="'+fv('alcance',20)+'" min="0" '+sm+'>'});      } else {        campos+='<input type="hidden" id="no-muni" value=""><input type="hidden" id="no-carg" value="0"><input type="hidden" id="no-alc" value="0">';      }      campos+='<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin-bottom:5px;">'+(esCaC?'DADO DE DAÑO':'DADOS DE DAÑO')+'</div>';      if(esCaC){        campos+=row1('Daño TT','<input type="text" id="no-daño" value="'+fv('daño','1D6')+'" placeholder="1D6" '+sm+'>');        campos+='<input type="hidden" id="no-rfdaño" value=""><input type="hidden" id="no-fadaño" value="">';        campos+='<input type="hidden" id="no-tt" value="0"><input type="hidden" id="no-rf" value="0"><input type="hidden" id="no-fa" value="0">';      } else {        campos+=row3({l:'TT',h:'<input type="text" id="no-daño" value="'+fv('daño','1D6')+'" placeholder="1D6" '+sm+'>'},                     {l:'RF',h:'<input type="text" id="no-rfdaño" value="'+fv('rf','')+'" placeholder="2D6" '+sm+'>'},                     {l:'FA',h:'<input type="text" id="no-fadaño" value="'+fv('fa','')+'" placeholder="3D6" '+sm+'>'});        campos+='<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin-bottom:5px;">BALAS CONSUMIDAS</div>';        campos+=row3({l:'Coste TT',h:'<input type="number" id="no-tt" value="'+fv('ttCost',1)+'" min="0" '+sm+'>'},                     {l:'Coste RF',h:'<input type="number" id="no-rf" value="'+fv('rfCost',0)+'" min="0" '+sm+'>'},                     {l:'Coste FA',h:'<input type="number" id="no-fa" value="'+fv('faCost',0)+'" min="0" '+sm+'>'});      }      return campos;    })()    +row2({l:'CALIDAD (suma a Ataque)',h:'<input type="number" id="no-calidad" value="'+fv('calidad',0)+'" min="0" max="6" '+sm+'>'},                  {l:'ESTADO (suma a Daño)',h:'<input type="number" id="no-estado" value="'+fv('estado',0)+'" min="0" max="6" '+sm+'>'})    +row1('MANOS','<select id="no-manos" '+s+'><option value="1"'+(String(fv('manos',1))==='1'?' selected':'')+'>Una mano (permite dos armas equipadas)</option><option value="2"'+(String(fv('manos',1))==='2'?' selected':'')+'>Dos manos (ocupa las dos)</option></select>')    +'</div>'
     // Campos extra para armadura
     +(esArmadura?(function(){
       var sets=APP.setsArmadura||[];
@@ -5548,14 +5536,27 @@ window.masterSaveObj=function(){
     })(),
     adiccionBanner:(document.getElementById('no-adic-banner')||{}).value||'',
   }:{};
+  let extraMunicion={};
+  if(tipo==='municion'){
+    const esFusion=!!(document.getElementById('no-muni-fusion')||{}).checked;
+    if(esFusion){
+      const otroFusion=APP.tienda.find(function(o){return o&&o.tipo==='municion'&&o.muniId==='muni_fusion'&&o.id!==APP._editObjId;});
+      if(otroFusion) return showNotif('Ya existe una batería de fusión: '+otroFusion.n+'. Solo puede haber una.');
+      extraMunicion={muniId:'muni_fusion',val:0,pc:0};
+    } else {
+      const existente=APP._editObjId!=null?APP.tienda.find(function(o){return o.id===APP._editObjId;}):null;
+      const muniId=(existente&&existente.muniId&&existente.muniId!=='muni_fusion')?existente.muniId:('m'+Date.now());
+      extraMunicion={muniId:muniId,val:0,pc:0};
+    }
+  }
   const sala=getMockSala(APP.salaId);
   const editId=APP._editObjId;
   if(editId!=null){
     const idx=APP.tienda.findIndex(function(o){return o.id===editId;});
-    if(idx>=0){ APP.tienda[idx]=Object.assign({},APP.tienda[idx],{n:n.trim(),tipo,val,pc,desc},extraArma,extraArmadura,extraDroga); sala.tienda=APP.tienda; showNotif(n+' actualizado'); }
+    if(idx>=0){ APP.tienda[idx]=Object.assign({},APP.tienda[idx],{n:n.trim(),tipo,val,pc,desc},extraArma,extraArmadura,extraDroga,extraMunicion); sala.tienda=APP.tienda; showNotif(n+' actualizado'); }
     APP._editObjId=null;
   } else {
-    const o=Object.assign({id:Date.now(),n:n.trim(),tipo,val,pc,desc},extraArma,extraArmadura,extraDroga);
+    const o=Object.assign({id:Date.now(),n:n.trim(),tipo,val,pc,desc},extraArma,extraArmadura,extraDroga,extraMunicion);
     APP.tienda.push(o); sala.tienda=APP.tienda; showNotif(n+' añadido');
   }
   APP._currentFormTipo=null; APP._objTipoSelected=null; APP._objSubcatSelected=null; APP._draftObjEfectos=null; APP._draftObjEfCat=null; APP._draftObjAdicCat=null;
@@ -6386,7 +6387,7 @@ window.masterResetearSalaCompleta=function(){
   const configActual=getMockSala(APP.salaId).config;
   const fresh={
     config:configActual,
-    jugadores:{}, tienda:OBJETOS_EJEMPLO.filter(function(o){return o!=null;}),
+    jugadores:{}, tienda:[],
     rasgosCustom:[], extrasCustom:[], rasgosOverride:{}, extrasOverride:{},
     radZona:{activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0},
     cofre:{chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0},
@@ -6395,13 +6396,7 @@ window.masterResetearSalaCompleta=function(){
     enCiudad:false,
     enVenta:[], enemigos:[...ENEMIGOS_EJEMPLO], combate:[],
     notificaciones:{},
-    tiendas:[{
-      id:'tienda_pruebas',
-      nombre:'🧪 TIENDA DE PRUEBAS',
-      objIds:OBJETOS_EJEMPLO.filter(function(o){return o!=null;}).map(function(o){return o.id;}),
-      activa:false,
-      descuento:100
-    }],
+    tiendas:[],
   };
   MOCK.salas[APP.salaId]=fresh;
   APP.jugadores={}; APP.tienda=fresh.tienda; APP.tiendas=fresh.tiendas;
