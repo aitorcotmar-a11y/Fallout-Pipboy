@@ -445,7 +445,8 @@ input:focus,select:focus{border-color:var(--pip);box-shadow:0 0 4px rgba(74,254,
       <button id="btn-personaje" onclick="abrirPersonaje()" style="display:none;background:none;border:1px solid var(--pip-border);color:var(--pip-bright);font-family:'Share Tech Mono',monospace;font-size:9px;padding:2px 6px;cursor:pointer;letter-spacing:1px;" title="Ver personaje">PERSONAJE</button>
       <!-- Stats rápidos en header -->
       <div id="hdr-stats"></div>
-      <button onclick="salirApp()" style="margin-left:auto;background:none;border:1px solid var(--pip-border);color:var(--pip-dim);font-family:'Share Tech Mono',monospace;font-size:9px;padding:2px 6px;cursor:pointer;letter-spacing:1px;" title="Volver al selector">SALIR</button>
+      <button id="btn-admin" onclick="abrirPanelAdmin()" style="display:none;margin-left:auto;background:none;border:1px solid var(--pip-danger);color:var(--pip-danger);font-family:'Share Tech Mono',monospace;font-size:9px;padding:2px 6px;cursor:pointer;letter-spacing:1px;" title="Zona peligrosa">⚠ ADMIN</button>
+      <button onclick="salirApp()" style="margin-left:14px;background:none;border:1px solid var(--pip-border);color:var(--pip-dim);font-family:'Share Tech Mono',monospace;font-size:9px;padding:2px 6px;cursor:pointer;letter-spacing:1px;" title="Volver al selector">SALIR</button>
     </div>
     <div class="ticker"><span class="ticker-i">▸ VAULT-TEC DOCUMENTATION DEPT. ENERO 2077 · RESTRINGIDO · MANUAL D20 · BIENVENIDO AL YERMO · WAR NEVER CHANGES ▸</span></div>
 
@@ -1629,6 +1630,7 @@ function entrarMaster(){
   document.getElementById('hdr-sala').textContent=APP.salaId;
   document.getElementById('hdr-badge').innerHTML='<span class="rbadge master">◉ MASTER</span>';
   var bp=document.getElementById('btn-personaje'); if(bp) bp.style.display='none';
+  var ba=document.getElementById('btn-admin'); if(ba) ba.style.display='inline-block';
   buildTabs();
   showScreen('shell');
   if(!FB_MOCK&&db){
@@ -1820,7 +1822,7 @@ function completarEntradaJugador(id){
       j.heartbeat=ahora;
       db.ref('salas/'+APP.salaId+'/jugadores/'+id+'/online').set(true);
       db.ref('salas/'+APP.salaId+'/jugadores/'+id+'/heartbeat').set(ahora);
-      document.getElementById('hdr-badge').innerHTML='<span class="rbadge jugador">'+j.nombre+'</span>'; (function(){var bp=document.getElementById('btn-personaje'); if(bp) bp.style.display='inline-block';})();
+      document.getElementById('hdr-badge').innerHTML='<span class="rbadge jugador">'+j.nombre+'</span>'; (function(){var bp=document.getElementById('btn-personaje'); if(bp) bp.style.display='inline-block'; var ba=document.getElementById('btn-admin'); if(ba) ba.style.display='none';})();
       if(!j.confirmada){
         APP.wizardStep=0; APP.wizardData=normalizarFicha(JSON.parse(JSON.stringify(j)));
         renderWizard(); document.getElementById('wizard').style.display='flex';
@@ -1838,7 +1840,7 @@ function entrarJugadorLocal(id){
   APP.tiendas=s.tiendas||[]; APP.notificaciones=s.notificaciones||{};
   const j=APP.jugadores[id];
   if(!j){ showNotif('Error: jugador no encontrado'); showScreen('selector-screen'); return; }
-  document.getElementById('hdr-badge').innerHTML='<span class="rbadge jugador">'+j.nombre+'</span>'; (function(){var bp=document.getElementById('btn-personaje'); if(bp) bp.style.display='inline-block';})();
+  document.getElementById('hdr-badge').innerHTML='<span class="rbadge jugador">'+j.nombre+'</span>'; (function(){var bp=document.getElementById('btn-personaje'); if(bp) bp.style.display='inline-block'; var ba=document.getElementById('btn-admin'); if(ba) ba.style.display='none';})();
   if(!j.confirmada){
     APP.wizardStep=0; APP.wizardData=JSON.parse(JSON.stringify(j));
     renderWizard(); document.getElementById('wizard').style.display='flex';
@@ -2726,6 +2728,22 @@ window.masterResetearCofre=async function(){
   ocultarEnviando();
   showNotif('Cofre vaciado');
   renderApp();
+};
+
+window.abrirPanelAdmin=function(){
+  const modal=document.getElementById('obj-detail-modal');
+  const box=document.getElementById('obj-detail-box');
+  box.innerHTML='<div style="padding:16px;">'
+    +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;border-bottom:1px solid var(--pip-border);padding-bottom:8px;">'
+    +'<div style="flex:1;font-family:VT323,monospace;font-size:20px;color:var(--pip-danger);">⚠ ZONA PELIGROSA</div>'
+    +'<button onclick="cerrarDetalle()" style="background:none;border:1px solid var(--pip-border);color:var(--pip-dim);font-family:VT323,monospace;font-size:18px;padding:4px 10px;cursor:pointer;">✕</button>'
+    +'</div>'
+    +'<div style="font-size:9px;color:var(--pip-dim);margin-bottom:6px;">Borra TODOS los personajes, el Cofre, las recetas, la tienda y las adiciones custom de esta sala, dejándola como recién creada. NO se puede deshacer.</div>'
+    +'<button class="btn btn-danger btn-block" style="margin-bottom:16px;" onclick="masterResetearSalaCompleta()">🗑 RESETEAR SALA COMPLETA</button>'
+    +'<div style="font-size:9px;color:var(--pip-dim);margin-bottom:6px;">Vacía el Cofre común (recursos y objetos), sin tocar personajes, tienda ni recetas. NO se puede deshacer.</div>'
+    +'<button class="btn btn-danger btn-block" onclick="masterResetearCofre()">🗑 RESETEAR COFRE (vaciar recursos y objetos)</button>'
+    +'</div>';
+  modal.style.display='flex';
 };
 
 window.jugadorConsumirRecurso=function(k){
@@ -4997,13 +5015,6 @@ window.lvlupNext=function(){
 function renderMFichas(){
   const jugs=Object.values(APP.jugadores);
   return`
-  <div class="card" style="border-color:rgba(255,60,60,.5);margin-bottom:8px;">
-    <div class="card-hdr" style="color:var(--pip-danger);">⚠ ZONA PELIGROSA</div>
-    <div style="padding:10px 12px;">
-      <div style="font-size:9px;color:var(--pip-dim);margin-bottom:8px;">Borra TODOS los personajes, el Cofre, las recetas, la tienda y las adiciones custom de esta sala, dejándola como recién creada. NO se puede deshacer.</div>
-      <button class="btn btn-danger btn-block" onclick="masterResetearSalaCompleta()">🗑 RESETEAR SALA COMPLETA</button>
-    </div>
-  </div>
   <div class="card"><div class="card-hdr">NUEVA FICHA</div><div class="card-body">
     <div class="form-row"><span class="form-lbl">NOMBRE:</span><input type="text" id="nf-n" placeholder="Nombre del personaje" maxlength="20"></div>
     <button class="btn btn-block" onclick="crearFicha()">▸ CREAR FICHA</button>
@@ -5401,7 +5412,6 @@ function renderMObjetos(){
               return '<div style="font-size:11px;color:var(--pip-bright);padding:3px 0;">'+(o?o.n:'(objeto #'+objId+', ya no existe en la tienda)')+' — x'+APP.cofreObjetos[k]+'</div>';
             }).join(''));
       })()
-    +'<button class="btn btn-danger" style="margin-top:12px;width:100%;" onclick="masterResetearCofre()">🗑 RESETEAR COFRE (vaciar recursos y objetos)</button>'
     +'</div></div>';
 
   return cofreBlockHtml+formHtml+listaHtml;
