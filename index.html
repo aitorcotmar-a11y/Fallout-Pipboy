@@ -2653,21 +2653,57 @@ window.masterCofreMod=async function(k,delta){
   renderApp();
 };
 
-window.masterRecursoAJugador=function(k){
+window.abrirEnviarRecursoVarios=function(k){
   const cantEl=document.getElementById('m-cofre-cant');
   const cant=Math.max(1,parseInt(cantEl?cantEl.value:1)||1);
-  const jidEl=document.getElementById('m-cofre-jugador');
-  const jid=jidEl?jidEl.value:'';
-  if(!jid) return showNotif('Elige un jugador');
-  const sala=getMockSala(APP.salaId);
-  const jug=sala.jugadores[jid];
-  if(!jug) return showNotif('Jugador no encontrado');
-  if(!jug.recursos) jug.recursos={};
-  jug.recursos[k]=(jug.recursos[k]||0)+cant;
-  APP.jugadores=sala.jugadores;
-  fbSet('salas/'+APP.salaId+'/jugadores/'+jid+'/recursos',jug.recursos);
   const r=RECURSOS_FABRICACION.find(function(x){return x.k===k;});
-  showNotif(cant+'x '+(r?r.n:k)+' entregado a '+jug.nombre);
+  const jugs=Object.values(APP.jugadores||{}).filter(function(j){return j.confirmada;});
+  const modal=document.getElementById('obj-detail-modal');
+  const box=document.getElementById('obj-detail-box');
+  box.innerHTML='<div style="padding:16px;">'
+    +'<div style="font-family:VT323,monospace;font-size:20px;color:var(--pip-bright);margin-bottom:4px;">📤 ENVIAR '+cant+'x '+(r?r.icono+' '+r.n:k)+'</div>'
+    +'<div style="font-size:9px;color:var(--pip-dim);margin-bottom:12px;">Marca a quién se le entrega. Se suma esta cantidad entera a cada uno de los marcados.</div>'
+    +'<label style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(74,254,130,.08);">'
+      +'<input type="checkbox" class="chk-env-recurso-dest" value="cofre"><span style="font-size:12px;color:var(--pip-bright);">🗃 Cofre común</span></label>'
+    +(!jugs.length?'<div style="font-size:10px;color:var(--pip-dim);padding:6px 0;">Sin fichas de jugador todavía</div>'
+      :jugs.map(function(j){
+        return '<label style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(74,254,130,.08);">'
+          +'<input type="checkbox" class="chk-env-recurso-dest" value="'+j.id+'"><span style="font-size:12px;color:var(--pip-bright);">'+j.nombre+'</span></label>';
+      }).join(''))
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px;">'
+    +'<button class="btn btn-warn" onclick="cerrarDetalle()">CANCELAR</button>'
+    +'<button class="btn" data-k="'+k+'" data-cant="'+cant+'" onclick="confirmarEnviarRecursoVarios(this.dataset.k,parseInt(this.dataset.cant))">▸ ENVIAR</button>'
+    +'</div></div>';
+  modal.style.display='flex';
+};
+
+window.confirmarEnviarRecursoVarios=async function(k,cant){
+  const checks=document.querySelectorAll('.chk-env-recurso-dest:checked');
+  if(!checks.length) return showNotif('Selecciona al menos un destino');
+  const destinos=Array.from(checks).map(function(c){return c.value;});
+  cerrarDetalle();
+  mostrarEnviando('📡 ENVIANDO...');
+  const sala=getMockSala(APP.salaId);
+  const r=RECURSOS_FABRICACION.find(function(x){return x.k===k;});
+  var incluyeCofre=false, nJugadores=0;
+  destinos.forEach(function(dest){
+    if(dest==='cofre'){ incluyeCofre=true; return; }
+    const jug=sala.jugadores[dest];
+    if(!jug) return;
+    if(!jug.recursos) jug.recursos={};
+    jug.recursos[k]=(jug.recursos[k]||0)+cant;
+    fbSet('salas/'+APP.salaId+'/jugadores/'+dest+'/recursos',jug.recursos);
+    nJugadores++;
+  });
+  APP.jugadores=sala.jugadores;
+  if(incluyeCofre){
+    await esperarConfirmacion(fetchCofreFresco(),4000);
+    if(!APP.cofre) APP.cofre={};
+    APP.cofre[k]=(APP.cofre[k]||0)+cant;
+    await esperarConfirmacion(saveCofre(),5000);
+  }
+  ocultarEnviando();
+  showNotif(cant+'x '+(r?r.n:k)+' entregado a '+(nJugadores+(incluyeCofre?1:0))+' destino(s)');
   renderApp();
 };
 
@@ -5326,20 +5362,15 @@ function renderMObjetos(){
     +'<div style="font-size:9px;color:var(--pip-dim);margin-bottom:8px;">Mientras esté EN CIUDAD, los jugadores pueden guardar y sacar recursos del Cofre común desde su inventario.</div>'
     +'<button class="btn btn-block '+(APP.enCiudad?'btn-danger':'btn-warn')+'" onclick="masterToggleCiudad()">'+(APP.enCiudad?'⏸ SALIR DE CIUDAD':'▶ ENTRAR EN CIUDAD / REFUGIO')+'</button>'
     +'<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin:12px 0 4px;border-bottom:1px solid var(--pip-border);padding-bottom:3px;">🗃 COFRE COMÚN — RECURSOS DE FABRICACIÓN</div>'
-    +'<div style="font-size:9px;color:var(--pip-dim);margin-bottom:6px;">Los recursos solo los entrega el Master: al Cofre común (+/−) o a un jugador en concreto.</div>'
+    +'<div style="font-size:9px;color:var(--pip-dim);margin-bottom:6px;">Los recursos solo los entrega el Master. Pon la cantidad y pulsa ENVIAR para elegir a quién (uno o varios jugadores y/o el Cofre): esa cantidad se suma entera a cada destino marcado.</div>'
     +'<div class="form-row"><span class="form-lbl">CANTIDAD:</span><input type="number" id="m-cofre-cant" class="mod-input" value="10" min="1"></div>'
-    +'<div class="form-row"><span class="form-lbl">JUGADOR:</span><select id="m-cofre-jugador" class="mod-input">'
-      +'<option value="">— Elegir jugador —</option>'
-      +Object.values(APP.jugadores||{}).filter(function(j){return j.confirmada;}).map(function(j){return '<option value="'+j.id+'">'+j.nombre+'</option>';}).join('')
-      +'</select></div>'
     +RECURSOS_FABRICACION.map(function(r){
       var cant=(APP.cofre&&APP.cofre[r.k])||0;
       return '<div style="display:flex;align-items:center;gap:4px;padding:4px 0;border-bottom:1px solid rgba(74,254,130,.08);flex-wrap:wrap;">'
         +'<span style="flex:1;font-size:12px;color:var(--pip-bright);">'+r.icono+' '+r.n+'</span>'
         +'<span style="font-family:VT323,monospace;font-size:18px;color:var(--pip-warn);min-width:32px;text-align:right;">'+cant+'</span>'
         +'<button class="chip chip-r" data-k="'+r.k+'" onclick="masterCofreMod(this.dataset.k,-1)">−</button>'
-        +'<button class="chip chip-g" data-k="'+r.k+'" onclick="masterCofreMod(this.dataset.k,1)">+</button>'
-        +'<button class="chip" style="border-color:var(--pip-warn);color:var(--pip-warn);" data-k="'+r.k+'" onclick="masterRecursoAJugador(this.dataset.k)">→ JUGADOR</button>'
+        +'<button class="chip" style="border-color:var(--pip-warn);color:var(--pip-warn);margin-left:8px;" data-k="'+r.k+'" onclick="abrirEnviarRecursoVarios(this.dataset.k)">📤 ENVIAR</button>'
         +'</div>';
     }).join('')
     +(function(){
