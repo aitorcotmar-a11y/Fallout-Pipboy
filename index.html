@@ -625,9 +625,12 @@ async function fetchCofreFresco(){
     APP.cofre=snapCofre.val()||{chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0};
     const snapObj=await db.ref('salas/'+APP.salaId+'/cofreObjetos').once('value');
     APP.cofreObjetos=normalizarCofreObjetos(snapObj.val());
+    const snapMuni=await db.ref('salas/'+APP.salaId+'/cofreMunicion').once('value');
+    APP.cofreMunicion=normalizarCofreObjetos(snapMuni.val());
     const sala=getMockSala(APP.salaId);
     sala.cofre=APP.cofre;
     sala.cofreObjetos=APP.cofreObjetos;
+    sala.cofreMunicion=APP.cofreMunicion;
   }catch(e){
     console.warn('No se pudo refrescar el Cofre desde Firebase', e);
   }
@@ -1428,7 +1431,14 @@ function calcIniciativa(j){
 }
 
 function calcCarga(j){return j.attrs.fue*10+(j.clase==='superviviente'?20:0)-(j.rasgos.includes('pequeno')?15:0)+(calcBonusEfectivos(j).derivado.carga||0)+((j.extras||[]).includes('Mula')?50:0)}
-function calcCargaUsada(j){return(j.inventario||[]).reduce(function(s,i){const o=getObjById(i.objId)||APP.tienda.find(function(x){return x.id===i.objId});return s+(o?o.pc*i.qty:0)},0)}
+function calcCargaUsada(j){
+  var pesoInv=(j.inventario||[]).reduce(function(s,i){const o=getObjById(i.objId)||APP.tienda.find(function(x){return x.id===i.objId});return s+(o?(o.pc||0)*i.qty:0)},0);
+  var pesoMuni=getMunicionCatalogo().reduce(function(s,m){
+    var cant=m.muniId==='muni_fusion'?(j.fusion_total||0):((j.municion&&j.municion[m.muniId])||0);
+    return s+(cant*(m.pc||0));
+  },0);
+  return pesoInv+pesoMuni;
+}
 function getPtsArm(j){let b=CLASES[j.clase].arm;if(j.rasgos.includes('capacitado'))b-=1;if(j.rasgos.includes('tecnico'))b+=2;if(j.rasgos.includes('bonachon'))b-=2;return b}
 function getPtsHab(j){let b=CLASES[j.clase].hab;if(j.rasgos.includes('capacitado'))b-=1;if(j.rasgos.includes('tecnico'))b+=2;return b}
 function getPtsAttrExtra(j){return j.rasgos.includes('capacitado')?5:0}
@@ -1446,7 +1456,7 @@ function getMockSala(id){
       rasgosCustom:[], extrasCustom:[], rasgosOverride:{}, extrasOverride:{},
       radZona:{activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0},
       cofre:{chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0},
-      cofreObjetos:{},
+      cofreObjetos:{}, cofreMunicion:{},
       recetasPendientes:[],
       enCiudad:false,
       enVenta:[], enemigos:[...ENEMIGOS_EJEMPLO], combate:[],
@@ -1644,7 +1654,7 @@ function entrarMaster(){
         fbSaveSala(APP.salaId);
       }
       const s=getMockSala(APP.salaId);
-      APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[]; APP.extrasCustom=s.extrasCustom||[]; APP.rasgosOverride=s.rasgosOverride||{}; APP.extrasOverride=s.extrasOverride||{}; APP.radZona=s.radZona||{activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0}; APP.cofre=s.cofre||{chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0}; APP.cofreObjetos=normalizarCofreObjetos(s.cofreObjetos); APP.recetasPendientes=s.recetasPendientes||[]; APP.enCiudad=s.enCiudad||false; aplicarOverridesContenido();
+      APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[]; APP.extrasCustom=s.extrasCustom||[]; APP.rasgosOverride=s.rasgosOverride||{}; APP.extrasOverride=s.extrasOverride||{}; APP.radZona=s.radZona||{activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0}; APP.cofre=s.cofre||{chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0}; APP.cofreObjetos=normalizarCofreObjetos(s.cofreObjetos); APP.cofreMunicion=normalizarCofreObjetos(s.cofreMunicion); APP.recetasPendientes=s.recetasPendientes||[]; APP.enCiudad=s.enCiudad||false; aplicarOverridesContenido();
       APP.enemigos=s.enemigos||[]; APP.combate=s.combate||[];
       APP.tiendas=s.tiendas||[]; APP.notificaciones=s.notificaciones||{};
       // Comprobar si master ya está conectado (con tolerancia de 15s)
@@ -1676,7 +1686,7 @@ function entrarMaster(){
 
 function entrarMasterLocal(){
   const s=getMockSala(APP.salaId);
-  APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[]; APP.extrasCustom=s.extrasCustom||[]; APP.rasgosOverride=s.rasgosOverride||{}; APP.extrasOverride=s.extrasOverride||{}; APP.radZona=s.radZona||{activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0}; APP.cofre=s.cofre||{chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0}; APP.cofreObjetos=normalizarCofreObjetos(s.cofreObjetos); APP.recetasPendientes=s.recetasPendientes||[]; APP.enCiudad=s.enCiudad||false; aplicarOverridesContenido();
+  APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[]; APP.extrasCustom=s.extrasCustom||[]; APP.rasgosOverride=s.rasgosOverride||{}; APP.extrasOverride=s.extrasOverride||{}; APP.radZona=s.radZona||{activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0}; APP.cofre=s.cofre||{chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0}; APP.cofreObjetos=normalizarCofreObjetos(s.cofreObjetos); APP.cofreMunicion=normalizarCofreObjetos(s.cofreMunicion); APP.recetasPendientes=s.recetasPendientes||[]; APP.enCiudad=s.enCiudad||false; aplicarOverridesContenido();
   APP.enemigos=s.enemigos||[]; APP.combate=s.combate||[];
   APP.tiendas=s.tiendas||[]; APP.notificaciones=s.notificaciones||{};
   renderApp();
@@ -1796,7 +1806,7 @@ function completarEntradaJugador(id){
       const data=snap.val();
       if(data) MOCK.salas[APP.salaId]=Object.assign(getMockSala(APP.salaId), data);
       const s=getMockSala(APP.salaId);
-      APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[]; APP.extrasCustom=s.extrasCustom||[]; APP.rasgosOverride=s.rasgosOverride||{}; APP.extrasOverride=s.extrasOverride||{}; APP.radZona=s.radZona||{activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0}; APP.cofre=s.cofre||{chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0}; APP.cofreObjetos=normalizarCofreObjetos(s.cofreObjetos); APP.recetasPendientes=s.recetasPendientes||[]; APP.enCiudad=s.enCiudad||false; aplicarOverridesContenido();
+      APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[]; APP.extrasCustom=s.extrasCustom||[]; APP.rasgosOverride=s.rasgosOverride||{}; APP.extrasOverride=s.extrasOverride||{}; APP.radZona=s.radZona||{activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0}; APP.cofre=s.cofre||{chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0}; APP.cofreObjetos=normalizarCofreObjetos(s.cofreObjetos); APP.cofreMunicion=normalizarCofreObjetos(s.cofreMunicion); APP.recetasPendientes=s.recetasPendientes||[]; APP.enCiudad=s.enCiudad||false; aplicarOverridesContenido();
       APP.tiendas=s.tiendas||[]; APP.notificaciones=s.notificaciones||{};
       const j=APP.jugadores[id];
       if(!j){ showNotif('Error: jugador no encontrado'); return; }
@@ -1831,7 +1841,7 @@ function completarEntradaJugador(id){
 
 function entrarJugadorLocal(id){
   const s=getMockSala(APP.salaId);
-  APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[]; APP.extrasCustom=s.extrasCustom||[]; APP.rasgosOverride=s.rasgosOverride||{}; APP.extrasOverride=s.extrasOverride||{}; APP.radZona=s.radZona||{activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0}; APP.cofre=s.cofre||{chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0}; APP.cofreObjetos=normalizarCofreObjetos(s.cofreObjetos); APP.recetasPendientes=s.recetasPendientes||[]; APP.enCiudad=s.enCiudad||false; aplicarOverridesContenido();
+  APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[]; APP.extrasCustom=s.extrasCustom||[]; APP.rasgosOverride=s.rasgosOverride||{}; APP.extrasOverride=s.extrasOverride||{}; APP.radZona=s.radZona||{activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0}; APP.cofre=s.cofre||{chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0}; APP.cofreObjetos=normalizarCofreObjetos(s.cofreObjetos); APP.cofreMunicion=normalizarCofreObjetos(s.cofreMunicion); APP.recetasPendientes=s.recetasPendientes||[]; APP.enCiudad=s.enCiudad||false; aplicarOverridesContenido();
   APP.tiendas=s.tiendas||[]; APP.notificaciones=s.notificaciones||{};
   const j=APP.jugadores[id];
   if(!j){ showNotif('Error: jugador no encontrado'); showScreen('selector-screen'); return; }
@@ -2442,6 +2452,14 @@ function saveCofreObjetos(){
   return fbSet('salas/'+APP.salaId+'/cofreObjetos',APP.cofreObjetos);
 }
 
+function saveCofreMunicion(){
+  APP.cofreMunicion=normalizarCofreObjetos(APP.cofreMunicion);
+  const sala=getMockSala(APP.salaId);
+  sala.cofreMunicion=APP.cofreMunicion;
+  marcarEscrituraCofreLocal();
+  return fbSet('salas/'+APP.salaId+'/cofreMunicion',APP.cofreMunicion);
+}
+
 /* ── Recetas: resolución de coste (compartido jugador/master) ── */
 function detalleIngrediente(ing){
   if(ing.tipo==='chapas') return {label:'Chapas',cant:ing.cantidad};
@@ -2629,6 +2647,127 @@ window.confirmarCogerVariosCofre=async function(){
   renderApp();
 };
 
+/* ── Munición ↔ Cofre (mismas reglas que objetos) ── */
+window.abrirEnviarMunicionCofre=function(){
+  if(!APP.enCiudad) return showNotif('El Cofre solo está disponible en ciudad/refugio');
+  const j=myFicha();
+  const items=getMunicionCatalogo().map(function(m){
+    var cant=m.muniId==='muni_fusion'?(j.fusion_total||0):((j.municion&&j.municion[m.muniId])||0);
+    return {muniId:m.muniId,n:m.n,cant:cant};
+  }).filter(function(x){return x.cant>0;});
+  if(!items.length) return showNotif('No tienes munición disponible para enviar');
+  const modal=document.getElementById('obj-detail-modal');
+  const box=document.getElementById('obj-detail-box');
+  box.innerHTML='<div style="padding:16px;">'
+    +'<div style="font-family:VT323,monospace;font-size:20px;color:var(--pip-bright);margin-bottom:4px;">📤 ENVIAR MUNICIÓN AL COFRE</div>'
+    +'<div style="font-size:9px;color:var(--pip-dim);margin-bottom:12px;">Marca los tipos y la cantidad que quieres mandar.</div>'
+    +items.map(function(x){
+      return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(74,254,130,.08);">'
+        +'<input type="checkbox" class="chk-env-muni" data-muniid="'+x.muniId+'" data-max="'+x.cant+'">'
+        +'<span style="flex:1;font-size:12px;color:var(--pip-bright);">'+x.n+' <span style="color:var(--pip-dim);">(tienes '+x.cant+')</span></span>'
+        +'<input type="number" class="cant-env-muni" data-muniid="'+x.muniId+'" value="1" min="1" max="'+x.cant+'" style="width:44px;font-family:VT323,monospace;font-size:14px;padding:3px;background:var(--pip-dark);border:1px solid var(--pip-border);color:var(--pip-bright);text-align:center;">'
+        +'</div>';
+    }).join('')
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px;">'
+    +'<button class="btn btn-warn" onclick="cerrarDetalle()">CANCELAR</button>'
+    +'<button class="btn" onclick="confirmarEnvioMunicionCofre()">▸ CONFIRMAR ENVÍO</button>'
+    +'</div></div>';
+  modal.style.display='flex';
+};
+
+window.confirmarEnvioMunicionCofre=async function(){
+  const checks=document.querySelectorAll('.chk-env-muni:checked');
+  if(!checks.length) return showNotif('Selecciona al menos un tipo');
+  const seleccion=[];
+  checks.forEach(function(chk){
+    const muniId=chk.dataset.muniid;
+    const max=parseInt(chk.dataset.max)||1;
+    const cantEl=document.querySelector('.cant-env-muni[data-muniid="'+muniId+'"]');
+    seleccion.push({muniId:muniId,cant:Math.max(1,Math.min(max,parseInt(cantEl?cantEl.value:1)||1))});
+  });
+  cerrarDetalle();
+  mostrarEnviando('📡 ENVIANDO MUNICIÓN AL COFRE...');
+  await esperarConfirmacion(fetchCofreFresco(),4000);
+  const j=myFicha();
+  if(!j.municion) j.municion={};
+  if(!APP.cofreMunicion) APP.cofreMunicion={};
+  seleccion.forEach(function(s){
+    var disponible=s.muniId==='muni_fusion'?(j.fusion_total||0):(j.municion[s.muniId]||0);
+    var restar=Math.min(s.cant,disponible);
+    if(restar<=0) return;
+    if(s.muniId==='muni_fusion') j.fusion_total=disponible-restar;
+    else j.municion[s.muniId]=disponible-restar;
+    APP.cofreMunicion[s.muniId]=(APP.cofreMunicion[s.muniId]||0)+restar;
+  });
+  saveJ();
+  await esperarConfirmacion(saveCofreMunicion(),5000);
+  await esperarConfirmacion(fetchCofreFresco(),4000);
+  ocultarEnviando();
+  showNotif('Munición enviada al Cofre');
+  renderApp();
+};
+
+window.abrirCogerMunicionCofre=async function(){
+  if(!APP.enCiudad) return showNotif('El Cofre solo está disponible en ciudad/refugio');
+  mostrarEnviando('📡 COMPROBANDO COFRE...');
+  await esperarConfirmacion(fetchCofreFresco(),4000);
+  ocultarEnviando();
+  const items=Object.keys(APP.cofreMunicion||{}).map(function(muniId){
+    var m=getMuniById(muniId);
+    return {muniId:muniId,n:m?m.n:muniId,cant:APP.cofreMunicion[muniId]};
+  }).filter(function(x){return x.cant>0;});
+  if(!items.length){ renderApp(); return showNotif('El Cofre no tiene munición'); }
+  const modal=document.getElementById('obj-detail-modal');
+  const box=document.getElementById('obj-detail-box');
+  box.innerHTML='<div style="padding:16px;">'
+    +'<div style="font-family:VT323,monospace;font-size:20px;color:var(--pip-bright);margin-bottom:4px;">📥 COGER MUNICIÓN DEL COFRE</div>'
+    +'<div style="font-size:9px;color:var(--pip-dim);margin-bottom:12px;">Marca los tipos y la cantidad que quieres coger.</div>'
+    +items.map(function(x){
+      return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(74,254,130,.08);">'
+        +'<input type="checkbox" class="chk-coger-muni" data-muniid="'+x.muniId+'" data-max="'+x.cant+'">'
+        +'<span style="flex:1;font-size:12px;color:var(--pip-bright);">'+x.n+' <span style="color:var(--pip-dim);">(hay '+x.cant+')</span></span>'
+        +'<input type="number" class="cant-coger-muni" data-muniid="'+x.muniId+'" value="1" min="1" max="'+x.cant+'" style="width:44px;font-family:VT323,monospace;font-size:14px;padding:3px;background:var(--pip-dark);border:1px solid var(--pip-border);color:var(--pip-bright);text-align:center;">'
+        +'</div>';
+    }).join('')
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px;">'
+    +'<button class="btn btn-warn" onclick="cerrarDetalle()">CANCELAR</button>'
+    +'<button class="btn" onclick="confirmarCogerMunicionCofre()">▸ CONFIRMAR</button>'
+    +'</div></div>';
+  modal.style.display='flex';
+};
+
+window.confirmarCogerMunicionCofre=async function(){
+  const checks=document.querySelectorAll('.chk-coger-muni:checked');
+  if(!checks.length) return showNotif('Selecciona al menos un tipo');
+  const seleccion=[];
+  checks.forEach(function(chk){
+    const muniId=chk.dataset.muniid;
+    const max=parseInt(chk.dataset.max)||1;
+    const cantEl=document.querySelector('.cant-coger-muni[data-muniid="'+muniId+'"]');
+    seleccion.push({muniId:muniId,cant:Math.max(1,Math.min(max,parseInt(cantEl?cantEl.value:1)||1))});
+  });
+  cerrarDetalle();
+  mostrarEnviando('📡 RECIBIENDO MUNICIÓN DEL COFRE...');
+  const j=myFicha();
+  if(!j.municion) j.municion={};
+  if(!APP.cofreMunicion) APP.cofreMunicion={};
+  seleccion.forEach(function(s){
+    var enCofre=APP.cofreMunicion[s.muniId]||0;
+    var restar=Math.min(s.cant,enCofre);
+    if(restar<=0) return;
+    var restante=enCofre-restar;
+    if(restante<=0) delete APP.cofreMunicion[s.muniId]; else APP.cofreMunicion[s.muniId]=restante;
+    if(s.muniId==='muni_fusion') j.fusion_total=(j.fusion_total||0)+restar;
+    else j.municion[s.muniId]=(j.municion[s.muniId]||0)+restar;
+  });
+  saveJ();
+  await esperarConfirmacion(saveCofreMunicion(),5000);
+  await esperarConfirmacion(fetchCofreFresco(),4000);
+  ocultarEnviando();
+  showNotif('Munición cogida del Cofre');
+  renderApp();
+};
+
 window.masterToggleCiudad=function(){
   APP.enCiudad=!APP.enCiudad;
   const sala=getMockSala(APP.salaId);
@@ -2714,12 +2853,14 @@ window.confirmarEnviarRecursoVarios=async function(k,cant){
 };
 
 window.masterResetearCofre=async function(){
-  if(!confirm('¿Vaciar el Cofre por completo? Se perderán todos los recursos y objetos guardados en él.')) return;
+  if(!confirm('¿Vaciar el Cofre por completo? Se perderán todos los recursos, objetos y munición guardados en él.')) return;
   mostrarEnviando('📡 VACIANDO COFRE...');
   APP.cofre={chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0};
   APP.cofreObjetos={};
+  APP.cofreMunicion={};
   await esperarConfirmacion(saveCofre(),5000);
   await esperarConfirmacion(saveCofreObjetos(),5000);
+  await esperarConfirmacion(saveCofreMunicion(),5000);
   ocultarEnviando();
   showNotif('Cofre vaciado');
   renderApp();
@@ -3457,7 +3598,10 @@ function renderJMunicion(){
       +'<span style="font-size:9px;color:var(--pip-dim);">Total: <span style="color:'+(total>0?'var(--pip-warn)':'var(--pip-dim)')+'">'+total+'</span></span></div>'
       +otras.map(muniRow).join('')+'</div>';
   }
-  return '<div class="card"><div class="card-hdr">MUNICIÓN</div><div style="padding:0;">'+html+(!catalogo.length?'<div class="empty">El Master todavía no ha creado ningún tipo de munición</div>':'')+'</div></div>';
+  const hayMunicion=catalogo.some(function(t){return(t.muniId==='muni_fusion'?(j.fusion_total||0):(j.municion[t.muniId]||0))>0;});
+  return '<div class="card"><div class="card-hdr">MUNICIÓN</div><div style="padding:0;">'+html+(!catalogo.length?'<div class="empty">El Master todavía no ha creado ningún tipo de munición</div>':'')
+    +(APP.enCiudad&&hayMunicion?'<div style="padding:8px;"><button class="btn btn-block" onclick="abrirEnviarMunicionCofre()">📤 ENVIAR AL COFRE</button></div>':'')
+    +'</div></div>';
 }
 
 
@@ -3708,6 +3852,21 @@ function renderJCofre(){
                 +'</div>';
             }).join(''))
           +(APP.enCiudad&&cofreItems.length?'<button class="btn btn-block" style="margin-top:8px;" onclick="abrirCogerVariosCofre()">📥 COGER DEL COFRE</button>':'');
+      })()
+    +(function(){
+        const muniItems=Object.keys(APP.cofreMunicion||{}).map(function(muniId){
+          var m=getMuniById(muniId);
+          return {muniId:muniId,n:m?m.n:muniId,qty:APP.cofreMunicion[muniId]};
+        }).filter(function(x){return x.qty>0;});
+        return '<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin:10px 0 4px;border-bottom:1px solid var(--pip-border);padding-bottom:3px;">MUNICIÓN EN EL COFRE ('+muniItems.length+')</div>'
+          +(!muniItems.length?'<div class="empty" style="padding:8px;">Vacío</div>'
+            :muniItems.map(function(x){
+              return '<div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid rgba(74,254,130,.08);">'
+                +'<span style="flex:1;font-size:12px;color:var(--pip-bright);">'+x.n+'</span>'
+                +'<span style="font-family:VT323,monospace;font-size:16px;color:var(--pip-warn);">x'+x.qty+'</span>'
+                +'</div>';
+            }).join(''))
+          +(APP.enCiudad&&muniItems.length?'<button class="btn btn-block" style="margin-top:8px;" onclick="abrirCogerMunicionCofre()">📥 COGER MUNICIÓN</button>':'');
       })()
     +'</div></div>';
 }
@@ -5301,8 +5460,8 @@ function renderMObjetos(){
         const ln={arma:'ARMA',armadura:'ARMADURA',explosivo:'EXPLOSIVO',med:'MEDICINA',droga:'DROGA',ropa:'ROPA',herramienta:'HERRAMIENTA',holotape:'LIBRO/HOLOTAPE',misc:'MISC',municion:'MUNICIÓN'};
         return '<option value="'+t+'"'+(fv('tipo','misc')===t?' selected':'')+'>'+(ln[t]||t.toUpperCase())+'</option>';
       }).join('')+'</select>')
-    +(fv('tipo','misc')==='municion'?'':row2({l:'PRECIO (¢)',h:'<input type="number" id="no-v" value="'+fv('val',0)+'" min="0" '+sm+'>'},
-          {l:'PESO (pc)', h:'<input type="number" id="no-pc" value="'+fv('pc',5)+'" min="1" '+sm+'>'}))
+    +row2({l:'PRECIO (¢) por unidad',h:'<input type="number" id="no-v" value="'+fv('val',0)+'" min="0" '+sm+'>'},
+          {l:'PESO (pc) por unidad', h:'<input type="number" id="no-pc" value="'+fv('pc',fv('tipo','misc')==='municion'?0:5)+'" min="0" step="0.1" '+sm+'>'})
     +(fv('tipo','misc')==='municion'?'<label style="display:flex;align-items:center;gap:8px;padding:8px;margin-bottom:8px;border:1px solid var(--pip-border);font-size:11px;color:var(--pip-bright);"><input type="checkbox" id="no-muni-fusion" '+(fv('muniId','')==='muni_fusion'?'checked':'')+'> ⚡ Es batería de fusión (munición de armas de energía)</label>':'')
     +'<div id="arma-extra-fields" style="display:'+(esArma?'block':'none')+';">'    +row1('SUBCATEGORÍA','<select id="no-subcat" onchange="toggleSubcatFields(this.value)" '+s+'>'+      ARMA_SUBCATS.map(function(sc){        return '<option value="'+sc.id+'"'+(fv('subcat','corta')===sc.id?' selected':'')+'>'+sc.n+'</option>';      }).join('')+'</select>')    +(function(){      var sc=fv('subcat','corta');      var esCaC=sc==='cac';      var campos='';      if(!esCaC){        campos+=row1('MUNICIÓN','<select id="no-muni" '+s+'>'          +'<option value="">— Ninguna —</option>'          +getMunicionCatalogo().map(function(m){return '<option value="'+m.muniId+'"'+(fv('muniId','')===m.muniId?' selected':'')+'>'+m.n+'</option>';}).join('')          +'</select>');        campos+=row2({l:'CARGADOR (balas)',h:'<input type="number" id="no-carg" value="'+fv('cargador',0)+'" min="0" '+sm+'>'},                     {l:'ALCANCE (m)',h:'<input type="number" id="no-alc" value="'+fv('alcance',20)+'" min="0" '+sm+'>'});      } else {        campos+='<input type="hidden" id="no-muni" value=""><input type="hidden" id="no-carg" value="0"><input type="hidden" id="no-alc" value="0">';      }      campos+='<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin-bottom:5px;">'+(esCaC?'DADO DE DAÑO':'DADOS DE DAÑO')+'</div>';      if(esCaC){        campos+=row1('Daño TT','<input type="text" id="no-daño" value="'+fv('daño','1D6')+'" placeholder="1D6" '+sm+'>');        campos+='<input type="hidden" id="no-rfdaño" value=""><input type="hidden" id="no-fadaño" value="">';        campos+='<input type="hidden" id="no-tt" value="0"><input type="hidden" id="no-rf" value="0"><input type="hidden" id="no-fa" value="0">';      } else {        campos+=row3({l:'TT',h:'<input type="text" id="no-daño" value="'+fv('daño','1D6')+'" placeholder="1D6" '+sm+'>'},                     {l:'RF',h:'<input type="text" id="no-rfdaño" value="'+fv('rf','')+'" placeholder="2D6" '+sm+'>'},                     {l:'FA',h:'<input type="text" id="no-fadaño" value="'+fv('fa','')+'" placeholder="3D6" '+sm+'>'});        campos+='<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin-bottom:5px;">BALAS CONSUMIDAS</div>';        campos+=row3({l:'Coste TT',h:'<input type="number" id="no-tt" value="'+fv('ttCost',1)+'" min="0" '+sm+'>'},                     {l:'Coste RF',h:'<input type="number" id="no-rf" value="'+fv('rfCost',0)+'" min="0" '+sm+'>'},                     {l:'Coste FA',h:'<input type="number" id="no-fa" value="'+fv('faCost',0)+'" min="0" '+sm+'>'});      }      return campos;    })()    +row2({l:'CALIDAD (suma a Ataque)',h:'<input type="number" id="no-calidad" value="'+fv('calidad',0)+'" min="0" max="6" '+sm+'>'},                  {l:'ESTADO (suma a Daño)',h:'<input type="number" id="no-estado" value="'+fv('estado',0)+'" min="0" max="6" '+sm+'>'})    +row1('MANOS','<select id="no-manos" '+s+'><option value="1"'+(String(fv('manos',1))==='1'?' selected':'')+'>Una mano (permite dos armas equipadas)</option><option value="2"'+(String(fv('manos',1))==='2'?' selected':'')+'>Dos manos (ocupa las dos)</option></select>')    +'</div>'
     // Campos extra para armadura
@@ -5419,6 +5578,15 @@ function renderMObjetos(){
               return '<div style="font-size:11px;color:var(--pip-bright);padding:3px 0;">'+(o?o.n:'(objeto #'+objId+', ya no existe en la tienda)')+' — x'+APP.cofreObjetos[k]+'</div>';
             }).join(''));
       })()
+    +(function(){
+        var clavesMuni=Object.keys(APP.cofreMunicion||{}).filter(function(k){return (APP.cofreMunicion[k]||0)>0;});
+        return '<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin:12px 0 4px;border-bottom:1px solid var(--pip-border);padding-bottom:3px;">MUNICIÓN EN EL COFRE ('+clavesMuni.length+')</div>'
+          +(!clavesMuni.length?'<div style="font-size:10px;color:var(--pip-dim);padding:4px 0;">Vacío</div>'
+            :clavesMuni.map(function(muniId){
+              var m=getMuniById(muniId);
+              return '<div style="font-size:11px;color:var(--pip-bright);padding:3px 0;">'+(m?m.n:'(munición ya no existe en la tienda)')+' — x'+APP.cofreMunicion[muniId]+'</div>';
+            }).join(''));
+      })()
     +'</div></div>';
 
   return cofreBlockHtml+formHtml+listaHtml;
@@ -5498,7 +5666,8 @@ window.masterSaveObj=function(){
   if(nombreOcupado) return showNotif('Ya existe un objeto con ese nombre, elige otro');
   const tipo=(document.getElementById('no-t')||{}).value||'misc';
   const val=parseInt((document.getElementById('no-v')||{}).value)||0;
-  const pc=parseInt((document.getElementById('no-pc')||{}).value)||1;
+  const pcRaw=parseFloat((document.getElementById('no-pc')||{}).value);
+  const pc=isNaN(pcRaw)?0:pcRaw;
   const desc=(document.getElementById('no-d')||{}).value||'';
   const extraArma=tipo==='arma'?{
     equipable:true, slotTipo:'arma',
@@ -5542,11 +5711,11 @@ window.masterSaveObj=function(){
     if(esFusion){
       const otroFusion=APP.tienda.find(function(o){return o&&o.tipo==='municion'&&o.muniId==='muni_fusion'&&o.id!==APP._editObjId;});
       if(otroFusion) return showNotif('Ya existe una batería de fusión: '+otroFusion.n+'. Solo puede haber una.');
-      extraMunicion={muniId:'muni_fusion',val:0,pc:0};
+      extraMunicion={muniId:'muni_fusion'};
     } else {
       const existente=APP._editObjId!=null?APP.tienda.find(function(o){return o.id===APP._editObjId;}):null;
       const muniId=(existente&&existente.muniId&&existente.muniId!=='muni_fusion')?existente.muniId:('m'+Date.now());
-      extraMunicion={muniId:muniId,val:0,pc:0};
+      extraMunicion={muniId:muniId};
     }
   }
   const sala=getMockSala(APP.salaId);
@@ -6391,7 +6560,7 @@ window.masterResetearSalaCompleta=function(){
     rasgosCustom:[], extrasCustom:[], rasgosOverride:{}, extrasOverride:{},
     radZona:{activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0},
     cofre:{chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0},
-    cofreObjetos:{},
+    cofreObjetos:{}, cofreMunicion:{},
     recetasPendientes:[],
     enCiudad:false,
     enVenta:[], enemigos:[...ENEMIGOS_EJEMPLO], combate:[],
@@ -6402,7 +6571,7 @@ window.masterResetearSalaCompleta=function(){
   APP.jugadores={}; APP.tienda=fresh.tienda; APP.tiendas=fresh.tiendas;
   APP.enemigos=fresh.enemigos; APP.combate=[]; APP.notificaciones={};
   APP.rasgosCustom=[]; APP.extrasCustom=[]; APP.rasgosOverride={}; APP.extrasOverride={}; aplicarOverridesContenido();
-  APP.radZona=fresh.radZona; APP.cofre=fresh.cofre; APP.cofreObjetos={}; APP.recetasPendientes=[]; APP.enCiudad=false;
+  APP.radZona=fresh.radZona; APP.cofre=fresh.cofre; APP.cofreObjetos={}; APP.cofreMunicion={}; APP.recetasPendientes=[]; APP.enCiudad=false;
   if(!FB_MOCK&&db) db.ref('salas/'+APP.salaId).set(fresh);
   showNotif('Sala reseteada por completo');
   renderApp();
