@@ -2741,9 +2741,28 @@ window.abrirPanelAdmin=function(){
     +'<div style="font-size:9px;color:var(--pip-dim);margin-bottom:6px;">Borra TODOS los personajes, el Cofre, las recetas, la tienda y las adiciones custom de esta sala, dejándola como recién creada. NO se puede deshacer.</div>'
     +'<button class="btn btn-danger btn-block" style="margin-bottom:16px;" onclick="masterResetearSalaCompleta()">🗑 RESETEAR SALA COMPLETA</button>'
     +'<div style="font-size:9px;color:var(--pip-dim);margin-bottom:6px;">Vacía el Cofre común (recursos y objetos), sin tocar personajes, tienda ni recetas. NO se puede deshacer.</div>'
-    +'<button class="btn btn-danger btn-block" onclick="masterResetearCofre()">🗑 RESETEAR COFRE (vaciar recursos y objetos)</button>'
+    +'<button class="btn btn-danger btn-block" style="margin-bottom:16px;" onclick="masterResetearCofre()">🗑 RESETEAR COFRE (vaciar recursos y objetos)</button>'
+    +'<div style="font-size:9px;color:var(--pip-dim);margin-bottom:6px;">Borra armas, armaduras, drogas, explosivos, medicinas, libros/holotapes y misceláneos de la lista de objetos. NO toca munición ni recursos de fabricación. Las categorías se mantienen. NO se puede deshacer.</div>'
+    +'<button class="btn btn-danger btn-block" onclick="masterBorrarObjetosNoMunicion()">🗑 BORRAR TODOS LOS OBJETOS (excepto munición)</button>'
     +'</div>';
   modal.style.display='flex';
+};
+
+window.masterBorrarObjetosNoMunicion=async function(){
+  const tiposABorrar=['arma','armadura','explosivo','med','droga','holotape','misc'];
+  const antes=APP.tienda.length;
+  const aBorrar=APP.tienda.filter(function(o){return o&&tiposABorrar.includes(o.tipo);}).length;
+  if(!aBorrar) { cerrarDetalle(); return showNotif('No hay objetos de esos tipos para borrar'); }
+  if(!confirm('¿Borrar '+aBorrar+' objetos (armas, armaduras, drogas, explosivos, medicinas, libros y misceláneos)? La munición y los recursos de fabricación no se tocan. NO se puede deshacer.')) return;
+  cerrarDetalle();
+  mostrarEnviando('📡 BORRANDO OBJETOS...');
+  APP.tienda=APP.tienda.filter(function(o){return !o||!tiposABorrar.includes(o.tipo);});
+  const sala=getMockSala(APP.salaId);
+  sala.tienda=APP.tienda;
+  await esperarConfirmacion(fbSet('salas/'+APP.salaId+'/tienda',APP.tienda),5000);
+  ocultarEnviando();
+  showNotif((antes-APP.tienda.length)+' objetos borrados. Munición y recursos intactos.');
+  renderApp();
 };
 
 window.jugadorConsumirRecurso=function(k){
@@ -5487,6 +5506,8 @@ const ARMA_SUBCATS=[
 ;
 window.masterSaveObj=function(){
   const n=(document.getElementById('no-n')||{}).value||''; if(!n.trim()) return showNotif('Escribe un nombre');
+  const nombreOcupado=APP.tienda.some(function(o){return o&&o.n&&o.id!==APP._editObjId&&o.n.trim().toLowerCase()===n.trim().toLowerCase();});
+  if(nombreOcupado) return showNotif('Ya existe un objeto con ese nombre, elige otro');
   const tipo=(document.getElementById('no-t')||{}).value||'misc';
   const val=parseInt((document.getElementById('no-v')||{}).value)||0;
   const pc=parseInt((document.getElementById('no-pc')||{}).value)||1;
@@ -6425,7 +6446,7 @@ window.cancelarEditObj=function(){
   APP._draftObjAdicCat=null;
   renderApp();
 };
-window.masterDelObj=function(id){APP.tienda=APP.tienda.filter(o=>o.id!==id);APP.enVenta=APP.enVenta.filter(i=>i!==id);getMockSala(APP.salaId).tienda=APP.tienda;renderApp()};
+window.masterDelObj=function(id){APP.tienda=APP.tienda.filter(o=>o.id!==id);APP.enVenta=APP.enVenta.filter(i=>i!==id);getMockSala(APP.salaId).tienda=APP.tienda;fbSet('salas/'+APP.salaId+'/tienda',APP.tienda);renderApp()};
 
 window.masterEnviarAJugador=function(jid,oid){
   const s=getMockSala(APP.salaId);
