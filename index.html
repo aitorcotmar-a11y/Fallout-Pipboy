@@ -2653,9 +2653,17 @@ window.masterCofreMod=async function(k,delta){
   renderApp();
 };
 
+window.ajustarCantEnviarRecurso=function(k,delta){
+  if(!APP._cantEnviarRecurso) APP._cantEnviarRecurso={};
+  const actual=APP._cantEnviarRecurso[k]||0;
+  APP._cantEnviarRecurso[k]=Math.max(0,actual+delta);
+  const mc=document.getElementById('main-content');
+  if(mc) mc.innerHTML=renderMObjetos();
+};
+
 window.abrirEnviarRecursoVarios=function(k){
-  const cantEl=document.getElementById('m-cofre-cant');
-  const cant=Math.max(1,parseInt(cantEl?cantEl.value:1)||1);
+  const cant=(APP._cantEnviarRecurso&&APP._cantEnviarRecurso[k])||0;
+  if(cant<1) return showNotif('Sube la cantidad a enviar con el +');
   const r=RECURSOS_FABRICACION.find(function(x){return x.k===k;});
   const jugs=Object.values(APP.jugadores||{}).filter(function(j){return j.confirmada;});
   const modal=document.getElementById('obj-detail-modal');
@@ -2702,6 +2710,7 @@ window.confirmarEnviarRecursoVarios=async function(k,cant){
     APP.cofre[k]=(APP.cofre[k]||0)+cant;
     await esperarConfirmacion(saveCofre(),5000);
   }
+  if(APP._cantEnviarRecurso) APP._cantEnviarRecurso[k]=0;
   ocultarEnviando();
   showNotif(cant+'x '+(r?r.n:k)+' entregado a '+(nJugadores+(incluyeCofre?1:0))+' destino(s)');
   renderApp();
@@ -5362,15 +5371,24 @@ function renderMObjetos(){
     +'<div style="font-size:9px;color:var(--pip-dim);margin-bottom:8px;">Mientras esté EN CIUDAD, los jugadores pueden guardar y sacar recursos del Cofre común desde su inventario.</div>'
     +'<button class="btn btn-block '+(APP.enCiudad?'btn-danger':'btn-warn')+'" onclick="masterToggleCiudad()">'+(APP.enCiudad?'⏸ SALIR DE CIUDAD':'▶ ENTRAR EN CIUDAD / REFUGIO')+'</button>'
     +'<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin:12px 0 4px;border-bottom:1px solid var(--pip-border);padding-bottom:3px;">🗃 COFRE COMÚN — RECURSOS DE FABRICACIÓN</div>'
-    +'<div style="font-size:9px;color:var(--pip-dim);margin-bottom:6px;">Los recursos solo los entrega el Master. Pon la cantidad y pulsa ENVIAR para elegir a quién (uno o varios jugadores y/o el Cofre): esa cantidad se suma entera a cada destino marcado.</div>'
-    +'<div class="form-row"><span class="form-lbl">CANTIDAD:</span><input type="number" id="m-cofre-cant" class="mod-input" value="10" min="1"></div>'
+    +'<div style="font-size:9px;color:var(--pip-dim);margin-bottom:6px;">Los recursos solo los entrega el Master. Ajusta cuánto quieres enviar de cada uno y pulsa ENVIAR para elegir a quién (uno o varios jugadores y/o el Cofre): esa cantidad se suma entera a cada destino marcado.</div>'
+    +'<div style="display:flex;align-items:center;gap:4px;padding:4px 0 6px;border-bottom:1px solid var(--pip-border);">'
+      +'<span style="flex:1;font-size:8px;color:var(--pip-dim);letter-spacing:1px;"></span>'
+      +'<span style="font-size:8px;color:var(--pip-dim);letter-spacing:1px;min-width:52px;text-align:center;">ACTUAL</span>'
+      +'<span style="font-size:8px;color:var(--pip-dim);letter-spacing:1px;min-width:72px;text-align:center;">CANTIDAD A ENVIAR</span>'
+      +'<span style="min-width:88px;"></span>'
+      +'</div>'
     +RECURSOS_FABRICACION.map(function(r){
       var cant=(APP.cofre&&APP.cofre[r.k])||0;
-      return '<div style="display:flex;align-items:center;gap:4px;padding:4px 0;border-bottom:1px solid rgba(74,254,130,.08);flex-wrap:wrap;">'
+      var envCant=(APP._cantEnviarRecurso&&APP._cantEnviarRecurso[r.k])||0;
+      return '<div style="display:flex;align-items:center;gap:4px;padding:5px 0;border-bottom:1px solid rgba(74,254,130,.08);flex-wrap:wrap;">'
         +'<span style="flex:1;font-size:12px;color:var(--pip-bright);">'+r.icono+' '+r.n+'</span>'
-        +'<span style="font-family:VT323,monospace;font-size:18px;color:var(--pip-warn);min-width:32px;text-align:right;">'+cant+'</span>'
+        +'<span style="font-family:VT323,monospace;font-size:18px;color:var(--pip-warn);min-width:22px;text-align:right;">'+cant+'</span>'
         +'<button class="chip chip-r" data-k="'+r.k+'" onclick="masterCofreMod(this.dataset.k,-1)">−</button>'
-        +'<button class="chip" style="border-color:var(--pip-warn);color:var(--pip-warn);margin-left:8px;" data-k="'+r.k+'" onclick="abrirEnviarRecursoVarios(this.dataset.k)">📤 ENVIAR</button>'
+        +'<span style="font-family:VT323,monospace;font-size:18px;color:var(--pip-bright);min-width:22px;text-align:right;margin-left:10px;">'+envCant+'</span>'
+        +'<button class="chip chip-r" data-k="'+r.k+'" onclick="ajustarCantEnviarRecurso(this.dataset.k,-1)">−</button>'
+        +'<button class="chip chip-g" data-k="'+r.k+'" onclick="ajustarCantEnviarRecurso(this.dataset.k,1)">+</button>'
+        +'<button class="chip" style="border-color:var(--pip-warn);color:var(--pip-warn);margin-left:8px;" data-k="'+r.k+'" '+(envCant<1?'disabled':'')+' onclick="abrirEnviarRecursoVarios(this.dataset.k)">📤 ENVIAR</button>'
         +'</div>';
     }).join('')
     +(function(){
