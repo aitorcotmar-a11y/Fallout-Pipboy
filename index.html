@@ -593,34 +593,38 @@ function normalizarCofreObjetos(v){
   return {};
 }
 
+/* ── Lectura directa y fiable del Cofre: se llama justo antes de mostrarlo o de actuar sobre él,
+   en vez de confiar en la copia que mantiene el listener pasivo en segundo plano. ── */
+async function fetchCofreFresco(){
+  if(FB_MOCK||!db){
+    // En modo local no hay nada que traer: APP.cofre/APP.cofreObjetos ya son la fuente de verdad
+    return;
+  }
+  try{
+    const snapCofre=await db.ref('salas/'+APP.salaId+'/cofre').once('value');
+    APP.cofre=snapCofre.val()||{chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0};
+    const snapObj=await db.ref('salas/'+APP.salaId+'/cofreObjetos').once('value');
+    APP.cofreObjetos=normalizarCofreObjetos(snapObj.val());
+    const sala=getMockSala(APP.salaId);
+    sala.cofre=APP.cofre;
+    sala.cofreObjetos=APP.cofreObjetos;
+  }catch(e){
+    console.warn('No se pudo refrescar el Cofre desde Firebase', e);
+  }
+}
+
 function startRealtime(salaId){
   if(FB_MOCK||!db) return;
   db.ref('salas/'+salaId).on('value', function(snap){
     const data=snap.val();
     if(!data) return;
-    const salaAntes=getMockSala(salaId);
-    const dentroGuardia=Date.now()<_cofreLocalGuardUntil;
-    const cofreLocal=salaAntes.cofre;
-    const cofreObjetosLocal=salaAntes.cofreObjetos;
-    MOCK.salas[salaId]=Object.assign(salaAntes, data);
+    MOCK.salas[salaId]=Object.assign(getMockSala(salaId), data);
     const s=MOCK.salas[salaId];
-    if(dentroGuardia){
-      // Restaurar lo que teníamos en memoria: el snapshot remoto puede no reflejar aún nuestra última escritura
-      s.cofre=cofreLocal;
-      s.cofreObjetos=cofreObjetosLocal;
-    }
     var jugsRaw=s.jugadores||{};
     Object.keys(jugsRaw).forEach(function(k){ normalizarFicha(jugsRaw[k]); });
     APP.jugadores=jugsRaw;
     APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[]; APP.extrasCustom=s.extrasCustom||[]; APP.rasgosOverride=s.rasgosOverride||{}; APP.extrasOverride=s.extrasOverride||{}; APP.radZona=s.radZona||{activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0};
-    // Cofre y objetos del cofre: si hemos escrito localmente hace muy poco, no dejar que un snapshot remoto en tránsito nos pise el cambio
-    if(!dentroGuardia){
-      APP.cofre=s.cofre||{chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0};
-      APP.cofreObjetos=normalizarCofreObjetos(s.cofreObjetos);
-    } else {
-      s.cofre=APP.cofre;
-      s.cofreObjetos=APP.cofreObjetos;
-    }
+    // Cofre y cofreObjetos YA NO se gestionan aquí: se leen bajo demanda con fetchCofreFresco() justo antes de mostrarlos o modificarlos, para evitar cualquier desincronización con el listener pasivo.
     APP.recetasPendientes=s.recetasPendientes||[]; APP.enCiudad=s.enCiudad||false; aplicarOverridesContenido();
     APP.enemigos=s.enemigos||[];
     APP.combate=s.combate||[];
@@ -1840,8 +1844,28 @@ function buildTabs(){
       .map(function(t){return '<button class="tab '+(at===t.k?'active':'')+'" data-k="'+t.k+'" onclick="switchJT(this.dataset.k)">'+t.l+'</button>';}).join('');
   }
 }
-window.switchMT=function(t){APP.masterTab=t;APP._gruposAbiertos={};buildTabs();renderApp();};
-window.switchJT=function(t){var m={estado:'estado',inv:'inv',cofre:'cofre',municion:'municion',tienda:'tienda',recetas:'recetas'};APP.fichaInner=m[t]||t;buildTabs();renderApp();};
+window.switchMT=async function(t){
+  APP.masterTab=t;
+  APP._gruposAbiertos={};
+  buildTabs();
+  if(t==='objetos'){
+    mostrarEnviando('📡 CARGANDO COFRE...');
+    await esperarConfirmacion(fetchCofreFresco(),4000);
+    ocultarEnviando();
+  }
+  renderApp();
+};
+window.switchJT=async function(t){
+  var m={estado:'estado',inv:'inv',cofre:'cofre',municion:'municion',tienda:'tienda',recetas:'recetas'};
+  APP.fichaInner=m[t]||t;
+  buildTabs();
+  if(APP.fichaInner==='cofre'||APP.fichaInner==='inv'){
+    mostrarEnviando('📡 CARGANDO COFRE...');
+    await esperarConfirmacion(fetchCofreFresco(),4000);
+    ocultarEnviando();
+  }
+  renderApp();
+};
 window.switchFI=function(t){
   if(APP._personajeAbierto){ APP._personajeTab=t; renderPersonajeContent(); return; }
   APP.fichaInner=t;
@@ -2509,6 +2533,8 @@ window.confirmarEnvioVariosCofre=async function(){
   });
   cerrarDetalle();
   mostrarEnviando('📡 ENVIANDO AL COFRE...');
+  // Partimos siempre del estado REAL del Cofre en el servidor, no de la copia local
+  await esperarConfirmacion(fetchCofreFresco(),4000);
   const j=myFicha();
   if(!APP.cofreObjetos) APP.cofreObjetos={};
   seleccion.forEach(function(s){
@@ -2521,15 +2547,20 @@ window.confirmarEnvioVariosCofre=async function(){
   });
   saveJ();
   await esperarConfirmacion(saveCofreObjetos(),5000);
+  // Releer para confirmar que el servidor tiene de verdad lo que acabamos de escribir
+  await esperarConfirmacion(fetchCofreFresco(),4000);
   ocultarEnviando();
   showNotif('Enviado al Cofre');
   renderApp();
 };
 
-window.abrirCogerVariosCofre=function(){
+window.abrirCogerVariosCofre=async function(){
   if(!APP.enCiudad) return showNotif('El Cofre solo está disponible en ciudad/refugio');
+  mostrarEnviando('📡 COMPROBANDO COFRE...');
+  await esperarConfirmacion(fetchCofreFresco(),4000);
+  ocultarEnviando();
   const items=Object.keys(APP.cofreObjetos||{}).map(function(objId){return {objId:objId,qty:APP.cofreObjetos[objId],o:getObjById(parseInt(objId))};}).filter(function(x){return x.o&&x.qty>0;});
-  if(!items.length) return showNotif('El Cofre no tiene objetos');
+  if(!items.length){ renderApp(); return showNotif('El Cofre no tiene objetos'); }
   const modal=document.getElementById('obj-detail-modal');
   const box=document.getElementById('obj-detail-box');
   box.innerHTML='<div style="padding:16px;">'
@@ -2561,6 +2592,8 @@ window.confirmarCogerVariosCofre=async function(){
   });
   cerrarDetalle();
   mostrarEnviando('📡 RECIBIENDO DEL COFRE...');
+  // Partimos siempre del estado REAL del Cofre en el servidor, no de la copia local
+  await esperarConfirmacion(fetchCofreFresco(),4000);
   const j=myFicha();
   if(!APP.cofreObjetos) APP.cofreObjetos={};
   seleccion.forEach(function(s){
@@ -2573,6 +2606,8 @@ window.confirmarCogerVariosCofre=async function(){
   });
   saveJ();
   await esperarConfirmacion(saveCofreObjetos(),5000);
+  // Releer para confirmar que el servidor tiene de verdad lo que acabamos de escribir
+  await esperarConfirmacion(fetchCofreFresco(),4000);
   ocultarEnviando();
   showNotif('Cogido del Cofre');
   renderApp();
@@ -2587,12 +2622,15 @@ window.masterToggleCiudad=function(){
   renderApp();
 };
 
-window.masterCofreMod=function(k,delta){
+window.masterCofreMod=async function(k,delta){
   const cantEl=document.getElementById('m-cofre-cant');
   const cant=Math.max(1,parseInt(cantEl?cantEl.value:1)||1);
+  mostrarEnviando('📡 ACTUALIZANDO COFRE...');
+  await esperarConfirmacion(fetchCofreFresco(),4000);
   if(!APP.cofre) APP.cofre={};
   APP.cofre[k]=Math.max(0,(APP.cofre[k]||0)+(parseInt(delta)*cant));
-  saveCofre();
+  await esperarConfirmacion(saveCofre(),5000);
+  ocultarEnviando();
   renderApp();
 };
 
@@ -2614,12 +2652,14 @@ window.masterRecursoAJugador=function(k){
   renderApp();
 };
 
-window.masterResetearCofre=function(){
+window.masterResetearCofre=async function(){
   if(!confirm('¿Vaciar el Cofre por completo? Se perderán todos los recursos y objetos guardados en él.')) return;
+  mostrarEnviando('📡 VACIANDO COFRE...');
   APP.cofre={chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0};
   APP.cofreObjetos={};
-  saveCofre();
-  saveCofreObjetos();
+  await esperarConfirmacion(saveCofre(),5000);
+  await esperarConfirmacion(saveCofreObjetos(),5000);
+  ocultarEnviando();
   showNotif('Cofre vaciado');
   renderApp();
 };
@@ -2640,7 +2680,7 @@ window.jugadorConsumirRecurso=function(k){
   saveJ(); renderApp();
 };
 
-window.abrirMandarRecurso=function(k){
+window.abrirMandarRecurso=async function(k){
   if(!APP.enCiudad) return showNotif('El Cofre solo está disponible en ciudad/refugio');
   const j=myFicha();
   const disponible=(j.recursos&&j.recursos[k])||0;
@@ -2659,27 +2699,34 @@ window.abrirMandarRecurso=function(k){
   modal.style.display='flex';
 };
 window.confirmarMandarRecurso=async function(k){
+  const cantEl=document.getElementById('mover-recurso-cant');
+  const cantPedida=Math.max(1,parseInt(cantEl?cantEl.value:1)||1);
+  cerrarDetalle();
+  mostrarEnviando('📡 ENVIANDO AL COFRE...');
+  await esperarConfirmacion(fetchCofreFresco(),4000);
   const j=myFicha();
   if(!j.recursos) j.recursos={};
   const disponible=j.recursos[k]||0;
-  const cantEl=document.getElementById('mover-recurso-cant');
-  const cant=Math.max(1,Math.min(disponible,parseInt(cantEl?cantEl.value:1)||1));
+  const cant=Math.min(cantPedida,disponible);
+  if(cant<1){ ocultarEnviando(); showNotif('Ya no tienes ese recurso'); renderApp(); return; }
   j.recursos[k]=disponible-cant;
   if(!APP.cofre) APP.cofre={};
   APP.cofre[k]=(APP.cofre[k]||0)+cant;
-  cerrarDetalle();
-  mostrarEnviando('📡 ENVIANDO AL COFRE...');
   saveJ();
   await esperarConfirmacion(saveCofre(),5000);
+  await esperarConfirmacion(fetchCofreFresco(),4000);
   ocultarEnviando();
   showNotif('Enviado al Cofre: '+cant);
   renderApp();
 };
 
-window.abrirCogerRecurso=function(k){
+window.abrirCogerRecurso=async function(k){
   if(!APP.enCiudad) return showNotif('El Cofre solo está disponible en ciudad/refugio');
+  mostrarEnviando('📡 COMPROBANDO COFRE...');
+  await esperarConfirmacion(fetchCofreFresco(),4000);
+  ocultarEnviando();
   const disponible=(APP.cofre&&APP.cofre[k])||0;
-  if(disponible<1) return showNotif('El Cofre no tiene ese recurso');
+  if(disponible<1){ renderApp(); return showNotif('El Cofre no tiene ese recurso'); }
   const r=RECURSOS_FABRICACION.find(function(x){return x.k===k;});
   const modal=document.getElementById('obj-detail-modal');
   const box=document.getElementById('obj-detail-box');
@@ -2694,17 +2741,21 @@ window.abrirCogerRecurso=function(k){
   modal.style.display='flex';
 };
 window.confirmarCogerRecurso=async function(k){
-  const disponible=(APP.cofre&&APP.cofre[k])||0;
   const cantEl=document.getElementById('coger-recurso-cant');
-  const cant=Math.max(1,Math.min(disponible,parseInt(cantEl?cantEl.value:1)||1));
+  const cantPedida=Math.max(1,parseInt(cantEl?cantEl.value:1)||1);
+  cerrarDetalle();
+  mostrarEnviando('📡 RECIBIENDO DEL COFRE...');
+  await esperarConfirmacion(fetchCofreFresco(),4000);
+  const disponible=(APP.cofre&&APP.cofre[k])||0;
+  const cant=Math.min(cantPedida,disponible);
+  if(cant<1){ ocultarEnviando(); showNotif('El Cofre ya no tiene ese recurso'); renderApp(); return; }
   APP.cofre[k]=disponible-cant;
   const j=myFicha();
   if(!j.recursos) j.recursos={};
   j.recursos[k]=(j.recursos[k]||0)+cant;
-  cerrarDetalle();
-  mostrarEnviando('📡 RECIBIENDO DEL COFRE...');
   saveJ();
   await esperarConfirmacion(saveCofre(),5000);
+  await esperarConfirmacion(fetchCofreFresco(),4000);
   ocultarEnviando();
   showNotif('Cogido del Cofre: '+cant);
   renderApp();
@@ -6364,12 +6415,17 @@ window.abrirEnviarMaster=function(oid){
 window.masterEnviarACofre=function(oid){
   const o=getObjById(oid)||APP.tienda.find(function(x){return x.id===oid||x.id===parseInt(oid);});
   if(!o) return;
-  if(!APP.cofreObjetos) APP.cofreObjetos={};
-  APP.cofreObjetos[o.id]=(APP.cofreObjetos[o.id]||0)+1;
-  saveCofreObjetos();
   cerrarDetalle();
-  showNotif(o.n+' enviado al Cofre común');
-  renderApp();
+  mostrarEnviando('📡 ENVIANDO AL COFRE...');
+  (async function(){
+    await esperarConfirmacion(fetchCofreFresco(),4000);
+    if(!APP.cofreObjetos) APP.cofreObjetos={};
+    APP.cofreObjetos[o.id]=(APP.cofreObjetos[o.id]||0)+1;
+    await esperarConfirmacion(saveCofreObjetos(),5000);
+    ocultarEnviando();
+    showNotif(o.n+' enviado al Cofre común');
+    renderApp();
+  })();
 };
 
 
