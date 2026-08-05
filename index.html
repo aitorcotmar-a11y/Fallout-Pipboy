@@ -1439,6 +1439,7 @@ function calcCargaUsada(j){
   },0);
   return pesoInv+pesoMuni;
 }
+function redondearPeso(v){ return Math.ceil((v||0)*10)/10; }
 function getPtsArm(j){let b=CLASES[j.clase].arm;if(j.rasgos.includes('capacitado'))b-=1;if(j.rasgos.includes('tecnico'))b+=2;if(j.rasgos.includes('bonachon'))b-=2;return b}
 function getPtsHab(j){let b=CLASES[j.clase].hab;if(j.rasgos.includes('capacitado'))b-=1;if(j.rasgos.includes('tecnico'))b+=2;return b}
 function getPtsAttrExtra(j){return j.rasgos.includes('capacitado')?5:0}
@@ -1946,7 +1947,7 @@ function renderApp(){
         +'<div class="hdr-stat-sep"></div>'
         +'<div class="hdr-stat-item"><span class="hdr-stat-lbl">CHAPAS</span><span class="hdr-stat-val warn">'+jh.chapas+'¢</span></div>'
         +'<div class="hdr-stat-sep"></div>'
-        +'<div class="hdr-stat-item"><span class="hdr-stat-lbl">CARGA</span><span class="hdr-stat-val'+(sobre?' danger':'')+'">'+cU+'/'+cM+'</span></div>'
+        +'<div class="hdr-stat-item"><span class="hdr-stat-lbl">CARGA</span><span class="hdr-stat-val'+(sobre?' danger':'')+'">'+redondearPeso(cU)+'/'+cM+'</span></div>'
         +(jh.rads>0?'<div class="hdr-stat-sep"></div>'
           +'<div class="hdr-stat-item"><span class="hdr-stat-lbl">RADS</span><span class="hdr-stat-val" style="color:var(--pip-rad);">'+jh.rads+'</span></div>':'')
         +((function(){
@@ -2053,28 +2054,104 @@ function addItemToJugador(j, objId, qty){
   }
 }
 
-window.comprarTienda=function(objId,precioOverride){
+window.abrirComprarTienda=function(objId){
   const j=myFicha();
   objId=typeof objId==='string'?parseInt(objId):objId;
-  const o=getObjById(objId);
-  if(!o){ return; }
-  const precio=precioOverride!=null?precioOverride:o.val;
-  if(j.chapas<precio){showNotif('Sin chapas suficientes');return;}
-  j.chapas-=precio;
-  // Para munición, añadir directamente sin pasar por addItemToJugador
+  const sala=getMockSala(APP.salaId);
+  const tienda=(sala.tiendas||[]).find(function(t){return t.activa;});
+  if(!tienda) return;
+  const o=getObjById(objId); if(!o) return;
+  const descuentoT=tienda.descuento||0;
+  const precioUnit=descuentoT>0?Math.round(o.val*(1-descuentoT/100)):o.val;
+  const stockInfo=tienda.stock&&tienda.stock[objId];
+  const stockDisponible=stockInfo?stockInfo.actual:null; // null = infinito
+  if(stockInfo&&stockDisponible<=0) return showNotif('Sin stock disponible');
+  const maxPorChapas=precioUnit>0?Math.floor(j.chapas/precioUnit):99;
+  const maxFinal=stockDisponible!=null?Math.min(stockDisponible,maxPorChapas):maxPorChapas;
+  if(maxFinal<1) return showNotif('Sin chapas suficientes');
+  const modal=document.getElementById('obj-detail-modal');
+  const box=document.getElementById('obj-detail-box');
+  box.innerHTML='<div style="padding:20px;">'
+    +'<div style="font-family:VT323,monospace;font-size:18px;color:var(--pip-bright);margin-bottom:6px;">🛒 COMPRAR: '+o.n+'</div>'
+    +'<div style="font-size:11px;color:var(--pip-dim);margin-bottom:10px;">Precio unidad: '+precioUnit+'¢'+(stockDisponible!=null?' · Stock disponible: '+stockDisponible:'')+'</div>'
+    +'<input type="number" id="compra-cant" value="1" min="1" max="'+maxFinal+'" oninput="actualizarTotalCompra('+precioUnit+')" style="width:100%;font-family:VT323,monospace;font-size:22px;padding:8px;background:var(--pip-dark);border:1px solid var(--pip-border);color:var(--pip-bright);text-align:center;margin-bottom:8px;">'
+    +'<div id="compra-total" style="font-size:12px;color:var(--pip-warn);text-align:center;margin-bottom:14px;">Total: '+precioUnit+'¢</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">'
+    +'<button class="btn btn-warn" onclick="cerrarDetalle()">CANCELAR</button>'
+    +'<button class="btn" data-oid="'+objId+'" data-precio="'+precioUnit+'" onclick="confirmarComprarTienda(parseInt(this.dataset.oid),parseInt(this.dataset.precio))">▸ COMPRAR</button>'
+    +'</div></div>';
+  modal.style.display='flex';
+};
+
+window.actualizarTotalCompra=function(precioUnit){
+  const cantEl=document.getElementById('compra-cant');
+  const total=document.getElementById('compra-total');
+  const cant=Math.max(1,parseInt(cantEl?cantEl.value:1)||1);
+  if(total) total.textContent='Total: '+(precioUnit*cant)+'¢';
+};
+
+window.confirmarComprarTienda=async function(objId,precioUnit){
+  const cantEl=document.getElementById('compra-cant');
+  const cant=Math.max(1,parseInt(cantEl?cantEl.value:1)||1);
+  const j=myFicha();
+  const o=getObjById(objId); if(!o) return;
+  const precioTotal=precioUnit*cant;
+  if(j.chapas<precioTotal){ showNotif('Sin chapas suficientes'); return; }
+
+  const sala=getMockSala(APP.salaId);
+  const tiendaIdx=(sala.tiendas||[]).findIndex(function(t){return t.activa;});
+  const tienda=tiendaIdx>=0?sala.tiendas[tiendaIdx]:null;
+  const tieneStock=tienda&&tienda.stock&&tienda.stock[objId];
+
+  cerrarDetalle();
+  mostrarEnviando('📡 PROCESANDO COMPRA...');
+
+  if(tieneStock){
+    if(FB_MOCK||!db){
+      // Modo local: sin concurrencia real entre navegadores, comprobamos y restamos directamente
+      const actual=tienda.stock[objId].actual||0;
+      if(actual<cant){ ocultarEnviando(); showNotif('No queda stock suficiente'); renderApp(); return; }
+      tienda.stock[objId].actual=actual-cant;
+      fbSet('salas/'+APP.salaId+'/tiendas',sala.tiendas);
+    } else {
+      // Descuento atómico vía transacción de Firebase: seguro aunque compren varios jugadores a la vez
+      const ruta='salas/'+APP.salaId+'/tiendas/'+tiendaIdx+'/stock/'+objId+'/actual';
+      let committed=false, valorFinal=null;
+      try{
+        const res=await db.ref(ruta).transaction(function(actual){
+          actual=(actual==null)?0:actual;
+          if(actual<cant) return; // devolver undefined aborta la transacción: no había stock suficiente
+          return actual-cant;
+        });
+        committed=res.committed;
+        valorFinal=res.snapshot?res.snapshot.val():null;
+      }catch(e){ committed=false; }
+      if(!committed){
+        ocultarEnviando();
+        showNotif('No se pudo completar la compra: alguien se ha adelantado o no queda stock');
+        renderApp();
+        return;
+      }
+      tienda.stock[objId].actual=valorFinal;
+    }
+  }
+
+  j.chapas-=precioTotal;
   if(o.tipo==='municion'&&o.muniId){
     if(!j.municion) j.municion={};
     if(o.muniId==='muni_fusion'){
-      j.fusion_total=(j.fusion_total||0)+(o.muniQty||1);
+      j.fusion_total=(j.fusion_total||0)+(o.muniQty||1)*cant;
     } else {
-      j.municion[o.muniId]=(j.municion[o.muniId]||0)+(o.muniQty||1);
+      j.municion[o.muniId]=(j.municion[o.muniId]||0)+(o.muniQty||1)*cant;
     }
-      } else {
-    addItemToJugador(j,objId,1);
+  } else {
+    addItemToJugador(j,objId,cant);
   }
-  saveJ(); renderApp();
-  const extra=o.tipo==='municion'?(' · +'+(o.muniQty||1)+' '+((getMuniById(o.muniId)||{}).n||'munición')):'';
-  showNotif(o.n+' comprado · -'+precio+'¢'+extra);
+  saveJ();
+  ocultarEnviando();
+  const extra=o.tipo==='municion'?(' · +'+((o.muniQty||1)*cant)+' '+((getMuniById(o.muniId)||{}).n||'munición')):'';
+  showNotif(cant+'x '+o.n+' comprado · -'+precioTotal+'¢'+extra);
+  renderApp();
 };
 
 ;
@@ -3775,7 +3852,7 @@ function renderJInv(){
   return notifBanner+'<div class="carga-bar" style="'+(sobre?'border-color:var(--pip-danger);':'')+'"><span class="pts-lbl" style="'+(sobre?'color:var(--pip-danger);':'')+'">CARGA '+(sobre?'⚠ SOBRECARGADO':'')+'</span>'
     +'<div class="pts-track" style="flex:2;"><div style="height:100%;background:'+(sobre?'var(--pip-danger)':'var(--pip)')
     +';width:'+pct+'%;transition:width .3s;"></div></div>'
-    +'<span class="pts-val" style="color:'+(sobre?'var(--pip-danger)':'var(--pip-warn)')+';">'+cU+'/'+cM+'</span></div>'
+    +'<span class="pts-val" style="color:'+(sobre?'var(--pip-danger)':'var(--pip-warn)')+';">'+redondearPeso(cU)+'/'+cM+'</span></div>'
 
     // ── PANEL EQUIPO ──
     +'<div class="card" style="margin-bottom:8px;">'
@@ -4210,16 +4287,18 @@ function renderJTienda(){
   const items=oferta.map(function(o){
     const tl=o.tipo==='arma'?'ARMA':o.tipo==='med'?'MED':o.tipo==='droga'?'DROGA':o.tipo==='armadura'?'ARM':'MISC';
     const precioFinal=descuentoT>0?Math.round(o.val*(1-descuentoT/100)):o.val;
-    const puedo=j.chapas>=precioFinal;
+    const stockInfo=tiendaActiva.stock&&tiendaActiva.stock[o.id];
+    const sinStock=stockInfo&&stockInfo.actual<=0;
+    const puedo=j.chapas>=precioFinal&&!sinStock;
     return '<div class="shop-item" style="cursor:pointer;" onclick="abrirDetalle('+o.id+',\'tienda\')">'
       +'<div class="shop-info">'
       +'<div class="shop-name">'+o.n+' <span class="tag tag-'+o.tipo+'">'+tl+'</span>'+(o.tipo==='arma'&&o.subcat?'<span style="font-size:8px;color:var(--pip-dim);border:1px solid var(--pip-border);padding:1px 4px;margin-left:3px;font-family:\'Share Tech Mono\',monospace;">'+(o.subcat==='corta'?'CORTA':o.subcat==='media'?'MEDIA':o.subcat==='grande'?'GRANDE':o.subcat==='energia'?'ENERGÍA':'CAC')+'</span>':'')+'</div>'
-      +'<div class="shop-desc">'+o.desc+' · '+o.pc+'pc</div>'
+      +'<div class="shop-desc">'+o.desc+' · '+redondearPeso(o.pc)+'pc'+(stockInfo?' · <span style="color:'+(sinStock?'var(--pip-danger)':'var(--pip-warn)')+';">Stock: '+stockInfo.actual+'</span>':'')+'</div>'
       +'</div>'
       +'<div style="text-align:right;flex-shrink:0;">'
       +(descuentoT>0?'<div style="font-size:9px;color:var(--pip-dim);text-decoration:line-through;">'+o.val+'¢</div>':'')
       +'<div class="shop-price">'+precioFinal+'¢</div>'
-      +'<button class="btn btn-sm '+(puedo?'':'btn-danger')+'" style="margin-top:4px;" data-oid="'+o.id+'" data-precio="'+precioFinal+'" onclick="event.stopPropagation();comprarTienda(parseInt(this.dataset.oid),parseInt(this.dataset.precio))">'+(puedo?'COMPRAR':'SIN CHAPAS')+'</button>'
+      +'<button class="btn btn-sm '+(puedo?'':'btn-danger')+'" style="margin-top:4px;" data-oid="'+o.id+'" '+(puedo?'':'disabled')+' onclick="event.stopPropagation();abrirComprarTienda(parseInt(this.dataset.oid))">'+(sinStock?'SIN STOCK':puedo?'COMPRAR':'SIN CHAPAS')+'</button>'
       +'</div>'
       +'</div>';
   }).join('');
@@ -6334,6 +6413,7 @@ function renderMTiendas(){
   if(!tiendas.length) return subTabs+'<div class="empty">Sin tiendas. Pulsa + NUEVA TIENDA.</div>';
   return subTabs+tiendas.map(function(t,i){
     const activa=t.activa, nO=t.objIds?t.objIds.length:0;
+    const hayStock=t.stock&&Object.keys(t.stock).length>0;
     return '<div style="border:1px solid '+(activa?'var(--pip)':'var(--pip-border)')+';background:'+(activa?'rgba(74,254,130,.04)':'var(--pip-mid)')+';margin-bottom:8px;">'
       +'<div style="padding:10px 12px;display:flex;align-items:center;gap:8px;">'
       +'<div style="flex:1;"><div style="font-family:VT323,monospace;font-size:20px;color:'+(activa?'var(--pip-bright)':'var(--pip)')+';">'+t.nombre+'</div>'
@@ -6343,6 +6423,7 @@ function renderMTiendas(){
       +'<button class="btn btn-sm '+(activa?'btn-danger':'')+'" data-i="'+i+'" onclick="toggleTienda(parseInt(this.dataset.i))">'+(activa?'◉ DESACT.':'○ ACTIVAR')+'</button>'
       +'<div style="display:flex;gap:3px;">'
       +'<button class="chip chip-g" data-i="'+i+'" onclick="editarTienda(parseInt(this.dataset.i))">EDITAR</button>'
+      +(hayStock?'<button class="chip" style="border-color:var(--pip-warn);color:var(--pip-warn);" data-i="'+i+'" onclick="masterReabastecerTienda(parseInt(this.dataset.i))">🔄 REABAST.</button>':'')
       +'<button class="chip chip-r" data-i="'+i+'" onclick="eliminarTienda(parseInt(this.dataset.i))">× BORRAR</button>'
       +'</div></div></div></div>';
   }).join('');
@@ -6352,7 +6433,7 @@ function renderMCrearTienda(){
   const editIdx=APP.tiendaEditando;
   const esEd=editIdx!=null;
   const src=esEd?(APP.tiendas[editIdx]||{}):{};
-  const draft=APP._tiendaDraft||{nombre:src.nombre||'',objIds:[...(src.objIds||[])],descuento:src.descuento||0};
+  const draft=APP._tiendaDraft||{nombre:src.nombre||'',objIds:[...(src.objIds||[])],descuento:src.descuento||0,stock:Object.assign({},src.stock||{})};
   const selIds=draft.objIds, desc=draft.descuento||0;
   const btnRow='<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px;">'
     +'<button class="btn btn-warn" onclick="cancelarCrearTienda()">✕ CANCELAR</button>'
@@ -6363,6 +6444,7 @@ function renderMCrearTienda(){
     +'<div style="display:flex;align-items:center;gap:8px;flex:1;"><input type="range" id="tienda-desc" min="0" max="50" step="5" value="'+desc+'" oninput="tiendaDraftDesc(parseInt(this.value))" style="flex:1;">'
     +'<span id="desc-val" style="font-family:VT323,monospace;font-size:18px;color:var(--pip-warn);min-width:40px;">'+desc+'%</span></div></div>'
     +(desc>0?'<div style="font-size:9px;color:var(--pip-warn);">Los jugadores verán los precios con -'+desc+'%</div>':'')
+    +'<div style="font-size:9px;color:var(--pip-dim);margin-top:6px;">Al marcar un objeto puedes ponerle un stock. Vacío = infinito.</div>'
     +'</div></div>';
   const objBlock='<div class="card"><div class="card-hdr">OBJETOS ('+selIds.length+' seleccionados)</div>'
     +'<div style="padding:0;">'
@@ -6370,9 +6452,10 @@ function renderMCrearTienda(){
       if(!o||!o.id) return '';
       const sel=selIds.indexOf(o.id)>=0;
       const pF=desc>0?Math.round(o.val*(1-desc/100)):o.val;
-      return '<div style="display:flex;align-items:center;padding:7px 10px;border-bottom:1px solid rgba(74,254,130,.08);gap:8px;cursor:pointer;background:'+(sel?'rgba(74,254,130,.05)':'none')+'" data-oid="'+o.id+'" onclick="toggleObjTienda(parseInt(this.dataset.oid))">'
-        +'<div style="width:16px;height:16px;border:1px solid '+(sel?'var(--pip)':'var(--pip-border)')+';background:'+(sel?'var(--pip)':'none')+';flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--pip-dark);">'+(sel?'✓':'')+'</div>'
-        +'<div style="flex:1;"><div style="font-size:11px;">'+o.n+'</div><div style="font-size:9px;color:var(--pip-dim);">'+o.desc+'</div></div>'
+      return '<div style="display:flex;align-items:center;padding:7px 10px;border-bottom:1px solid rgba(74,254,130,.08);gap:8px;background:'+(sel?'rgba(74,254,130,.05)':'none')+'" data-oid="'+o.id+'">'
+        +'<div style="width:16px;height:16px;border:1px solid '+(sel?'var(--pip)':'var(--pip-border)')+';background:'+(sel?'var(--pip)':'none')+';flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--pip-dark);cursor:pointer;" data-oid="'+o.id+'" onclick="toggleObjTienda(parseInt(this.dataset.oid))">'+(sel?'✓':'')+'</div>'
+        +'<div style="flex:1;cursor:pointer;" data-oid="'+o.id+'" onclick="toggleObjTienda(parseInt(this.dataset.oid))"><div style="font-size:11px;">'+o.n+'</div><div style="font-size:9px;color:var(--pip-dim);">'+o.desc+'</div></div>'
+        +(sel?'<input type="number" class="tienda-stock-inp" data-oid="'+o.id+'" value="'+(draft.stock&&draft.stock[o.id]?draft.stock[o.id]:'')+'" placeholder="∞" min="1" style="width:44px;font-family:VT323,monospace;font-size:13px;padding:3px;background:var(--pip-dark);border:1px solid var(--pip-border);color:var(--pip-bright);text-align:center;" oninput="tiendaDraftStock('+o.id+',this.value)">':'')
         +'<div style="text-align:right;flex-shrink:0;">'+(desc>0?'<div style="font-size:9px;color:var(--pip-dim);text-decoration:line-through;">'+o.val+'¢</div>':'')
         +'<div style="font-family:VT323,monospace;font-size:16px;color:var(--pip-warn);">'+pF+'¢</div></div>'
         +'</div>';
@@ -6381,17 +6464,23 @@ function renderMCrearTienda(){
   return btnRow+header+objBlock+btnRow;
 }
 
+window.tiendaDraftStock=function(oid,val){
+  if(!APP._tiendaDraft){var src=APP.tiendaEditando!=null?(APP.tiendas[APP.tiendaEditando]||{}):{};APP._tiendaDraft={nombre:src.nombre||'',objIds:[...(src.objIds||[])],descuento:src.descuento||0,stock:Object.assign({},src.stock||{})};}
+  if(!APP._tiendaDraft.stock) APP._tiendaDraft.stock={};
+  var n=parseInt(val);
+  if(n>0) APP._tiendaDraft.stock[oid]=n; else delete APP._tiendaDraft.stock[oid];
+};
+
 window.masterSubTab=function(tab){ APP.masterSubTab=tab; if(tab==='lista'){APP.tiendaEditando=null;APP._tiendaDraft=null;} APP._gruposAbiertos={}; renderApp(); };
 window.tiendaDraft=function(c,v){ if(!APP._tiendaDraft){var src=APP.tiendaEditando!=null?(APP.tiendas[APP.tiendaEditando]||{}):{};APP._tiendaDraft={nombre:src.nombre||'',objIds:[...(src.objIds||[])],descuento:src.descuento||0};} APP._tiendaDraft[c]=v; };
 window.tiendaDraftNombre=function(v){ tiendaDraft('nombre',v); };
 window.toggleObjTienda=function(oid){
-  if(!APP._tiendaDraft){var src=APP.tiendaEditando!=null?(APP.tiendas[APP.tiendaEditando]||{}):{};APP._tiendaDraft={nombre:src.nombre||'',objIds:[...(src.objIds||[])],descuento:src.descuento||0};}
+  if(!APP._tiendaDraft){var src=APP.tiendaEditando!=null?(APP.tiendas[APP.tiendaEditando]||{}):{};APP._tiendaDraft={nombre:src.nombre||'',objIds:[...(src.objIds||[])],descuento:src.descuento||0,stock:Object.assign({},src.stock||{})};}
+  var nombreInp=document.getElementById('tienda-nombre'); if(nombreInp) APP._tiendaDraft.nombre=nombreInp.value;
   var ids=APP._tiendaDraft.objIds, i=ids.indexOf(oid);
-  if(i>=0) ids.splice(i,1); else ids.push(oid);
-  var sel=ids.indexOf(oid)>=0;
-  var row=document.querySelector('[data-oid="'+oid+'"]');
-  if(row){ row.style.background=sel?'rgba(74,254,130,.05)':'none'; var cb=row.querySelector('div'); if(cb){cb.style.border='1px solid '+(sel?'var(--pip)':'var(--pip-border)');cb.style.background=sel?'var(--pip)':'none';cb.textContent=sel?'✓':'';} }
-  var counter=document.querySelector('.tienda-sel-count'); if(counter) counter.textContent='Seleccionados: '+ids.length+' objetos';
+  if(i>=0){ ids.splice(i,1); if(APP._tiendaDraft.stock) delete APP._tiendaDraft.stock[oid]; } else ids.push(oid);
+  const mc=document.getElementById('main-content');
+  if(mc) mc.innerHTML=renderMCrearTienda();
 };
 window.guardarTienda=function(){
   var nombreInp=document.getElementById('tienda-nombre');
@@ -6399,14 +6488,40 @@ window.guardarTienda=function(){
   if(!nombre){showNotif('Escribe un nombre');return;}
   var objIds=APP._tiendaDraft?APP._tiendaDraft.objIds:[];
   var descuento=APP._tiendaDraft?APP._tiendaDraft.descuento||0:0;
+  var stockDraft=APP._tiendaDraft?(APP._tiendaDraft.stock||{}):{};
   var sala=getMockSala(APP.salaId); if(!sala.tiendas) sala.tiendas=[];
-  if(APP.tiendaEditando!=null){sala.tiendas[APP.tiendaEditando].nombre=nombre;sala.tiendas[APP.tiendaEditando].objIds=objIds;sala.tiendas[APP.tiendaEditando].descuento=descuento;}
-  else sala.tiendas.push({id:'t_'+Date.now(),nombre:nombre,objIds:objIds,activa:false,descuento:descuento});
+  // Construir el stock final: {objId:{actual,original}} — conserva el 'actual' ya consumido si el objeto ya tenía stock definido
+  var tiendaPrevia=APP.tiendaEditando!=null?sala.tiendas[APP.tiendaEditando]:null;
+  var stockPrevio=(tiendaPrevia&&tiendaPrevia.stock)||{};
+  var stockFinal={};
+  objIds.forEach(function(oid){
+    var cantDraft=stockDraft[oid];
+    if(cantDraft>0){
+      if(stockPrevio[oid]&&stockPrevio[oid].original===cantDraft){
+        stockFinal[oid]=stockPrevio[oid]; // sin cambios, conservar lo ya consumido
+      } else {
+        stockFinal[oid]={actual:cantDraft,original:cantDraft}; // nuevo límite: reinicia el contador
+      }
+    }
+  });
+  if(APP.tiendaEditando!=null){sala.tiendas[APP.tiendaEditando].nombre=nombre;sala.tiendas[APP.tiendaEditando].objIds=objIds;sala.tiendas[APP.tiendaEditando].descuento=descuento;sala.tiendas[APP.tiendaEditando].stock=stockFinal;}
+  else sala.tiendas.push({id:'t_'+Date.now(),nombre:nombre,objIds:objIds,activa:false,descuento:descuento,stock:stockFinal});
   APP.tiendas=sala.tiendas; APP.tiendaEditando=null; APP._tiendaDraft=null; APP.masterSubTab='lista';
   fbSet('salas/'+APP.salaId+'/tiendas',sala.tiendas); showNotif('Tienda guardada'); renderApp();
 };
 window.cancelarCrearTienda=function(){ APP.tiendaEditando=null;APP._tiendaDraft=null;APP.masterSubTab='lista';renderApp(); };
-window.editarTienda=function(idx){ APP.tiendaEditando=idx;var t=APP.tiendas[idx];APP._tiendaDraft={nombre:t.nombre,objIds:[...t.objIds],descuento:t.descuento||0};APP.masterSubTab='crear';APP._gruposAbiertos={};renderApp(); };
+window.editarTienda=function(idx){ APP.tiendaEditando=idx;var t=APP.tiendas[idx];APP._tiendaDraft={nombre:t.nombre,objIds:[...t.objIds],descuento:t.descuento||0,stock:Object.assign({},t.stock||{})};APP.masterSubTab='crear';APP._gruposAbiertos={};renderApp(); };
+
+window.masterReabastecerTienda=function(idx){
+  const sala=getMockSala(APP.salaId);
+  const t=sala.tiendas[idx]; if(!t||!t.stock) return;
+  if(!confirm('¿Reabastecer "'+t.nombre+'" a las cantidades originales?')) return;
+  Object.keys(t.stock).forEach(function(oid){ t.stock[oid].actual=t.stock[oid].original; });
+  APP.tiendas=sala.tiendas;
+  fbSet('salas/'+APP.salaId+'/tiendas',sala.tiendas);
+  showNotif('Tienda reabastecida');
+  renderApp();
+};
 window.toggleTienda=function(idx){
   var sala=getMockSala(APP.salaId),t=sala.tiendas[idx];
   var estabaActiva=t.activa;
@@ -6616,9 +6731,10 @@ window.masterEnviarAJugador=function(jid,oid){
   const s=getMockSala(APP.salaId);
   const o=getObjById(oid)||APP.tienda.find(function(x){return x.id===oid||x.id===parseInt(oid);});
   const j=s.jugadores[jid]; if(!j||!o) return;
-  addItemToJugador(j,oid,1); APP.jugadores=s.jugadores;
+  const cant=Math.max(1,parseInt((document.getElementById('env-master-cant')||{}).value)||1);
+  addItemToJugador(j,oid,cant); APP.jugadores=s.jugadores;
   fbSet('salas/'+APP.salaId+'/jugadores/'+jid,j); cerrarDetalle();
-  showNotif((o.n||'Objeto')+' enviado a '+j.nombre); renderApp();
+  showNotif(cant+'x '+(o.n||'Objeto')+' enviado a '+j.nombre); renderApp();
 };
 ;
 
@@ -6637,6 +6753,9 @@ window.abrirEnviarMaster=function(oid){
   const tndas=sala.tiendas||[];
   const modal=document.getElementById('obj-detail-modal');
   const box=document.getElementById('obj-detail-box');
+  const s='style="font-family:VT323,monospace;font-size:15px;padding:4px 6px;background:var(--pip-dark);border:1px solid var(--pip-border);color:var(--pip-bright);width:100%;"';
+
+  const cantHtml='<div style="margin-bottom:10px;"><label style="font-size:9px;color:var(--pip-dim);display:block;margin-bottom:3px;">CANTIDAD (para jugador/Cofre)</label><input type="number" id="env-master-cant" value="1" min="1" '+s+'></div>';
 
   let jugsHtml=jugs.length
     ?'<div style="font-size:10px;color:var(--pip-dim);letter-spacing:1px;margin:10px 0 5px;">▸ A UN JUGADOR</div>'
@@ -6650,6 +6769,7 @@ window.abrirEnviarMaster=function(oid){
 
   let tndHtml=tndas.length
     ?'<div style="font-size:10px;color:var(--pip-dim);letter-spacing:1px;margin:10px 0 5px;">▸ A UNA TIENDA</div>'
+      +'<div style="margin-bottom:6px;"><label style="font-size:9px;color:var(--pip-dim);display:block;margin-bottom:3px;">STOCK INICIAL (vacío = infinito)</label><input type="number" id="env-master-stock" placeholder="Infinito" min="1" '+s+'></div>'
       +tndas.map(function(t,ti){
         const yaEsta=t.objIds&&t.objIds.indexOf(oid)>=0;
         return '<div style="display:flex;align-items:center;padding:8px 10px;border:1px solid '+(yaEsta?'var(--pip-warn)':'var(--pip-border)')+';margin-bottom:4px;cursor:pointer;background:var(--pip-mid);" data-ti="'+ti+'" data-oid="'+oid+'" onclick="'+(yaEsta?'':'masterEnviarATienda(parseInt(this.dataset.ti),parseInt(this.dataset.oid))')+'">'
@@ -6671,7 +6791,7 @@ window.abrirEnviarMaster=function(oid){
     +'<div style="flex:1;font-family:VT323,monospace;font-size:20px;color:var(--pip-bright);">ENVIAR: '+o.n+'</div>'
     +'<button onclick="cerrarDetalle()" style="background:none;border:1px solid var(--pip-border);color:var(--pip-dim);font-family:VT323,monospace;font-size:18px;padding:4px 10px;cursor:pointer;">✕</button>'
     +'</div>'
-    +cofreHtml+jugsHtml+tndHtml
+    +cantHtml+cofreHtml+jugsHtml+tndHtml
     +'</div><div style="height:14px;"></div>';
   modal.style.display='flex';
 };
@@ -6679,15 +6799,16 @@ window.abrirEnviarMaster=function(oid){
 window.masterEnviarACofre=function(oid){
   const o=getObjById(oid)||APP.tienda.find(function(x){return x.id===oid||x.id===parseInt(oid);});
   if(!o) return;
+  const cant=Math.max(1,parseInt((document.getElementById('env-master-cant')||{}).value)||1);
   cerrarDetalle();
   mostrarEnviando('📡 ENVIANDO AL COFRE...');
   (async function(){
     await esperarConfirmacion(fetchCofreFresco(),4000);
     if(!APP.cofreObjetos) APP.cofreObjetos={};
-    APP.cofreObjetos[cofreKey(o.id)]=(APP.cofreObjetos[cofreKey(o.id)]||0)+1;
+    APP.cofreObjetos[cofreKey(o.id)]=(APP.cofreObjetos[cofreKey(o.id)]||0)+cant;
     await esperarConfirmacion(saveCofreObjetos(),5000);
     ocultarEnviando();
-    showNotif(o.n+' enviado al Cofre común');
+    showNotif(cant+'x '+o.n+' enviado al Cofre común');
     renderApp();
   })();
 };
@@ -6697,13 +6818,22 @@ window.masterEnviarACofre=function(oid){
 window.masterEnviarATienda=function(tiendaIdx, oid){
   const s=getMockSala(APP.salaId);
   if(!s.tiendas[tiendaIdx]) return;
-  const ids=s.tiendas[tiendaIdx].objIds||[];
+  const t=s.tiendas[tiendaIdx];
+  const ids=t.objIds||[];
   if(ids.indexOf(oid)<0) ids.push(oid);
-  s.tiendas[tiendaIdx].objIds=ids;
+  t.objIds=ids;
+  const stockInput=(document.getElementById('env-master-stock')||{}).value;
+  const stockCant=parseInt(stockInput);
+  if(!t.stock) t.stock={};
+  if(stockCant>0){
+    t.stock[oid]={actual:stockCant,original:stockCant};
+  } else {
+    delete t.stock[oid]; // sin stock definido = infinito
+  }
   APP.tiendas=s.tiendas;
   fbSet('salas/'+APP.salaId+'/tiendas',s.tiendas);
   cerrarDetalle();
-  showNotif('Objeto añadido a la tienda');
+  showNotif('Objeto añadido a la tienda'+(stockCant>0?' (stock: '+stockCant+')':' (stock infinito)'));
   renderApp();
 };
 
@@ -6912,7 +7042,7 @@ window.abrirDetalle=function(objId,origen){
   // Filas comunes
   rows+='<div class="obj-detail-row"><span class="obj-detail-key">TIPO</span><span class="obj-detail-val"><span class="tag tag-'+o.tipo+'">'+tipoLabel+'</span></span></div>';
   if(o.desc) rows+='<div class="obj-detail-row"><span class="obj-detail-key">DESCRIPCIÓN</span><span class="obj-detail-val">'+o.desc+'</span></div>';
-  if(o.pc)   rows+='<div class="obj-detail-row"><span class="obj-detail-key">PESO</span><span class="obj-detail-val">'+o.pc+' pc</span></div>';
+  if(o.pc)   rows+='<div class="obj-detail-row"><span class="obj-detail-key">PESO</span><span class="obj-detail-val">'+redondearPeso(o.pc)+' pc</span></div>';
   if(o.val)  rows+='<div class="obj-detail-row"><span class="obj-detail-key">VALOR</span><span class="obj-detail-val" style="color:var(--pip-warn);">'+o.val+' ¢</span></div>';
 
   // Arma
