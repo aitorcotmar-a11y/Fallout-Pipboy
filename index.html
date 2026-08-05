@@ -582,15 +582,34 @@ window.toggleRadZonaActiva=function(){
 
 var _cofreLocalGuardUntil=0;
 function marcarEscrituraCofreLocal(){ _cofreLocalGuardUntil=Date.now()+4000; }
+function cofreKey(objId){ return 'o'+objId; }
+function cofreKeyToObjId(key){ return parseInt(String(key).replace(/^o/,'')); }
 function normalizarCofreObjetos(v){
-  if(v&&typeof v==='object'&&!Array.isArray(v)) return v;
-  if(Array.isArray(v)){
-    // Migración automática desde el formato antiguo (array de {objId,qty})
-    var obj={};
-    v.forEach(function(it){ if(it&&it.objId!=null) obj[it.objId]=(obj[it.objId]||0)+(it.qty||0); });
-    return obj;
+  var salida={};
+  if(v&&typeof v==='object'&&!Array.isArray(v)){
+    Object.keys(v).forEach(function(k){
+      var cant=v[k];
+      if(cant==null||cant<=0) return;
+      var objId=/^o\d+$/.test(k)?cofreKeyToObjId(k):parseInt(k);
+      if(isNaN(objId)) return;
+      salida[cofreKey(objId)]=(salida[cofreKey(objId)]||0)+cant;
+    });
+    return salida;
   }
-  return {};
+  if(Array.isArray(v)){
+    // Migración: puede venir del formato viejo (array de {objId,qty}) o de un array disperso
+    // que Firebase generó solo al convertir claves numéricas — en ese caso el índice ES el objId.
+    v.forEach(function(it,idx){
+      if(it==null) return;
+      if(typeof it==='object'&&it.objId!=null){
+        salida[cofreKey(it.objId)]=(salida[cofreKey(it.objId)]||0)+(it.qty||0);
+      } else if(typeof it==='number'&&it>0){
+        salida[cofreKey(idx)]=(salida[cofreKey(idx)]||0)+it;
+      }
+    });
+    return salida;
+  }
+  return salida;
 }
 
 /* ── Lectura directa y fiable del Cofre: se llama justo antes de mostrarlo o de actuar sobre él,
@@ -2440,7 +2459,7 @@ function disponibilidadIngrediente(j,ing){
   else if(ing.tipo==='objeto'){
     var it=(j.inventario||[]).find(function(x){return x.objId===ing.objId;});
     propio=it?it.qty:0;
-    cofre=(APP.enCiudad&&APP.cofreObjetos)?(APP.cofreObjetos[ing.objId]||0):0;
+    cofre=(APP.enCiudad&&APP.cofreObjetos)?(APP.cofreObjetos[cofreKey(ing.objId)]||0):0;
   }
   return {propio:propio,cofre:cofre,total:propio+cofre};
 }
@@ -2480,11 +2499,11 @@ function descontarCoste(j,ingredientes){
         necesita-=usarPropio;
       }
       if(necesita>0&&APP.enCiudad&&APP.cofreObjetos){
-        var enCofre=APP.cofreObjetos[ing.objId]||0;
+        var enCofre=APP.cofreObjetos[cofreKey(ing.objId)]||0;
         var usarCofre=Math.min(necesita,enCofre);
         if(usarCofre>0){
           var restanteCofre=enCofre-usarCofre;
-          if(restanteCofre<=0) delete APP.cofreObjetos[ing.objId]; else APP.cofreObjetos[ing.objId]=restanteCofre;
+          if(restanteCofre<=0) delete APP.cofreObjetos[cofreKey(ing.objId)]; else APP.cofreObjetos[cofreKey(ing.objId)]=restanteCofre;
           necesita-=usarCofre;
         }
       }
@@ -2543,7 +2562,7 @@ window.confirmarEnvioVariosCofre=async function(){
     const restar=Math.min(s.cant,j.inventario[idx].qty);
     j.inventario[idx].qty-=restar;
     if(j.inventario[idx].qty<=0) j.inventario.splice(idx,1);
-    APP.cofreObjetos[s.objId]=(APP.cofreObjetos[s.objId]||0)+restar;
+    APP.cofreObjetos[cofreKey(s.objId)]=(APP.cofreObjetos[cofreKey(s.objId)]||0)+restar;
   });
   saveJ();
   await esperarConfirmacion(saveCofreObjetos(),5000);
@@ -2559,7 +2578,7 @@ window.abrirCogerVariosCofre=async function(){
   mostrarEnviando('📡 COMPROBANDO COFRE...');
   await esperarConfirmacion(fetchCofreFresco(),4000);
   ocultarEnviando();
-  const items=Object.keys(APP.cofreObjetos||{}).map(function(objId){return {objId:objId,qty:APP.cofreObjetos[objId],o:getObjById(parseInt(objId))};}).filter(function(x){return x.o&&x.qty>0;});
+  const items=Object.keys(APP.cofreObjetos||{}).map(function(k){return {objId:cofreKeyToObjId(k),qty:APP.cofreObjetos[k],o:getObjById(cofreKeyToObjId(k))};}).filter(function(x){return x.o&&x.qty>0;});
   if(!items.length){ renderApp(); return showNotif('El Cofre no tiene objetos'); }
   const modal=document.getElementById('obj-detail-modal');
   const box=document.getElementById('obj-detail-box');
@@ -2597,11 +2616,11 @@ window.confirmarCogerVariosCofre=async function(){
   const j=myFicha();
   if(!APP.cofreObjetos) APP.cofreObjetos={};
   seleccion.forEach(function(s){
-    const enCofre=APP.cofreObjetos[s.objId]||0;
+    const enCofre=APP.cofreObjetos[cofreKey(s.objId)]||0;
     const restar=Math.min(s.cant,enCofre);
     if(restar<=0) return;
     const restante=enCofre-restar;
-    if(restante<=0) delete APP.cofreObjetos[s.objId]; else APP.cofreObjetos[s.objId]=restante;
+    if(restante<=0) delete APP.cofreObjetos[cofreKey(s.objId)]; else APP.cofreObjetos[cofreKey(s.objId)]=restante;
     addItemToJugador(j,s.objId,restar);
   });
   saveJ();
@@ -3610,7 +3629,7 @@ function renderJCofre(){
     +'<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin:10px 0 4px;border-bottom:1px solid var(--pip-border);padding-bottom:3px;">CONSUMIBLES</div>'
     +RECURSOS_FABRICACION.filter(function(r){return r.consumible;}).map(function(r){return renderRecursoRowCofre(r);}).join('')
     +(function(){
-        const cofreItems=Object.keys(APP.cofreObjetos||{}).map(function(objId){return {objId:objId,qty:APP.cofreObjetos[objId],o:getObjById(parseInt(objId))};}).filter(function(x){return x.o&&x.qty>0;});
+        const cofreItems=Object.keys(APP.cofreObjetos||{}).map(function(k){return {objId:cofreKeyToObjId(k),qty:APP.cofreObjetos[k],o:getObjById(cofreKeyToObjId(k))};}).filter(function(x){return x.o&&x.qty>0;});
         return '<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin:10px 0 4px;border-bottom:1px solid var(--pip-border);padding-bottom:3px;">OBJETOS EN EL COFRE ('+cofreItems.length+')</div>'
           +(!cofreItems.length?'<div class="empty" style="padding:8px;">Vacío</div>'
             :cofreItems.map(function(x){
@@ -5327,9 +5346,10 @@ function renderMObjetos(){
         var claves=Object.keys(APP.cofreObjetos||{}).filter(function(k){return (APP.cofreObjetos[k]||0)>0;});
         return '<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin:12px 0 4px;border-bottom:1px solid var(--pip-border);padding-bottom:3px;">OBJETOS EN EL COFRE ('+claves.length+')</div>'
           +(!claves.length?'<div style="font-size:10px;color:var(--pip-dim);padding:4px 0;">Vacío</div>'
-            :claves.map(function(objId){
-              var o=getObjById(parseInt(objId));
-              return '<div style="font-size:11px;color:var(--pip-bright);padding:3px 0;">'+(o?o.n:'(objeto #'+objId+', ya no existe en la tienda)')+' — x'+APP.cofreObjetos[objId]+'</div>';
+            :claves.map(function(k){
+              var objId=cofreKeyToObjId(k);
+              var o=getObjById(objId);
+              return '<div style="font-size:11px;color:var(--pip-bright);padding:3px 0;">'+(o?o.n:'(objeto #'+objId+', ya no existe en la tienda)')+' — x'+APP.cofreObjetos[k]+'</div>';
             }).join(''));
       })()
     +'<button class="btn btn-danger" style="margin-top:12px;width:100%;" onclick="masterResetearCofre()">🗑 RESETEAR COFRE (vaciar recursos y objetos)</button>'
@@ -6420,7 +6440,7 @@ window.masterEnviarACofre=function(oid){
   (async function(){
     await esperarConfirmacion(fetchCofreFresco(),4000);
     if(!APP.cofreObjetos) APP.cofreObjetos={};
-    APP.cofreObjetos[o.id]=(APP.cofreObjetos[o.id]||0)+1;
+    APP.cofreObjetos[cofreKey(o.id)]=(APP.cofreObjetos[cofreKey(o.id)]||0)+1;
     await esperarConfirmacion(saveCofreObjetos(),5000);
     ocultarEnviando();
     showNotif(o.n+' enviado al Cofre común');
