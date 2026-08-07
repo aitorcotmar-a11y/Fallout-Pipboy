@@ -1884,6 +1884,7 @@ function buildTabs(){
 window.switchMT=async function(t){
   APP.masterTab=t;
   APP._gruposAbiertos={};
+  APP._editandoFichaId=null;
   buildTabs();
   if(t==='objetos'){
     mostrarEnviando('📡 CARGANDO COFRE...');
