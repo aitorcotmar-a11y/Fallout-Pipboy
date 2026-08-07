@@ -739,13 +739,24 @@ const CATALOGO_PARAMS={
     {k:'carga',n:'Carga máxima'},
     {k:'rads',n:'Rads/hora'},
     {k:'critico',n:'Umbral de crítico'},
-    {k:'ataque_tt',n:'Ataque TT'},
+    {k:'pifia',n:'Umbral de pifia'},
+    {k:'ataque_tt',n:'Ataque TT (todas las armas)'},
     {k:'ataque_rf',n:'Ataque RF'},
     {k:'ataque_fa',n:'Ataque FA'},
     {k:'daño_cac',n:'Daño CaC'},
     {k:'daño_corta',n:'Daño arma corta'},
     {k:'daño_media',n:'Daño arma media'},
+    {k:'daño_grande',n:'Daño arma grande'},
     {k:'daño_energia',n:'Daño arma energía'},
+    {k:'daño_dist',n:'Daño a distancia (no CaC)'},
+    {k:'daño_rf',n:'Daño extra en modo RF'},
+    {k:'atk_cortas',n:'Ataque con Armas cortas'},
+    {k:'atk_medias',n:'Ataque con Armas medias'},
+    {k:'atk_grandes',n:'Ataque con Armas grandes'},
+    {k:'atk_energia',n:'Ataque con Armas de energía'},
+    {k:'atk_cac',n:'Ataque Cuerpo a Cuerpo'},
+    {k:'atk_explosivos',n:'Ataque con Explosivos'},
+    {k:'atk_todas',n:'Ataque con cualquier arma'},
   ],
 };
 function nombreParam(cat,k){
@@ -783,24 +794,24 @@ function aplicarOverridesContenido(){
   });
 }
 const RASGOS=[
-  {id:'bestia',      n:'Bestia',              d:'+2 daño CaC · -1 Combate'},
+  {id:'bestia',      n:'Bestia',              d:'+2 daño CaC · -1 Combate', efectos:[{cat:'derivado',param:'daño_cac',signo:'+',valor:2},{cat:'derivado',param:'atk_cac',signo:'-',valor:1}]},
   {id:'bonachon',    n:'Bonachón',            d:'-2 pts armas · +2 fijos Medicina y Conversación'},
   {id:'capacitado',  n:'Capacitado',          d:'+5 pts atributos · -1 pts armas y habilidades'},
-  {id:'creado',      n:'Creado para destruir',d:'+4 daño CaC · +1 Pifia'},
-  {id:'disciplina',  n:'Disciplina gatillo',  d:'+1 ataque RF · -2 daño RF'},
-  {id:'disparo',     n:'Disparo Rápido',      d:'+2 armas a distancia · Críticos bloqueados'},
-  {id:'gafe',        n:'Gafe',                d:'+2 Pifia'},
+  {id:'creado',      n:'Creado para destruir',d:'+4 daño CaC · +1 Pifia', efectos:[{cat:'derivado',param:'daño_cac',signo:'+',valor:4},{cat:'derivado',param:'daño_dist',signo:'+',valor:4},{cat:'derivado',param:'pifia',signo:'+',valor:1}]},
+  {id:'disciplina',  n:'Disciplina gatillo',  d:'+1 ataque RF · -2 daño RF', efectos:[{cat:'derivado',param:'ataque_rf',signo:'+',valor:1},{cat:'derivado',param:'daño_rf',signo:'-',valor:2}]},
+  {id:'disparo',     n:'Disparo Rápido',      d:'+2 armas a distancia · Críticos bloqueados', efectos:[{cat:'derivado',param:'atk_cortas',signo:'+',valor:2},{cat:'derivado',param:'atk_medias',signo:'+',valor:2},{cat:'derivado',param:'atk_grandes',signo:'+',valor:2},{cat:'derivado',param:'atk_energia',signo:'+',valor:2}]},
+  {id:'gafe',        n:'Gafe',                d:'+2 Pifia', efectos:[{cat:'derivado',param:'pifia',signo:'+',valor:2}]},
   {id:'iridiscente', n:'Iridiscente',         d:'Rads recibidos ÷2'},
-  {id:'kamikaze',    n:'Kamikaze',            d:'+5 Iniciativa · -1 bono AGI a DEF'},
+  {id:'kamikaze',    n:'Kamikaze',            d:'+5 Iniciativa · -1 bono AGI a DEF', efectos:[{cat:'derivado',param:'iniciativa',signo:'+',valor:5}]},
   {id:'madrugador',  n:'Madrugador',          d:'Duermes mínimo 4h · ℹ solo informativo'},
-  {id:'mano',        n:'Mano Dominante',      d:'+2 ataque Armas cortas · -2 resto de armas'},
-  {id:'masacre',     n:'Masacre',             d:'+2 ataque · +1 daño recibido por enemigos'},
+  {id:'mano',        n:'Mano Dominante',      d:'+2 ataque Armas cortas · -2 resto de armas', efectos:[{cat:'derivado',param:'atk_cortas',signo:'+',valor:2},{cat:'derivado',param:'atk_medias',signo:'-',valor:2},{cat:'derivado',param:'atk_grandes',signo:'-',valor:2},{cat:'derivado',param:'atk_energia',signo:'-',valor:2},{cat:'derivado',param:'atk_cac',signo:'-',valor:2}]},
+  {id:'masacre',     n:'Masacre',             d:'+2 ataque · +1 daño recibido por enemigos', efectos:[{cat:'derivado',param:'atk_todas',signo:'+',valor:2}]},
   {id:'metabolismo', n:'Metabolismo rápido',  d:'Curar x2 al descansar · Rads ÷2 al descansar · ℹ solo informativo'},
   {id:'noctambulo',  n:'Noctámbulo',          d:'Noche +1 Atk · Día -1 Atk · ℹ solo informativo'},
   {id:'pequeno',     n:'Pequeño Armazón',     d:'+1 AGI · -15 puntos de carga'},
   {id:'quimodep',    n:'Quimio-dependiente',  d:'Quimio-dependiente · ℹ solo informativo'},
   {id:'quimores',    n:'Quimio-resistente',   d:'Quimio-resistente · ℹ solo informativo'},
-  {id:'refinamiento',n:'Refinamiento',        d:'+2 Crit en TT · -2 Ataque en RF y FA · ℹ Crit solo informativo'},
+  {id:'refinamiento',n:'Refinamiento',        d:'+2 Crit en TT · -2 Ataque en RF y FA · ℹ Crit solo informativo', efectos:[{cat:'derivado',param:'ataque_rf',signo:'-',valor:2},{cat:'derivado',param:'ataque_fa',signo:'-',valor:2}]},
   {id:'sexapeal',    n:'Sex Appeal',          d:'Ventaja Conversación sexo opuesto · ℹ solo informativo'},
   {id:'tecnico',     n:'Técnico',             d:'+2 pts armas+hab · atributos máx.15 en creación'},
   {id:'tribal',      n:'Tribal',              d:'Ventaja Supervivencia · Desventaja Ciencia · ℹ solo informativo'},
@@ -842,7 +853,7 @@ const EXTRAS_COMUNES=[
   {id:'entrenamiento',n:'Entrenamiento intensivo',d:'+1 punto a un atributo a elegir'},
   {id:'manitas',n:'Manitas',d:'Repite una tirada de fabricación fallida 1 vez/día'},
   {id:'mejores_cur',n:'Mejores curaciones',d:'+1D4 adicional al aplicar primeros auxilios'},
-  {id:'mula',n:'Mula',d:'+50 puntos de carga'},
+  {id:'mula',n:'Mula',d:'+50 puntos de carga', efectos:[{cat:'derivado',param:'carga',signo:'+',valor:50}]},
   {id:'noctambulo',n:'Noctámbulo',d:'Solo necesitas dormir 6h cada dos días'},
   {id:'oportunista',n:'Oportunista',d:'+2 ataque y daño vs. enemigos que no han actuado'},
   {id:'precision',n:'Precisión instintiva',d:'Repite una tirada de ataque fallida 1 vez/combate'},
@@ -868,14 +879,14 @@ const PRO_EXTRA_MAP={
   'Pro en Supervivencia':{tipo:'hab',n:'Supervivencia'},
 };
 const EXTRAS_AVANZADOS=[
-  {id:'blindaje_nat',n:'Blindaje natural',d:'+2 a la defensa'},
+  {id:'blindaje_nat',n:'Blindaje natural',d:'+2 a la defensa', efectos:[{cat:'derivado',param:'def',signo:'+',valor:2}]},
   {id:'canibal',n:'Caníbal',d:'Sangre y carne humana como agua y comida purificadas'},
   {id:'crit_sup',n:'Crítico superior',d:'+2 al umbral de crítico con el arma: '},
   {id:'currante',n:'Currante',d:'La mitad de tiempo en fabricar cosas'},
   {id:'efic_ener',n:'Eficiencia energética',d:'Armas de energía consumen la mitad de batería'},
   {id:'fiesteo',n:'Fiesteo',d:'Inmune a adicciones y sobredosis'},
   {id:'francotirador',n:'Francotirador',d:'Duplica el alcance de armas a distancia'},
-  {id:'fuerza_imp',n:'Fuerza imparable',d:'+4 al daño en CaC'},
+  {id:'fuerza_imp',n:'Fuerza imparable',d:'+4 al daño en CaC', efectos:[{cat:'derivado',param:'daño_cac',signo:'+',valor:4}]},
   {id:'heisenberg',n:'Heisenberg',d:'Drogas fabricadas duran el doble, -2 toxicidad'},
   {id:'instruido',n:'Instruido',d:'+2 en habilidades elegidas: '},
   {id:'maestro_c',n:'Maestro en combate',d:'Repite 1 tirada de daño por turno con un tipo de arma'},
@@ -1251,9 +1262,7 @@ function calcDEF(j){
   // blindaje
   const info=calcBlinjajeInfo(j);
   if(info.fueOk) d+=info.defBonus;
-  // Blindaje natural
-  if((j.extras||[]).includes('Blindaje natural')) d+=2;
-  // Efectos activos (drogas) genéricos
+  // Efectos activos (drogas + rasgos + extras, incluye ahora "Blindaje natural") genéricos
   d+=(calcBonusEfectivos(j).derivado.def||0);
   // penalizador
   d+=(j.penMod||0);
@@ -1274,11 +1283,9 @@ function calcCRIT(j){
   // Crítico superior: -2 al umbral con el arma equipada
   if((j.extras||[]).includes('Crítico superior')&&j.critSuperiorArma){
     var eq=j.equipo||{};
-    var armaEq=eq.arma?getObjById(eq.arma):null;
-    if(armaEq){
-      var subcatMap={corta:'Armas cortas',media:'Armas medias',grande:'Armas grandes',energia:'Armas de energía',cac:'Combate'};
-      if(subcatMap[armaEq.subcat]===j.critSuperiorArma) base=Math.max(2,base-2);
-    }
+    var subcatMap={corta:'Armas cortas',media:'Armas medias',grande:'Armas grandes',energia:'Armas de energía',cac:'Combate'};
+    var armasEq=[eq.arma1,eq.arma2].filter(function(id){return id&&id!=='BLOQUEADO';}).map(getObjById).filter(Boolean);
+    if(armasEq.some(function(a){return subcatMap[a.subcat]===j.critSuperiorArma;})) base=Math.max(2,base-2);
   }
   return base;
 }
@@ -1348,44 +1355,48 @@ function calcEfectosRad(j){
 }
 
 function calcBonusRasgos(j){
-  // hab* = bonus a habilidad base (se ve en la pestaña HABILID.)
-  // atk* = bonus al ataque final (modAGI + hab + atk*)
-  var bonos={
-    dañoCaC:0,
-    dañoDist:0,       // bono daño armas a distancia (no explosivos)
-    habCombate:0,       // bono a habilidad Combate
-    atkCortas:0,        // bono ataque Armas cortas
-    atkMedias:0,        // bono ataque Armas medias
-    atkGrandes:0,       // bono ataque Armas grandes
-    atkEnergia:0,       // bono ataque Armas de energía
-    atkCaC:0,           // bono ataque CaC/Combate
-    atkExplos:0,        // bono ataque Explosivos
-    atkTodas:0,         // bono ataque todas las armas
-    iniciativa:0, pifia:0,
-    rfAtk:0, rfDaño:0, rfAtkExtra:0, faAtkExtra:0
+  // Adaptador: lee del motor único (calcBonusEfectivos, que ya incluye rasgos+extras+drogas)
+  // y lo devuelve en la forma vieja que usan las pantallas de combate. No sumar en otro sitio
+  // el mismo derivado a la vez que se usa este adaptador (riesgo de doble conteo).
+  var g=calcBonusEfectivos(j);
+  var d=g.derivado||{};
+  return {
+    dañoCaC:d.daño_cac||0,
+    dañoDist:d.daño_dist||0,
+    habCombate:(g.hab_arma&&g.hab_arma['Combate'])||0,
+    atkCortas:d.atk_cortas||0,
+    atkMedias:d.atk_medias||0,
+    atkGrandes:d.atk_grandes||0,
+    atkEnergia:d.atk_energia||0,
+    atkCaC:d.atk_cac||0,
+    atkExplos:d.atk_explosivos||0,
+    atkTodas:d.atk_todas||0,
+    iniciativa:d.iniciativa||0,
+    pifia:d.pifia||0,
+    rfAtk:0, rfDaño:d.daño_rf||0,
+    rfAtkExtra:d.ataque_rf||0, faAtkExtra:d.ataque_fa||0
   };
-  var r=j.rasgos||[];
-  if(r.includes('bestia'))      { bonos.dañoCaC+=2; bonos.atkCaC-=1; }
-  if(r.includes('creado'))      { bonos.dañoCaC+=4; bonos.dañoDist+=4; bonos.pifia+=1; }
-  if(r.includes('disciplina'))  { bonos.rfAtk+=1; bonos.rfDaño-=2; }
-  if(r.includes('disparo'))     { bonos.atkCortas+=2; bonos.atkMedias+=2; bonos.atkGrandes+=2; bonos.atkEnergia+=2; }
-  if(r.includes('gafe'))        { bonos.pifia+=2; }
-  if(r.includes('kamikaze'))    { bonos.iniciativa+=5; }
-  if(r.includes('mano'))        { bonos.atkCortas+=2; bonos.atkMedias-=2; bonos.atkGrandes-=2; bonos.atkEnergia-=2; bonos.atkCaC-=2; }
-  if(r.includes('masacre'))     { bonos.atkTodas+=2; }
-  if(r.includes('refinamiento')){ bonos.rfAtkExtra-=2; bonos.faAtkExtra-=2; }
-  return bonos;
 }
 
 function calcBonusEfectivos(j){
-  // Motor genérico: agrega todos los efectos activos (drogas/adicciones) por categoría/parámetro del catálogo cerrado
+  // Motor genérico: agrega drogas activas + rasgo(s) + extras del jugador, por categoría/parámetro del catálogo cerrado
   var out={atributo:{},hab_arma:{},hab_general:{},derivado:{}};
-  (j.efectosActivos||[]).forEach(function(ef){
-    (ef.efectosGen||[]).forEach(function(e){
+  function aplicar(efectos){
+    (efectos||[]).forEach(function(e){
       var delta=(e.signo==='-'?-1:1)*e.valor;
       if(!out[e.cat]) out[e.cat]={};
       out[e.cat][e.param]=(out[e.cat][e.param]||0)+delta;
     });
+  }
+  (j.efectosActivos||[]).forEach(function(ef){ aplicar(ef.efectosGen); });
+  (j.rasgos||[]).forEach(function(rid){
+    var r=RASGOS.find(function(x){return x.id===rid;})||(APP.rasgosCustom||[]).find(function(x){return String(x.id)===String(rid);});
+    if(r) aplicar(r.efectos);
+  });
+  var todasExtras=[].concat(EXTRAS_INICIALES,EXTRAS_COMUNES,EXTRAS_AVANZADOS,EXTRAS_LEGENDARIOS,APP.extrasCustom||[]);
+  (j.extras||[]).forEach(function(en){
+    var e=todasExtras.find(function(x){return x.n===en;});
+    if(e) aplicar(e.efectos);
   });
   return out;
 }
@@ -1426,11 +1437,10 @@ function calcEstadoFatiga(j){
 function calcIniciativa(j){
   var base=getMod(j.attrs.agi||7)+((j.rasgos||[]).includes('pequeno')?1:0);
   var setBonus=calcSetBonus(j);
-  var rasgoBonus=calcBonusRasgos(j);
-  return base+(setBonus.iniciativa||0)+(rasgoBonus.iniciativa||0)+(calcBonusEfectivos(j).derivado.iniciativa||0);
+  return base+(setBonus.iniciativa||0)+(calcBonusEfectivos(j).derivado.iniciativa||0);
 }
 
-function calcCarga(j){return j.attrs.fue*10+(j.clase==='superviviente'?20:0)-(j.rasgos.includes('pequeno')?15:0)+(calcBonusEfectivos(j).derivado.carga||0)+((j.extras||[]).includes('Mula')?50:0)}
+function calcCarga(j){return j.attrs.fue*10+(j.clase==='superviviente'?20:0)-(j.rasgos.includes('pequeno')?15:0)+(calcBonusEfectivos(j).derivado.carga||0)}
 function calcCargaUsada(j){
   var pesoInv=(j.inventario||[]).reduce(function(s,i){const o=getObjById(i.objId)||APP.tienda.find(function(x){return x.id===i.objId});return s+(o?(o.pc||0)*i.qty:0)},0);
   var pesoMuni=getMunicionCatalogo().reduce(function(s,m){
@@ -1478,7 +1488,7 @@ function fichaVacia(nombre,clase){
     habHabs:{'Atletismo':0,'Ciencia':0,'Conversación':0,'Ganzúa':0,'Medicina':0,'Reparación':0,'Sigilo':0,'Supervivencia':0},
     pvMax:pv, pvAct:pv, rads:0, chapas:250,
     // slots de equipo: null = vacío, objId = objeto equipado
-    equipo:{arma:null, casco:null, pecho:null, extremidades:null},
+    equipo:{arma1:null, arma2:null, casco:null, pecho:null, extremidades:null},
     inventario:[],
     penMod:0, extras:[],
     levelUpPendiente:false,
@@ -1951,12 +1961,16 @@ function renderApp(){
         +(jh.rads>0?'<div class="hdr-stat-sep"></div>'
           +'<div class="hdr-stat-item"><span class="hdr-stat-lbl">RADS</span><span class="hdr-stat-val" style="color:var(--pip-rad);">'+jh.rads+'</span></div>':'')
         +((function(){
-            const armaEq=jh.equipo&&jh.equipo.arma?getObjById(jh.equipo.arma):null;
-            if(!armaEq||armaEq.muniId!=='muni_fusion') return '';
-            const c=jh.fusion_carga||0;
+            const eqh=jh.equipo||{};
+            const slotFusion=['arma1','arma2'].find(function(s){
+              const a=(eqh[s]&&eqh[s]!=='BLOQUEADO')?getObjById(eqh[s]):null;
+              return a&&a.muniId==='muni_fusion';
+            });
+            if(!slotFusion) return '';
+            const c=(jh.cargador&&jh.cargador[slotFusion])||0;
             return '<div class="hdr-stat-sep"></div>'
               +'<div class="hdr-stat-item"><span class="hdr-stat-lbl">BATERÍA</span>'
-              +'<span class="hdr-stat-val'+(c<25?' danger':c<50?' warn':'')+'">'+(jh.fusion_carga||0)+'%</span></div>';
+              +'<span class="hdr-stat-val'+(c<25?' danger':c<50?' warn':'')+'">'+c+'%</span></div>';
           })());
     }
   } else if(hdrStats){
@@ -2002,7 +2016,12 @@ function normalizarFicha(j){
   if(!j.attrs)         j.attrs={fue:7,agi:7,res:7,int:7,per:7,car:7,sue:7};
   if(!j.habArmas)      j.habArmas={'Armas cortas':0,'Armas medias':0,'Armas grandes':0,'Armas de energía':0,'Explosivos':0,'Combate':0};
   if(!j.habHabs)       j.habHabs={'Atletismo':0,'Ciencia':0,'Conversación':0,'Ganzúa':0,'Medicina':0,'Reparación':0,'Sigilo':0,'Supervivencia':0};
-  if(!j.equipo)        j.equipo={arma:null,casco:null,pecho:null,extremidades:null};
+  if(!j.equipo)        j.equipo={arma1:null,arma2:null,casco:null,pecho:null,extremidades:null};
+  if(j.equipo.arma&&!j.equipo.arma1){ j.equipo.arma1=j.equipo.arma; delete j.equipo.arma; } // migración del hueco único viejo
+  if(j.equipo.arma2===undefined) j.equipo.arma2=null;
+  if(!j.cargador) j.cargador={arma1:j.cargadorActual||0,arma2:0};
+  if(!j.dosManosObj) j.dosManosObj={arma1:!!j.dosManos,arma2:false};
+  if(!j.fusionCarga) j.fusionCarga={arma1:j.fusion_carga||0,arma2:0};
   if(!j.inventario)    j.inventario=[];
   if(!j.municion)      j.municion={};
   if(!j.efectosActivos)j.efectosActivos=[];
@@ -2178,16 +2197,18 @@ window.usarExplosivoinv=function(itemIdx){
 
 
 
-window.showModalDosManos=function(nombreArma){
+window.showModalDosManos=function(nombreArma,slot){
   const modal=document.getElementById('obj-detail-modal');
   const box=document.getElementById('obj-detail-box');
-  box.innerHTML='<div style="padding:20px;text-align:center;">'    +'<div style="font-family:VT323,monospace;font-size:20px;color:var(--pip-bright);margin-bottom:8px;">⚔ '+nombreArma+'</div>'    +'<div style="font-size:10px;color:var(--pip-dim);margin-bottom:16px;">¿Cómo quieres empuñarla?</div>'    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">'    +'<button class="btn btn-warn" style="padding:12px;font-size:16px;" onclick="elegirModoManos(false)">⚔ UNA MANO<div style=\'font-size:9px;color:var(--pip-dim);margin-top:3px;\'>Daño: 1D8</div></button>'    +'<button class="btn" style="padding:12px;font-size:16px;" onclick="elegirModoManos(true)">⚔⚔ DOS MANOS<div style=\'font-size:9px;color:var(--pip-warn);margin-top:3px;\'>Daño: 1D8+1</div></button>'    +'</div>'    +'</div>';
+  box.innerHTML='<div style="padding:20px;text-align:center;">'    +'<div style="font-family:VT323,monospace;font-size:20px;color:var(--pip-bright);margin-bottom:8px;">⚔ '+nombreArma+'</div>'    +'<div style="font-size:10px;color:var(--pip-dim);margin-bottom:16px;">¿Cómo quieres empuñarla?</div>'    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">'    +'<button class="btn btn-warn" style="padding:12px;font-size:16px;" data-slot="'+slot+'" onclick="elegirModoManos(false,this.dataset.slot)">⚔ UNA MANO<div style=\'font-size:9px;color:var(--pip-dim);margin-top:3px;\'>Daño: 1D8</div></button>'    +'<button class="btn" style="padding:12px;font-size:16px;" data-slot="'+slot+'" onclick="elegirModoManos(true,this.dataset.slot)">⚔⚔ DOS MANOS<div style=\'font-size:9px;color:var(--pip-warn);margin-top:3px;\'>Daño: 1D8+1</div></button>'    +'</div>'    +'</div>';
   modal.style.display='flex';
 };
 
-window.elegirModoManos=function(dosManos){
+window.elegirModoManos=function(dosManos,slot){
+  slot=slot||'arma1';
   const j=myFicha();
-  j.dosManos=dosManos;
+  if(!j.dosManosObj) j.dosManosObj={arma1:false,arma2:false};
+  j.dosManosObj[slot]=dosManos;
   saveJ(); renderApp();
   cerrarDetalle();
   showNotif(dosManos?'Dos manos · Daño: 1D8+1':'Una mano · Daño: 1D8');
@@ -2436,55 +2457,61 @@ window.elegirInstruido=function(h,origen){
   abrirModalInstruido(origen);
 };
 
-window.recargarArma=function(){
+window.recargarArma=function(slot){
+  slot=slot||'arma1';
   const j=myFicha();
+  if(!j.cargador) j.cargador={arma1:0,arma2:0};
+  if(!j.fusionCarga) j.fusionCarga={arma1:0,arma2:0};
   const eq=j.equipo||{};
-  const armaObj=eq.arma?getObjById(eq.arma):null;
+  const armaObj=(eq[slot]&&eq[slot]!=='BLOQUEADO')?getObjById(eq[slot]):null;
   if(!armaObj){showNotif('Sin arma equipada');return;}
   // Energía: consumir 1 célula de micro-fusión → cargador=100%
   if(armaObj.muniId==='muni_fusion'){
-    if((j.fusion_total||0)<=0&&(j.fusion_carga||0)===0){showNotif('Sin células de micro-fusión');return;}
-    if((j.fusion_carga||0)>0){
+    if((j.fusion_total||0)<=0&&(j.fusionCarga[slot]||0)===0){showNotif('Sin células de micro-fusión');return;}
+    if((j.fusionCarga[slot]||0)>0){
       // Ya tiene carga residual — usar esa
-      j.cargadorActual=j.fusion_carga;
-      j.fusion_carga=0;
+      j.cargador[slot]=j.fusionCarga[slot];
+      j.fusionCarga[slot]=0;
     } else {
       j.fusion_total=(j.fusion_total||0)-1;
-      j.cargadorActual=100;
+      j.cargador[slot]=100;
     }
     saveJ();renderApp();
-    showNotif('⚡ Recargado · Batería: '+j.cargadorActual+'%');
+    showNotif('⚡ Recargado · Batería: '+j.cargador[slot]+'%');
     return;
   }
   // Arma normal
-  if(!armaObj.muniId){j.cargadorActual=armaObj.cargador;saveJ();renderApp();showNotif('Recargado');return;}
+  if(!armaObj.muniId){j.cargador[slot]=armaObj.cargador;saveJ();renderApp();showNotif('Recargado');return;}
   if(!j.municion) j.municion={};
   const disponibles=j.municion[armaObj.muniId]||0;
   if(disponibles<=0){showNotif('Sin '+( (getMuniById(armaObj.muniId)||{}).n||'munición'));return;}
-  const necesarias=armaObj.cargador-j.cargadorActual;
+  const necesarias=armaObj.cargador-(j.cargador[slot]||0);
   const cargar=Math.min(necesarias,disponibles);
   if(cargar<=0){showNotif('Cargador ya lleno');return;}
   j.municion[armaObj.muniId]=disponibles-cargar;
-  j.cargadorActual=(j.cargadorActual||0)+cargar;
+  j.cargador[slot]=(j.cargador[slot]||0)+cargar;
   saveJ();renderApp();
-  showNotif('Recargado · '+j.cargadorActual+'/'+armaObj.cargador+' · '+j.municion[armaObj.muniId]+' restantes');
+  showNotif('Recargado · '+j.cargador[slot]+'/'+armaObj.cargador+' · '+j.municion[armaObj.muniId]+' restantes');
 };
 
 
 
-window.dispararArma=function(modo,coste){
+window.dispararArma=function(modo,coste,slot){
+  slot=slot||'arma1';
   const j=myFicha();
+  if(!j.cargador) j.cargador={arma1:0,arma2:0};
+  if(!j.dosManosObj) j.dosManosObj={arma1:false,arma2:false};
   const eq=j.equipo||{};
-  const armaObj=eq.arma?getObjById(eq.arma):null;
+  const armaObj=(eq[slot]&&eq[slot]!=='BLOQUEADO')?getObjById(eq[slot]):null;
   if(!armaObj) return;
 
   // Bonus dos manos CaC
-  var bonDM=(j.dosManos&&armaObj.subcat==='cac'&&armaObj.daño==='1D8')?'+1':'';
+  var bonDM=(j.dosManosObj[slot]&&armaObj.subcat==='cac'&&armaObj.daño==='1D8')?'+1':'';
   const dado=(modo==='TT'?armaObj.daño:modo==='RF'?armaObj.rf:armaObj.fa)+(bonDM?bonDM:'');
 
   // ── Comprobar cargador ──
   if(coste>0&&armaObj.cargador>0){
-    const cargAct=j.cargadorActual||0;
+    const cargAct=j.cargador[slot]||0;
     if(cargAct<coste){
       showNotif('Sin munición en cargador · Recarga primero ('+cargAct+' restantes)');
       return;
@@ -2493,12 +2520,12 @@ window.dispararArma=function(modo,coste){
     if(armaObj.muniId==='muni_fusion'){
       var costeEfic=coste;
       if((j.extras||[]).includes('Eficiencia energética')) costeEfic=Math.max(1,Math.floor(coste/2));
-      j.cargadorActual=Math.max(0,cargAct-costeEfic);
+      j.cargador[slot]=Math.max(0,cargAct-costeEfic);
     } else {
-      j.cargadorActual=cargAct-coste;
+      j.cargador[slot]=cargAct-coste;
     }
     saveJ();
-    showNotif('⚔ '+modo+': tira '+dado+' · Cargador: '+j.cargadorActual+(armaObj.muniId==='muni_fusion'?'%':'/'+armaObj.cargador));
+    showNotif('⚔ '+modo+': tira '+dado+' · Cargador: '+j.cargador[slot]+(armaObj.muniId==='muni_fusion'?'%':'/'+armaObj.cargador));
     renderApp();
     return;
   }
@@ -3075,6 +3102,128 @@ window.confirmarCogerRecurso=async function(k){
   renderApp();
 };
 
+function renderArmaSlotBlock(j,slot){
+  const eqS=j.equipo||{};
+  const armaObj=(eqS[slot]&&eqS[slot]!=='BLOQUEADO')?getObjById(eqS[slot]):null;
+  if(!j.cargador) j.cargador={arma1:0,arma2:0};
+  if(!j.dosManosObj) j.dosManosObj={arma1:false,arma2:false};
+  if(eqS[slot]==='BLOQUEADO'){
+    return {armaObj:null,html:'<div style="border:1px dashed var(--pip-warn);padding:7px 10px;font-size:10px;color:var(--pip-warn);margin-top:8px;text-align:center;">🔒 Hueco ocupado por arma a dos manos</div>'};
+  }
+  // Cargador actual del arma
+  var cargActual=j.cargador[slot]||0;
+  var cargMax=armaObj?armaObj.cargador||0:0;
+  var esFusion=armaObj&&armaObj.muniId==='muni_fusion';
+  var muniLabel=(function(){
+    if(!armaObj||!armaObj.muniId) return '';
+    if(esFusion) return 'Células: '+(j.fusion_total||0)+' repuestos';
+    var mt=getMuniById(armaObj.muniId);
+    var stock=j.municion?(j.municion[armaObj.muniId]||0):0;
+    return (mt?mt.n:'')+' · Stock: '+stock;
+  })();
+  var esCaCMedia=armaObj&&armaObj.subcat==='cac'&&armaObj.daño==='1D8';
+  var dosManosSlot=j.dosManosObj[slot];
+
+  // ── Bono de ataque por modo ──
+  var subcatMap={corta:'Armas cortas',media:'Armas medias',grande:'Armas grandes',energia:'Armas de energía',cac:'Combate'};
+  var habArmaKey=armaObj?(subcatMap[armaObj.subcat]||'Combate'):'Combate';
+  var gEf=calcBonusEfectivos(j); // motor único: drogas + rasgos + extras convertidos a datos
+  var habArmaVal=armaObj?(j.habArmas[habArmaKey]||0)+(gEf.hab_arma[habArmaKey]||0):0;
+  var modAgi=getMod(j.attrs.agi+((j.rasgos||[]).includes('pequeno')?1:0));
+  var radEfAtk=calcEfectosRad(j); var penRadAtk=radEfAtk.reduce(function(s,e){return s+(e.penHab||0);},0);
+  // Bono de ataque por subcat del arma (rasgos/extras con efecto "Ataque con Armas X" + "Ataque con cualquier arma")
+  var bonSubcatAtk=0;
+  if(armaObj){
+    var subcatDerKey={corta:'atk_cortas',media:'atk_medias',grande:'atk_grandes',energia:'atk_energia',cac:'atk_cac'}[armaObj.subcat];
+    if(subcatDerKey) bonSubcatAtk=(gEf.derivado[subcatDerKey]||0)+(gEf.derivado.atk_todas||0);
+  }
+  // Extra Luchador: +1 ataque con cualquier arma equipada (no puños, ese bloque es aparte) — comprobación especial: atk_todas también llega a Puños y Luchador no debe hacerlo
+  var bonLuchador=(armaObj&&(j.extras||[]).includes('Luchador'))?1:0;
+  // Extra Cazador: +1 ataque con armas medias a distancia sin RF/FA (solo TT)
+  var bonCazador=(armaObj&&armaObj.subcat==='media'&&!armaObj.rf&&!armaObj.fa&&(j.extras||[]).includes('Cazador'))?1:0;
+  // Talento con habilidad: si coincide con la habilidad de arma del arma equipada, +1 automático (Explosivos y habilidades generales solo muestran banner)
+  var bonTalHab=(armaObj&&j.talHabilidad&&j.talHabilidad===habArmaKey&&(j.extras||[]).includes('Talento con habilidad'))?1:0;
+  var bonAtaqueTT=armaObj?(modAgi+habArmaVal+(j.penMod||0)+penRadAtk+bonSubcatAtk+(armaObj.calidad||0)+(gEf.derivado.ataque_tt||0)+bonLuchador+bonCazador+bonTalHab):0;
+  var bonAtaqueRF=armaObj?(bonAtaqueTT-2+(gEf.derivado.ataque_rf||0)):0;
+  var bonAtaqueFA=armaObj?(bonAtaqueTT+(gEf.derivado.ataque_fa||0)):0;
+  // FA = desventaja (mostrar valor pero indicar desventaja)
+  var esCaC=armaObj&&armaObj.subcat==='cac';
+  var bonDañoCaCTotal=esCaC?(gEf.derivado.daño_cac||0):0;
+  var bonDañoDistTotal=(!esCaC&&armaObj&&armaObj.subcat!=='explosivo')?(gEf.derivado.daño_dist||0):0;
+  // Daño Adicional extra
+  var dañoAdicExtra=armaObj?(armaObj.estado||0):0;
+  if(armaObj){
+    // daño_cac ya se suma arriba en bonDañoCaCTotal (incluye "Fuerza imparable") — no repetirlo aquí
+    var dañoSubcatKey={corta:'daño_corta',media:'daño_media',grande:'daño_grande',energia:'daño_energia'}[armaObj.subcat];
+    if(dañoSubcatKey) dañoAdicExtra+=(gEf.derivado[dañoSubcatKey]||0);
+    var subcatLabel={corta:'Armas cortas',media:'Armas medias',grande:'Armas grandes',energia:'Armas de energía',cac:'Combate'}[armaObj.subcat]||'';
+    if(j.extraArma&&j.extraArma===subcatLabel&&(j.extras||[]).some(function(e){return e==='Daño adicional';})) dañoAdicExtra+=2;
+    // Profesional: +4 daño con arma elegida (distancia)
+    if(j.profesionalArma&&j.profesionalArma===subcatLabel&&(j.extras||[]).includes('Profesional')) dañoAdicExtra+=4;
+  }
+  var bonDañoTotal=bonDañoCaCTotal+bonDañoDistTotal+dañoAdicExtra;
+  var bonDañoDroga=bonDañoTotal>0?'+'+bonDañoTotal:'';
+  var dañoTT=armaObj?(armaObj.daño+(esCaCMedia&&dosManosSlot?'+1':'')+bonDañoDroga):'';
+  var rfDañoBon=(armaObj&&armaObj.rf&&(gEf.derivado.daño_rf||0)!==0)?((gEf.derivado.daño_rf>0?'+':'')+gEf.derivado.daño_rf):'';
+  var dañoRF=armaObj?(armaObj.rf+rfDañoBon):'';
+  var dañoFA=armaObj?armaObj.fa:'';
+
+  var armaBlockHtml=armaObj
+    ?'<div style="border:1px solid var(--pip-border);background:var(--pip-mid);margin-top:8px;">'
+      // Fila cabecera: nombre | cargador | recargar | quitar
+      +'<div style="display:flex;align-items:center;padding:6px 8px;gap:6px;border-bottom:1px solid var(--pip-border);">'
+      +'<div style="min-width:0;flex:1;">'
+      +'<div style="font-size:8px;color:var(--pip-dim);letter-spacing:1px;">⚔ ARMA EQUIPADA ('+(slot==='arma1'?'IZQ.':'DER.')+')</div>'
+      +'<div style="font-size:12px;color:var(--pip-bright);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+armaObj.n+(dosManosSlot&&esCaCMedia?' <span style="font-size:8px;color:var(--pip-warn);">2M</span>':'')+'</div>'
+      +'</div>'
+      // Cargador
+      +(cargMax>0
+        ?'<div style="text-align:center;flex-shrink:0;">'
+          +'<div style="font-family:VT323,monospace;font-size:20px;color:'+(cargActual>0?'var(--pip-warn)':'var(--pip-danger)')+';line-height:1;">'+cargActual+(esFusion?'%':'')+'/'+cargMax+(esFusion?'%':'')+'</div>'
+          +'<div style="font-size:7px;color:var(--pip-dim);">'+muniLabel+'</div>'
+          +'</div>'
+        :'')
+      // Botón recargar
+      +(cargMax>0
+        ?'<button style="padding:5px 8px;border:1px solid var(--pip);background:none;color:var(--pip-bright);font-family:VT323,monospace;font-size:13px;cursor:pointer;flex-shrink:0;" data-slot="'+slot+'" onclick="recargarArma(this.dataset.slot)">↺ RECARGAR</button>'
+        :'')
+      +'<button style="padding:5px 8px;border:1px solid var(--pip-danger);background:none;color:var(--pip-danger);font-family:VT323,monospace;font-size:13px;cursor:pointer;flex-shrink:0;" data-slot="'+slot+'" onclick="desequipar(this.dataset.slot)">✕</button>'
+      +'</div>'
+
+      // Botones TT RF FA
+      +'<div style="display:flex;gap:0;">'
+      +(dañoTT
+        ?'<button style="flex:1;padding:8px 4px;border:none;border-right:1px solid var(--pip-border);background:none;cursor:pointer;font-family:VT323,monospace;" data-modo="TT" data-coste="'+armaObj.ttCost+'" data-slot="'+slot+'" onclick="dispararArma(this.dataset.modo,parseInt(this.dataset.coste),this.dataset.slot)">'
+          +'<div style="font-size:11px;color:var(--pip-bright);letter-spacing:1px;">TT</div>'
+          +'<div style="font-size:20px;color:var(--pip-warn);line-height:1;">'+dañoTT+'</div>'
+          +'<div style="font-size:12px;color:var(--pip-bright);margin-top:2px;">atk '+(bonAtaqueTT>=0?'+':'')+bonAtaqueTT+'</div>'
+          +(armaObj.ttCost>0?'<div style="font-size:10px;color:var(--pip-dim);">-'+armaObj.ttCost+(esFusion?'%':'b')+'</div>':'')
+          +'</button>'
+        :'')
+      +(dañoRF
+        ?'<button style="flex:1;padding:8px 4px;border:none;border-right:1px solid var(--pip-border);background:none;cursor:pointer;font-family:VT323,monospace;" data-modo="RF" data-coste="'+armaObj.rfCost+'" data-slot="'+slot+'" onclick="dispararArma(this.dataset.modo,parseInt(this.dataset.coste),this.dataset.slot)">'
+          +'<div style="font-size:11px;color:var(--pip-bright);letter-spacing:1px;">RF</div>'
+          +'<div style="font-size:20px;color:var(--pip-warn);line-height:1;">'+dañoRF+'</div>'
+          +'<div style="font-size:12px;color:var(--pip-bright);margin-top:2px;">atk '+(bonAtaqueRF>=0?'+':'')+bonAtaqueRF+'</div>'
+          +(armaObj.rfCost>0?'<div style="font-size:10px;color:var(--pip-dim);">-'+armaObj.rfCost+(esFusion?'%':'b')+'</div>':'')
+          +'</button>'
+        :'')
+      +(dañoFA
+        ?'<button style="flex:1;padding:8px 4px;border:none;background:none;cursor:pointer;font-family:VT323,monospace;" data-modo="FA" data-coste="'+armaObj.faCost+'" data-slot="'+slot+'" onclick="dispararArma(this.dataset.modo,parseInt(this.dataset.coste),this.dataset.slot)">'
+          +'<div style="font-size:11px;color:var(--pip-bright);letter-spacing:1px;">FA</div>'
+          +'<div style="font-size:20px;color:var(--pip-warn);line-height:1;">'+dañoFA+'</div>'
+          +'<div style="font-size:12px;color:var(--pip-bright);margin-top:2px;">atk '+(bonAtaqueFA>=0?'+':'')+bonAtaqueFA+'</div>'
+          +'<div style="font-size:10px;color:var(--pip-warn);">DESVENTAJA</div>'
+          +(armaObj.faCost>0?'<div style="font-size:10px;color:var(--pip-dim);">-'+armaObj.faCost+(esFusion?'%':'b')+'</div>':'')
+          +'</button>'
+        :'')
+      +'</div>'
+      +'</div>'
+    :(slot==='arma1'?'<div style="border:1px dashed var(--pip-border);padding:7px 10px;font-size:10px;color:var(--pip-dim);margin-top:8px;text-align:center;">Sin arma equipada · Ve a EQUIPO</div>':'');
+
+  return {armaObj:armaObj,html:armaBlockHtml};
+}
+
 function renderJEstado(){
   const j=myFicha();
   if(!j||!j.attrs) return '<div class="empty" style="padding:30px;text-align:center;">Cargando ficha...</div>';
@@ -3084,7 +3233,10 @@ function renderJEstado(){
   const pvColor=pvPct<25?'var(--pip-danger)':pvPct<50?'var(--pip-warn)':'var(--pip)';
   const cU=calcCargaUsada(j), cM=calcCarga(j), sobre=cU>cM;
   const eq=j.equipo||{};
-  const armaObj=eq.arma?getObjById(eq.arma):null;
+  const arma1Info=renderArmaSlotBlock(j,'arma1');
+  const arma2Info=renderArmaSlotBlock(j,'arma2');
+  const armaObj=arma1Info.armaObj; // se usa más abajo para el aviso de desventaja por FUE (arma1)
+  const armaObj2=arma2Info.armaObj;
   const binfo=calcBlinjajeInfo(j);
   const fueEf=calcFUEefectiva(j);
   const def=calcDEF(j);
@@ -3116,124 +3268,7 @@ function renderJEstado(){
     ?'<div style="border:1px solid var(--pip-danger);padding:6px 10px;background:rgba(255,60,60,.06);margin-bottom:8px;font-size:10px;color:var(--pip-danger);letter-spacing:1px;">⚠ SOBRECARGADO · Desventaja en Ataque, Rapidez y Agilidad</div>'
     :'';
 
-  // Bloque arma equipada
-  // Cargador actual del arma
-  var cargActual=j.cargadorActual||0;
-  var cargMax=armaObj?armaObj.cargador||0:0;
-  var esFusion=armaObj&&armaObj.muniId==='muni_fusion';
-  var muniLabel=(function(){
-    if(!armaObj||!armaObj.muniId) return '';
-    if(esFusion) return 'Células: '+(j.fusion_total||0)+' repuestos';
-    var mt=getMuniById(armaObj.muniId);
-    var stock=j.municion?(j.municion[armaObj.muniId]||0):0;
-    return (mt?mt.n:'')+' · Stock: '+stock;
-  })();
-  var esCaCMedia=armaObj&&armaObj.subcat==='cac'&&armaObj.daño==='1D8';
-
-  // Dados con bonus dos manos
-  var bdDrogas=calcBonusDrogas(j);
-  var bdRasgos=calcBonusRasgos(j);
-  // ── Bono de ataque por modo ──
-  var subcatMap={corta:'Armas cortas',media:'Armas medias',grande:'Armas grandes',energia:'Armas de energía',cac:'Combate'};
-  var habArmaKey=armaObj?(subcatMap[armaObj.subcat]||'Combate'):'Combate';
-  var gEf=calcBonusEfectivos(j);
-  var habArmaVal=armaObj?(j.habArmas[habArmaKey]||0)+(gEf.hab_arma[habArmaKey]||0):0;
-  var modAgi=getMod(j.attrs.agi+((j.rasgos||[]).includes('pequeno')?1:0));
-  var radEfAtk=calcEfectosRad(j); var penRadAtk=radEfAtk.reduce(function(s,e){return s+(e.penHab||0);},0);
-  var brA=calcBonusRasgos(j);
-  // Bono de ataque por subcat del arma
-  var bonSubcatAtk=0;
-  if(armaObj){
-    var sc=armaObj.subcat;
-    if(sc==='corta')  bonSubcatAtk=(brA.atkCortas||0)+(brA.atkTodas||0);
-    else if(sc==='media')  bonSubcatAtk=(brA.atkMedias||0)+(brA.atkTodas||0);
-    else if(sc==='grande') bonSubcatAtk=(brA.atkGrandes||0)+(brA.atkTodas||0);
-    else if(sc==='energia')bonSubcatAtk=(brA.atkEnergia||0)+(brA.atkTodas||0);
-    else if(sc==='cac')    bonSubcatAtk=(brA.atkCaC||0)+(brA.atkTodas||0);
-  }
-  // Extra Luchador: +1 ataque con cualquier arma equipada (no puños, ese bloque es aparte)
-  var bonLuchador=(armaObj&&(j.extras||[]).includes('Luchador'))?1:0;
-  // Extra Cazador: +1 ataque con armas medias a distancia sin RF/FA (solo TT)
-  var bonCazador=(armaObj&&armaObj.subcat==='media'&&!armaObj.rf&&!armaObj.fa&&(j.extras||[]).includes('Cazador'))?1:0;
-  // Talento con habilidad: si coincide con la habilidad de arma del arma equipada, +1 automático (Explosivos y habilidades generales solo muestran banner)
-  var bonTalHab=(armaObj&&j.talHabilidad&&j.talHabilidad===habArmaKey&&(j.extras||[]).includes('Talento con habilidad'))?1:0;
-  var bonAtaqueTT=armaObj?(modAgi+habArmaVal+(j.penMod||0)+penRadAtk+bonSubcatAtk+(armaObj.calidad||0)+(gEf.derivado.ataque_tt||0)+bonLuchador+bonCazador+bonTalHab):0;
-  var bonAtaqueRF=armaObj?(bonAtaqueTT-2+(brA.rfAtk||0)+(brA.rfAtkExtra||0)+(gEf.derivado.ataque_rf||0)):0;
-  var bonAtaqueFA=armaObj?(bonAtaqueTT+(brA.faAtkExtra||0)+(gEf.derivado.ataque_fa||0)):0;
-  // FA = desventaja (mostrar valor pero indicar desventaja)
-  var esCaC=armaObj&&armaObj.subcat==='cac';
-  var bonDañoCaCTotal=esCaC?(bdDrogas.dañoCaC+bdRasgos.dañoCaC):0;
-  var bonDañoDistTotal=(!esCaC&&armaObj&&armaObj.subcat!=='explosivo')?(bdRasgos.dañoDist||0):0;
-  // Daño Adicional extra
-  var dañoAdicExtra=armaObj?(armaObj.estado||0):0;
-  if(armaObj){
-    var dañoSubcatKey={corta:'daño_corta',media:'daño_media',energia:'daño_energia',cac:'daño_cac'}[armaObj.subcat];
-    if(dañoSubcatKey) dañoAdicExtra+=(gEf.derivado[dañoSubcatKey]||0);
-    var subcatLabel={corta:'Armas cortas',media:'Armas medias',grande:'Armas grandes',energia:'Armas de energía',cac:'Combate'}[armaObj.subcat]||'';
-    if(j.extraArma&&j.extraArma===subcatLabel&&(j.extras||[]).some(function(e){return e==='Daño adicional';})) dañoAdicExtra+=2;
-    // Fuerza imparable: +4 daño CaC
-    if(armaObj.subcat==='cac'&&(j.extras||[]).includes('Fuerza imparable')) dañoAdicExtra+=4;
-    // Profesional: +4 daño con arma elegida (distancia)
-    if(j.profesionalArma&&j.profesionalArma===subcatLabel&&(j.extras||[]).includes('Profesional')) dañoAdicExtra+=4;
-  }
-  var bonDañoTotal=bonDañoCaCTotal+bonDañoDistTotal+dañoAdicExtra;
-  var bonDañoDroga=bonDañoTotal>0?'+'+bonDañoTotal:'';
-  var dañoTT=armaObj?(armaObj.daño+(esCaCMedia&&j.dosManos?'+1':'')+bonDañoDroga):'';
-  var rfDañoBon=(armaObj&&armaObj.rf&&(brA.rfDaño||0)!==0)?((brA.rfDaño>0?'+':'')+brA.rfDaño):'';
-  var dañoRF=armaObj?(armaObj.rf+rfDañoBon):'';
-  var dañoFA=armaObj?armaObj.fa:'';
-
-  armaBlock=armaObj
-    ?'<div style="border:1px solid var(--pip-border);background:var(--pip-mid);margin-top:8px;">'
-      // Fila cabecera: nombre | cargador | recargar
-      +'<div style="display:flex;align-items:center;padding:6px 8px;gap:6px;border-bottom:1px solid var(--pip-border);">'
-      +'<div style="min-width:0;flex:1;">'
-      +'<div style="font-size:8px;color:var(--pip-dim);letter-spacing:1px;">⚔ ARMA EQUIPADA</div>'
-      +'<div style="font-size:12px;color:var(--pip-bright);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+armaObj.n+(j.dosManos&&esCaCMedia?' <span style="font-size:8px;color:var(--pip-warn);">2M</span>':'')+'</div>'
-      +'</div>'
-      // Cargador
-      +(cargMax>0
-        ?'<div style="text-align:center;flex-shrink:0;">'
-          +'<div style="font-family:VT323,monospace;font-size:20px;color:'+(cargActual>0?'var(--pip-warn)':'var(--pip-danger)')+';line-height:1;">'+cargActual+(esFusion?'%':'')+'/'+cargMax+(esFusion?'%':'')+'</div>'
-          +'<div style="font-size:7px;color:var(--pip-dim);">'+muniLabel+'</div>'
-          +'</div>'
-        :'')
-      // Botón recargar
-      +(cargMax>0
-        ?'<button style="padding:5px 8px;border:1px solid var(--pip);background:none;color:var(--pip-bright);font-family:VT323,monospace;font-size:13px;cursor:pointer;flex-shrink:0;" onclick="recargarArma()">↺ RECARGAR</button>'
-        :'')
-      +'</div>'
-
-      // Botones TT RF FA
-      +'<div style="display:flex;gap:0;">'
-      +(dañoTT
-        ?'<button style="flex:1;padding:8px 4px;border:none;border-right:1px solid var(--pip-border);background:none;cursor:pointer;font-family:VT323,monospace;" data-modo="TT" data-coste="'+armaObj.ttCost+'" onclick="dispararArma(this.dataset.modo,parseInt(this.dataset.coste))">'
-          +'<div style="font-size:11px;color:var(--pip-bright);letter-spacing:1px;">TT</div>'
-          +'<div style="font-size:20px;color:var(--pip-warn);line-height:1;">'+dañoTT+'</div>'
-          +'<div style="font-size:12px;color:var(--pip-bright);margin-top:2px;">atk '+(bonAtaqueTT>=0?'+':'')+bonAtaqueTT+'</div>'
-          +(armaObj.ttCost>0?'<div style="font-size:10px;color:var(--pip-dim);">-'+armaObj.ttCost+(esFusion?'%':'b')+'</div>':'')
-          +'</button>'
-        :'')
-      +(dañoRF
-        ?'<button style="flex:1;padding:8px 4px;border:none;border-right:1px solid var(--pip-border);background:none;cursor:pointer;font-family:VT323,monospace;" data-modo="RF" data-coste="'+armaObj.rfCost+'" onclick="dispararArma(this.dataset.modo,parseInt(this.dataset.coste))">'
-          +'<div style="font-size:11px;color:var(--pip-bright);letter-spacing:1px;">RF</div>'
-          +'<div style="font-size:20px;color:var(--pip-warn);line-height:1;">'+dañoRF+'</div>'
-          +'<div style="font-size:12px;color:var(--pip-bright);margin-top:2px;">atk '+(bonAtaqueRF>=0?'+':'')+bonAtaqueRF+'</div>'
-          +(armaObj.rfCost>0?'<div style="font-size:10px;color:var(--pip-dim);">-'+armaObj.rfCost+(esFusion?'%':'b')+'</div>':'')
-          +'</button>'
-        :'')
-      +(dañoFA
-        ?'<button style="flex:1;padding:8px 4px;border:none;background:none;cursor:pointer;font-family:VT323,monospace;" data-modo="FA" data-coste="'+armaObj.faCost+'" onclick="dispararArma(this.dataset.modo,parseInt(this.dataset.coste))">'
-          +'<div style="font-size:11px;color:var(--pip-bright);letter-spacing:1px;">FA</div>'
-          +'<div style="font-size:20px;color:var(--pip-warn);line-height:1;">'+dañoFA+'</div>'
-          +'<div style="font-size:12px;color:var(--pip-bright);margin-top:2px;">atk '+(bonAtaqueFA>=0?'+':'')+bonAtaqueFA+'</div>'
-          +'<div style="font-size:10px;color:var(--pip-warn);">DESVENTAJA</div>'
-          +(armaObj.faCost>0?'<div style="font-size:10px;color:var(--pip-dim);">-'+armaObj.faCost+(esFusion?'%':'b')+'</div>':'')
-          +'</button>'
-        :'')
-      +'</div>'
-      +'</div>'
-    :'<div style="border:1px dashed var(--pip-border);padding:7px 10px;font-size:10px;color:var(--pip-dim);margin-top:8px;text-align:center;">Sin arma equipada · Ve a EQUIPO</div>';
+  const armaBlock=arma1Info.html+arma2Info.html;
 
   // Blindaje resumen
   const blindBlock=binfo.piezasEquip>0
@@ -3376,25 +3411,24 @@ function renderJEstado(){
 
     +armaBlock
     // ── Aviso desventaja FUE ──
-    +(function(){
-      if(!armaObj) return '';
+    +[armaObj,armaObj2].filter(Boolean).map(function(ao){
       var msgs=[];
-      if(armaObj.subcat==='cac'&&armaObj.daño==='2D8'&&j.attrs.fue<14)
-        msgs.push('⚠ '+armaObj.n+': FUE<14 · Tiradas de ataque con DESVENTAJA');
-      if(armaObj.id===219&&j.attrs.fue<14) // Recortada Cal.20
+      if(ao.subcat==='cac'&&ao.daño==='2D8'&&j.attrs.fue<14)
+        msgs.push('⚠ '+ao.n+': FUE<14 · Tiradas de ataque con DESVENTAJA');
+      if(ao.id===219&&j.attrs.fue<14) // Recortada Cal.20
         msgs.push('⚠ Recortada Cal.20: FUE<14 · Tiradas de ataque con DESVENTAJA');
-      if(!msgs.length) return '';
       return msgs.map(function(m){
         return '<div style="border:1px solid var(--pip-danger);background:rgba(255,60,60,.06);padding:5px 10px;margin-top:3px;font-size:10px;color:var(--pip-danger);">'+m+'</div>';
       }).join('');
-    })()
+    }).join('')
     // ── Puños (siempre disponibles) ──
     +(function(){
       var habCombate=j.habArmas['Combate']||0;
       var pen=j.penMod||0;
       var setBonus=calcSetBonus(j);
-      var bonAtaque=(!j.equipo||!j.equipo.arma)?((setBonus.ataqueCaC)||0):0;
-      var bonDaño=(!j.equipo||!j.equipo.arma)?((setBonus.dañoCaC)||0):0;
+      var sinArmas=!j.equipo||((!j.equipo.arma1||j.equipo.arma1==='BLOQUEADO')&&(!j.equipo.arma2||j.equipo.arma2==='BLOQUEADO'));
+      var bonAtaque=sinArmas?((setBonus.ataqueCaC)||0):0;
+      var bonDaño=sinArmas?((setBonus.dañoCaC)||0):0;
       var bdP=calcBonusDrogas(j);
       var brP=calcBonusRasgos(j);
       var bonDañoDrogaP=(bdP.dañoCaC||0)+(brP.dañoCaC||0);
@@ -3771,7 +3805,7 @@ function renderJInv(){
   const j=myFicha();
   const cU=calcCargaUsada(j), cM=calcCarga(j), sobre=cU>cM;
   const pct=Math.min(100,Math.round((cU/cM)*100));
-  const eq=j.equipo||{arma:null,casco:null,pecho:null,extremidades:null};
+  const eq=j.equipo||{arma1:null,arma2:null,casco:null,pecho:null,extremidades:null};
   const info=calcBlinjajeInfo(j);
   // Notificaciones pendientes de este jugador
   const notifs=(APP.notificaciones[j.id]||[]);
@@ -3779,6 +3813,14 @@ function renderJInv(){
   // ── helper: render slot de equipo ──
   function renderSlot(slotKey, label, icono){
     const objId=eq[slotKey];
+    const esHuecoArma=(slotKey==='arma1'||slotKey==='arma2');
+    if(objId==='BLOQUEADO'){
+      return '<div style="border:1px dashed var(--pip-warn);padding:7px 8px;margin-bottom:5px;background:rgba(245,185,66,.04);">'
+        +'<div style="display:flex;align-items:center;gap:8px;">'
+        +'<span style="font-size:10px;color:var(--pip-dim);width:80px;letter-spacing:1px;">'+icono+' '+label+'</span>'
+        +'<span style="font-size:10px;color:var(--pip-warn);flex:1;">🔒 Ocupado por arma a dos manos</span>'
+        +'</div></div>';
+    }
     const o=objId?getObjById(objId):null;
     if(o){
       // slot ocupado
@@ -3790,7 +3832,7 @@ function renderJInv(){
         :'<button class="chip chip-r" onclick="desequipar(\''+slotKey+'\')">QUITAR</button>';
       const extraInfo=esServoSlot&&slotKey!=='casco'
         ?'<div style="font-size:8px;color:var(--pip-dim);">Set completo · Quitar desde CASCO</div>'
-        :'';
+        :(esHuecoArma&&o.manos===2?'<div style="font-size:8px;color:var(--pip-warn);">Ocupa las dos manos</div>':'');
       return '<div style="border:1px solid '+(fueProb?'var(--pip-danger)':esServoSlot?'rgba(200,150,255,.5)':'var(--pip)')
         +';padding:7px 8px;margin-bottom:5px;background:'+(esServoSlot?'rgba(200,150,255,.06)':'rgba(74,254,130,.04)')+';">'
         +'<div style="display:flex;align-items:center;gap:8px;">'
@@ -3807,7 +3849,7 @@ function renderJInv(){
       // slot vacío — mostrar items equipables del inventario para ese slot
       const equipables=j.inventario.filter(function(item){
         const obj=getObjById(item.objId);
-        return obj&&obj.equipable&&obj.slotTipo===slotKey;
+        return obj&&obj.equipable&&(esHuecoArma?obj.slotTipo==='arma':obj.slotTipo===slotKey);
       });
       let opciones='';
       if(equipables.length){
@@ -3869,7 +3911,8 @@ function renderJInv(){
     +(fueEf>j.attrs.fue?'<div style="color:var(--pip-warn);">FUE efectiva: '+fueEf+'</div>':'')
     +'</div></div>'
     // Slots
-    +renderSlot('arma','ARMA','⚔')
+    +renderSlot('arma1','ARMA IZQ.','⚔')
+    +renderSlot('arma2','ARMA DER.','⚔')
     +renderSlot('casco','CASCO','◉')
     +renderSlot('pecho','PECHO','▣')
     +renderSlot('extremidades','EXTREM.','≡')
@@ -4341,8 +4384,17 @@ window.jugRadDelta=function(signo){
 };
 window.equipar=function(slot, objId){
   const j=myFicha();
-  if(!j.equipo) j.equipo={arma:null,casco:null,pecho:null,extremidades:null};
+  if(!j.equipo) j.equipo={arma1:null,arma2:null,casco:null,pecho:null,extremidades:null};
+  if(!j.cargador) j.cargador={arma1:0,arma2:0};
+  if(!j.dosManosObj) j.dosManosObj={arma1:false,arma2:false};
+  if(!j.fusionCarga) j.fusionCarga={arma1:0,arma2:0};
   const oEquip=getObjById(objId);
+  // Hueco genérico 'arma': resolver a arma1/arma2 según disponibilidad
+  if(slot==='arma'){
+    if(!j.equipo.arma1) slot='arma1';
+    else if(!j.equipo.arma2&&j.equipo.arma2!=='BLOQUEADO') slot='arma2';
+    else slot='arma1'; // ambos ocupados: sustituir el izquierdo
+  }
   // Servo-armadura: ocupa los 3 slots de blindaje
   if(oEquip&&oEquip.ocupaTres){
     j.equipo.casco=objId; j.equipo.pecho=objId; j.equipo.extremidades=objId;
@@ -4357,8 +4409,14 @@ window.equipar=function(slot, objId){
     j.equipo.casco=null; j.equipo.pecho=null; j.equipo.extremidades=null;
   }
   const o=getObjById(objId);
-  // ── Validar FUE mínima ──
-  if(o&&(o.tipoBlinaje==='pesada'||o.tipoBlinaje==='servo-adaptado')){
+  const esSlotArma=(slot==='arma1'||slot==='arma2');
+
+  if(esSlotArma&&j.equipo[slot]==='BLOQUEADO'){
+    showNotif('Ese hueco está ocupado por un arma a dos manos'); return;
+  }
+
+  // ── Validar FUE mínima (armadura) ──
+  if(o&&!esSlotArma&&(o.tipoBlinaje==='pesada'||o.tipoBlinaje==='servo-adaptado')){
     // Contar cuántas piezas pesadas/servo-adaptado ya hay equipadas (sin contar el slot actual)
     var piezasPes=0;
     ['casco','pecho','extremidades'].forEach(function(s){
@@ -4374,34 +4432,50 @@ window.equipar=function(slot, objId){
       return; // bloquear equipamiento
     }
   }
-  // Si había un arma antes, devolver balas al inventario
-  const armaAnteriorId=j.equipo[slot];
-  if(slot==='arma'&&armaAnteriorId){
+
+  function devolverMunicionSlot(s){
+    const armaAnteriorId=j.equipo[s];
+    if(!armaAnteriorId||armaAnteriorId==='BLOQUEADO') return;
     const armaAnterior=getObjById(armaAnteriorId);
-    if(armaAnterior&&j.cargadorActual>0){
+    const cargAnt=(j.cargador&&j.cargador[s])||0;
+    if(armaAnterior&&cargAnt>0){
       if(armaAnterior.muniId==='muni_fusion'){
-        // Devolver energía: convertir % en fracción de célula
-        j.fusion_carga=j.cargadorActual; // guardar % actual
+        j.fusionCarga[s]=cargAnt;
       } else if(armaAnterior.muniId){
         if(!j.municion) j.municion={};
-        j.municion[armaAnterior.muniId]=(j.municion[armaAnterior.muniId]||0)+j.cargadorActual;
+        j.municion[armaAnterior.muniId]=(j.municion[armaAnterior.muniId]||0)+cargAnt;
       }
     }
-    j.cargadorActual=0;
-    j.dosManos=false;
+    j.cargador[s]=0;
+    j.dosManosObj[s]=false;
   }
-  j.equipo[slot]=objId;
-  // Si es arma, inicializar cargador vacío
-  if(slot==='arma'&&o){
-    j.cargadorActual=0;
-    j.dosManos=false;
+
+  if(esSlotArma&&o){
+    const otro=slot==='arma1'?'arma2':'arma1';
+    if(o.manos===2){
+      // Arma a dos manos: liberar (devolviendo munición) y bloquear el otro hueco
+      devolverMunicionSlot(otro);
+      j.equipo[otro]='BLOQUEADO';
+    } else if(j.equipo[otro]==='BLOQUEADO'){
+      // El otro hueco estaba bloqueado por un arma a dos manos que ahora se sustituye por una de una mano
+      j.equipo[otro]=null;
+    }
+    devolverMunicionSlot(slot);
+    j.equipo[slot]=objId;
+    j.cargador[slot]=0;
+    j.dosManosObj[slot]=false;
     // CaC media: preguntar 1M/2M con modal propio
     if(o.subcat==='cac'&&o.daño==='1D8'){
       saveJ(); renderApp();
-      showModalDosManos(o.n);
+      showModalDosManos(o.n,slot);
       return;
     }
+    saveJ(); renderApp();
+    showNotif('Equipado: '+o.n);
+    return;
   }
+
+  j.equipo[slot]=objId;
   saveJ(); renderApp();
   showNotif('Equipado: '+(o?o.n:'objeto'));
 };
@@ -4409,23 +4483,38 @@ window.equipar=function(slot, objId){
 window.desequipar=function(slot){
   const j=myFicha();
   if(!j.equipo) return;
-  const oSlot=j.equipo[slot]?getObjById(j.equipo[slot]):null;
+  const oSlot=(j.equipo[slot]&&j.equipo[slot]!=='BLOQUEADO')?getObjById(j.equipo[slot]):null;
   if(oSlot&&oSlot.ocupaTres){
     j.equipo.casco=null; j.equipo.pecho=null; j.equipo.extremidades=null;
     saveJ(); renderApp();
     showNotif('Servo-Armadura desequipada');
     return;
   }
-  // Devolver balas del cargador al desequipar arma
-  if(slot==='arma'&&oSlot&&j.cargadorActual>0){
-    if(oSlot.muniId==='muni_fusion'){
-      j.fusion_carga=j.cargadorActual;
-    } else if(oSlot.muniId){
-      if(!j.municion) j.municion={};
-      j.municion[oSlot.muniId]=(j.municion[oSlot.muniId]||0)+j.cargadorActual;
+  const esSlotArma=(slot==='arma1'||slot==='arma2');
+  if(esSlotArma&&oSlot){
+    if(!j.cargador) j.cargador={arma1:0,arma2:0};
+    if(!j.dosManosObj) j.dosManosObj={arma1:false,arma2:false};
+    if(!j.fusionCarga) j.fusionCarga={arma1:0,arma2:0};
+    const cargAct=j.cargador[slot]||0;
+    if(cargAct>0){
+      if(oSlot.muniId==='muni_fusion'){
+        j.fusionCarga[slot]=cargAct;
+      } else if(oSlot.muniId){
+        if(!j.municion) j.municion={};
+        j.municion[oSlot.muniId]=(j.municion[oSlot.muniId]||0)+cargAct;
+      }
     }
-    j.cargadorActual=0;
-    j.dosManos=false;
+    j.cargador[slot]=0;
+    j.dosManosObj[slot]=false;
+    j.equipo[slot]=null;
+    // Si era un arma a dos manos, liberar el otro hueco bloqueado
+    if(oSlot.manos===2){
+      const otro=slot==='arma1'?'arma2':'arma1';
+      if(j.equipo[otro]==='BLOQUEADO') j.equipo[otro]=null;
+    }
+    saveJ(); renderApp();
+    showNotif('Desequipado');
+    return;
   }
   j.equipo[slot]=null;
   saveJ(); renderApp();
@@ -4442,7 +4531,7 @@ window.usarObj=function(idx){
     aplicarEfectoDroga(j,o);
     saveJ(); renderApp();
     showNotif(o.n+' usado · ver EFECTOS ACTIVOS');
-    if(o.adiccionDado) abrirModalAdiccion(o);
+    if(o.adiccionDado&&!(j.extras||[]).includes('Fiesteo')) abrirModalAdiccion(o);
     return;
   }
   saveJ(); renderApp(); showNotif(o.n+' usado');
@@ -5257,6 +5346,7 @@ window.lvlupNext=function(){
    MASTER VIEWS
    ═══════════════════════════════════════════ */
 function renderMFichas(){
+  if(APP._editandoFichaId) return renderEditorFichaCompleta(APP._editandoFichaId);
   const jugs=Object.values(APP.jugadores);
   return`
   <div class="card"><div class="card-hdr">NUEVA FICHA</div><div class="card-body">
@@ -5296,6 +5386,7 @@ function renderMFichas(){
         </div>`).join('')}
       </div>`:'<div style="padding:10px;font-size:10px;color:var(--pip-dim);">Esperando a que el jugador complete la ficha...</div>'}
       <div style="display:flex;gap:4px;padding:0 10px 8px;flex-wrap:wrap;">
+        <button class="btn btn-sm" onclick="abrirEditorFichaCompleta('${j.id}')">✎ EDITAR TODO</button>
         <button class="btn btn-sm btn-warn" onclick="masterBloquear('${j.id}')">${j.bloqueada?'DESBLOQUEAR':'BLOQUEAR'}</button>
         <button class="btn btn-sm" onclick="masterDarPE('${j.id}',1)">+1 PE</button>
         <button class="btn btn-sm" onclick="masterDarPE('${j.id}',3)">+3 PE</button>
@@ -5304,6 +5395,246 @@ function renderMFichas(){
     </div>`;
   }).join('')}`;
 }
+
+function renderEditorFichaCompleta(jid){
+  const sala=getMockSala(APP.salaId);
+  const j=sala.jugadores[jid];
+  if(!j) return '<div class="empty">Ficha no encontrada</div><button class="btn" onclick="APP._editandoFichaId=null;renderApp();">◂ VOLVER</button>';
+  const s='style="font-family:VT323,monospace;font-size:16px;padding:5px 6px;background:var(--pip-dark);border:1px solid var(--pip-border);color:var(--pip-bright);width:100%;text-align:center;"';
+
+  const todosRasgos=[].concat(RASGOS,APP.rasgosCustom||[]);
+  const todosExtras=[].concat(EXTRAS_INICIALES,EXTRAS_COMUNES,EXTRAS_AVANZADOS,EXTRAS_LEGENDARIOS,APP.extrasCustom||[]);
+
+  return '<button class="btn btn-block" style="margin-bottom:8px;" onclick="APP._editandoFichaId=null;renderApp();">◂ VOLVER A FICHAS</button>'
+    +'<div class="card" style="margin-bottom:8px;"><div class="card-hdr">✎ EDITANDO: '+j.nombre+'</div><div style="padding:8px 10px;">'
+    +'<div style="font-size:9px;color:var(--pip-dim);">Esta pantalla no respeta los límites normales de creación — es para corregir fichas ya hechas.</div>'
+    +'</div></div>'
+
+    // ── S.P.E.C.I.A.L. ──
+    +'<div class="card" style="margin-bottom:8px;"><div class="card-hdr">S.P.E.C.I.A.L.</div><div style="padding:10px;">'
+    +'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:8px;">'
+    +ATTRS.map(function(a){return '<div><label style="font-size:8px;color:var(--pip-dim);display:block;text-align:center;">'+a.k.toUpperCase()+'</label><input type="number" class="efc-attr" data-k="'+a.k+'" value="'+j.attrs[a.k]+'" min="1" max="30" '+s+'></div>';}).join('')
+    +'</div>'
+    +'<button class="btn btn-block" onclick="masterGuardarSpecial(\''+jid+'\')">▸ GUARDAR S.P.E.C.I.A.L.</button>'
+    +'</div></div>'
+
+    // ── Habilidades ──
+    +'<div class="card" style="margin-bottom:8px;"><div class="card-hdr">HABILIDADES</div><div style="padding:10px;">'
+    +'<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin-bottom:4px;">DE ARMA</div>'
+    +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px;">'
+    +HAB_ARMAS.map(function(h){return '<div><label style="font-size:8px;color:var(--pip-dim);display:block;">'+h+'</label><input type="number" class="efc-hab-arma" data-k="'+h+'" value="'+(j.habArmas[h]||0)+'" min="0" max="10" '+s+'></div>';}).join('')
+    +'</div>'
+    +'<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin-bottom:4px;">GENERALES</div>'
+    +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px;">'
+    +HAB_HABS.map(function(h){return '<div><label style="font-size:8px;color:var(--pip-dim);display:block;">'+h+'</label><input type="number" class="efc-hab-gen" data-k="'+h+'" value="'+(j.habilidades[h]||0)+'" min="0" max="10" '+s+'></div>';}).join('')
+    +'</div>'
+    +'<button class="btn btn-block" onclick="masterGuardarHabilidades(\''+jid+'\')">▸ GUARDAR HABILIDADES</button>'
+    +'</div></div>'
+
+    // ── Vida y experiencia ──
+    +'<div class="card" style="margin-bottom:8px;"><div class="card-hdr">VIDA Y EXPERIENCIA</div><div style="padding:10px;">'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">'
+    +'<div><label style="font-size:8px;color:var(--pip-dim);display:block;">PV MÁXIMOS</label><input type="number" id="efc-pvmax" value="'+j.pvMax+'" min="1" '+s+'></div>'
+    +'<div><label style="font-size:8px;color:var(--pip-dim);display:block;">EXPERIENCIA (PE)</label><input type="number" id="efc-pe" value="'+j.pe+'" min="0" '+s+'></div>'
+    +'</div>'
+    +'<button class="btn btn-block" onclick="masterGuardarVidaExp(\''+jid+'\')">▸ GUARDAR</button>'
+    +'</div></div>'
+
+    // ── Rasgos ──
+    +'<div class="card" style="margin-bottom:8px;"><div class="card-hdr">RASGOS ('+(j.rasgos||[]).length+')</div><div style="padding:10px;">'
+    +(!j.rasgos||!j.rasgos.length?'<div style="font-size:10px;color:var(--pip-dim);margin-bottom:8px;">Ninguno</div>'
+      :j.rasgos.map(function(rid){
+        var r=todosRasgos.find(function(x){return x.id===rid;});
+        return '<div style="display:flex;align-items:center;padding:5px 8px;border:1px solid var(--pip-border);margin-bottom:4px;">'
+          +'<span style="flex:1;font-size:12px;color:var(--pip-bright);">'+(r?r.n:rid)+'</span>'
+          +'<button class="chip chip-r" data-jid="'+jid+'" data-rid="'+rid+'" onclick="masterQuitarRasgo(this.dataset.jid,this.dataset.rid)">QUITAR</button>'
+          +'</div>';
+      }).join(''))
+    +'<button class="btn btn-block" style="margin-top:6px;" onclick="abrirOtorgarRasgo(\''+jid+'\')">+ OTORGAR RASGO</button>'
+    +'</div></div>'
+
+    // ── Extras ──
+    +'<div class="card" style="margin-bottom:8px;"><div class="card-hdr">EXTRAS ('+(j.extras||[]).length+')</div><div style="padding:10px;">'
+    +(!j.extras||!j.extras.length?'<div style="font-size:10px;color:var(--pip-dim);margin-bottom:8px;">Ninguno</div>'
+      :j.extras.map(function(en){
+        return '<div style="display:flex;align-items:center;padding:5px 8px;border:1px solid var(--pip-border);margin-bottom:4px;">'
+          +'<span style="flex:1;font-size:12px;color:var(--pip-bright);">'+en+'</span>'
+          +'<button class="chip chip-r" data-jid="'+jid+'" data-en="'+en+'" onclick="masterQuitarExtra(this.dataset.jid,this.dataset.en)">QUITAR</button>'
+          +'</div>';
+      }).join(''))
+    +'<button class="btn btn-block" style="margin-top:6px;" onclick="abrirOtorgarExtra(\''+jid+'\')">+ OTORGAR EXTRA</button>'
+    +'</div></div>';
+}
+
+window.masterGuardarSpecial=function(jid){
+  const sala=getMockSala(APP.salaId); const j=sala.jugadores[jid]; if(!j) return;
+  document.querySelectorAll('.efc-attr').forEach(function(inp){
+    var v=parseInt(inp.value); if(!isNaN(v)) j.attrs[inp.dataset.k]=v;
+  });
+  APP.jugadores=sala.jugadores;
+  fbSet('salas/'+APP.salaId+'/jugadores/'+jid,j);
+  showNotif('S.P.E.C.I.A.L. actualizado');
+  renderApp();
+};
+window.masterGuardarHabilidades=function(jid){
+  const sala=getMockSala(APP.salaId); const j=sala.jugadores[jid]; if(!j) return;
+  document.querySelectorAll('.efc-hab-arma').forEach(function(inp){
+    var v=parseInt(inp.value); if(!isNaN(v)) j.habArmas[inp.dataset.k]=v;
+  });
+  document.querySelectorAll('.efc-hab-gen').forEach(function(inp){
+    var v=parseInt(inp.value); if(!isNaN(v)) j.habilidades[inp.dataset.k]=v;
+  });
+  APP.jugadores=sala.jugadores;
+  fbSet('salas/'+APP.salaId+'/jugadores/'+jid,j);
+  showNotif('Habilidades actualizadas');
+  renderApp();
+};
+window.masterGuardarVidaExp=function(jid){
+  const sala=getMockSala(APP.salaId); const j=sala.jugadores[jid]; if(!j) return;
+  var pvMax=parseInt((document.getElementById('efc-pvmax')||{}).value);
+  var pe=parseInt((document.getElementById('efc-pe')||{}).value);
+  if(!isNaN(pvMax)&&pvMax>0){ j.pvMax=pvMax; if(j.pvAct>j.pvMax) j.pvAct=j.pvMax; }
+  if(!isNaN(pe)&&pe>=0) j.pe=pe;
+  APP.jugadores=sala.jugadores;
+  fbSet('salas/'+APP.salaId+'/jugadores/'+jid,j);
+  showNotif('Vida y experiencia actualizadas');
+  renderApp();
+};
+
+window.masterQuitarRasgo=function(jid,rid){
+  const sala=getMockSala(APP.salaId); const j=sala.jugadores[jid]; if(!j) return;
+  j.rasgos=(j.rasgos||[]).filter(function(x){return x!==rid;});
+  APP.jugadores=sala.jugadores;
+  fbSet('salas/'+APP.salaId+'/jugadores/'+jid,j);
+  showNotif('Rasgo quitado');
+  renderApp();
+};
+window.masterQuitarExtra=function(jid,en){
+  const sala=getMockSala(APP.salaId); const j=sala.jugadores[jid]; if(!j) return;
+  j.extras=(j.extras||[]).filter(function(x){return x!==en;});
+  APP.jugadores=sala.jugadores;
+  fbSet('salas/'+APP.salaId+'/jugadores/'+jid,j);
+  showNotif('Extra quitado');
+  renderApp();
+};
+
+window.abrirOtorgarRasgo=function(jid){
+  const sala=getMockSala(APP.salaId); const j=sala.jugadores[jid]; if(!j) return;
+  const todos=[].concat(RASGOS,APP.rasgosCustom||[]);
+  const disponibles=todos.filter(function(r){return !(j.rasgos||[]).includes(r.id);});
+  const modal=document.getElementById('obj-detail-modal');
+  const box=document.getElementById('obj-detail-box');
+  box.innerHTML='<div style="padding:16px;">'
+    +'<div style="font-family:VT323,monospace;font-size:20px;color:var(--pip-bright);margin-bottom:10px;">OTORGAR RASGO A '+j.nombre+'</div>'
+    +(!disponibles.length?'<div style="font-size:10px;color:var(--pip-dim);">Ya tiene todos los rasgos existentes</div>'
+      :disponibles.map(function(r){
+        return '<div style="display:flex;align-items:center;padding:8px;border:1px solid var(--pip-border);margin-bottom:4px;cursor:pointer;" data-jid="'+jid+'" data-rid="'+r.id+'" onclick="masterOtorgarRasgo(this.dataset.jid,this.dataset.rid)">'
+          +'<div style="flex:1;"><div style="font-size:13px;color:var(--pip-bright);">'+r.n+'</div><div style="font-size:9px;color:var(--pip-dim);">'+(r.d||'')+'</div></div>'
+          +'<span style="font-size:10px;color:var(--pip);">DAR ▸</span></div>';
+      }).join(''))
+    +'<button class="btn btn-warn btn-block" style="margin-top:10px;" onclick="cerrarDetalle()">CANCELAR</button>'
+    +'</div>';
+  modal.style.display='flex';
+};
+window.masterOtorgarRasgo=function(jid,rid){
+  const sala=getMockSala(APP.salaId); const j=sala.jugadores[jid]; if(!j) return;
+  if(!j.rasgos) j.rasgos=[];
+  if(!j.rasgos.includes(rid)) j.rasgos.push(rid);
+  APP.jugadores=sala.jugadores;
+  fbSet('salas/'+APP.salaId+'/jugadores/'+jid,j);
+  cerrarDetalle();
+  showNotif('Rasgo otorgado');
+  renderApp();
+};
+
+// Extras que necesitan elegir algo más al otorgarlos (arma/habilidad/atributo)
+const EXTRAS_CON_ELECCION={
+  'Daño adicional':'arma', 'Talento con habilidad':'arma', 'Profesional':'arma', 'Crítico superior':'arma',
+  'Entrenamiento intensivo':'atributo', 'Talento con atributo':'atributo',
+  'Instruido':'habilidades'
+};
+window.abrirOtorgarExtra=function(jid){
+  const sala=getMockSala(APP.salaId); const j=sala.jugadores[jid]; if(!j) return;
+  const todos=[].concat(EXTRAS_INICIALES,EXTRAS_COMUNES,EXTRAS_AVANZADOS,EXTRAS_LEGENDARIOS,APP.extrasCustom||[]);
+  const disponibles=todos.filter(function(e){return !(j.extras||[]).includes(e.n);});
+  const modal=document.getElementById('obj-detail-modal');
+  const box=document.getElementById('obj-detail-box');
+  box.innerHTML='<div style="padding:16px;">'
+    +'<div style="font-family:VT323,monospace;font-size:20px;color:var(--pip-bright);margin-bottom:10px;">OTORGAR EXTRA A '+j.nombre+'</div>'
+    +(!disponibles.length?'<div style="font-size:10px;color:var(--pip-dim);">Ya tiene todos los extras existentes</div>'
+      :disponibles.map(function(e){
+        return '<div style="display:flex;align-items:center;padding:8px;border:1px solid var(--pip-border);margin-bottom:4px;cursor:pointer;" data-jid="'+jid+'" data-en="'+e.n+'" onclick="masterOtorgarExtra(this.dataset.jid,this.dataset.en)">'
+          +'<div style="flex:1;"><div style="font-size:13px;color:var(--pip-bright);">'+e.n+'</div><div style="font-size:9px;color:var(--pip-dim);">'+(e.d||'')+'</div></div>'
+          +'<span style="font-size:10px;color:var(--pip);">DAR ▸</span></div>';
+      }).join(''))
+    +'<button class="btn btn-warn btn-block" style="margin-top:10px;" onclick="cerrarDetalle()">CANCELAR</button>'
+    +'</div>';
+  modal.style.display='flex';
+};
+window.masterOtorgarExtra=function(jid,en){
+  const sala=getMockSala(APP.salaId); const j=sala.jugadores[jid]; if(!j) return;
+  if(!j.extras) j.extras=[];
+  if(!j.extras.includes(en)) j.extras.push(en);
+  APP.jugadores=sala.jugadores;
+  fbSet('salas/'+APP.salaId+'/jugadores/'+jid,j);
+  const tipoEleccion=EXTRAS_CON_ELECCION[en];
+  if(tipoEleccion){
+    abrirEleccionExtraMaster(jid,en,tipoEleccion);
+    return;
+  }
+  cerrarDetalle();
+  showNotif('Extra otorgado: '+en);
+  renderApp();
+};
+
+window.abrirEleccionExtraMaster=function(jid,en,tipo){
+  const modal=document.getElementById('obj-detail-modal');
+  const box=document.getElementById('obj-detail-box');
+  var opciones=[];
+  if(tipo==='arma') opciones=['Armas cortas','Armas medias','Armas grandes','Armas de energía','Combate'];
+  else if(tipo==='atributo') opciones=ATTRS.map(function(a){return a.n;});
+  var listaHtml=tipo==='habilidades'
+    ?'<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px;">'
+      +HAB_ARMAS.concat(HAB_HABS).map(function(h){
+        return '<label style="display:flex;align-items:center;gap:4px;border:1px solid var(--pip-border);padding:4px 8px;font-size:11px;color:var(--pip-bright);"><input type="checkbox" class="chk-eleccion-multi" value="'+h+'">'+h+'</label>';
+      }).join('')
+      +'</div>'
+    :opciones.map(function(op){
+        return '<div style="padding:8px;border:1px solid var(--pip-border);margin-bottom:4px;cursor:pointer;" data-jid="'+jid+'" data-en="'+en+'" data-op="'+op+'" onclick="confirmarEleccionExtraMaster(this.dataset.jid,this.dataset.en,this.dataset.op)">'
+          +'<span style="font-size:12px;color:var(--pip-bright);">'+op+'</span></div>';
+      }).join('');
+  box.innerHTML='<div style="padding:16px;">'
+    +'<div style="font-family:VT323,monospace;font-size:18px;color:var(--pip-bright);margin-bottom:6px;">'+en+'</div>'
+    +'<div style="font-size:9px;color:var(--pip-dim);margin-bottom:10px;">¿A qué afecta?</div>'
+    +listaHtml
+    +(tipo==='habilidades'?'<button class="btn btn-block" data-jid="'+jid+'" data-en="'+en+'" onclick="confirmarEleccionMultiMaster(this.dataset.jid,this.dataset.en)">▸ CONFIRMAR</button>':'')
+    +'</div>';
+  modal.style.display='flex';
+};
+window.confirmarEleccionExtraMaster=function(jid,en,op){
+  const sala=getMockSala(APP.salaId); const j=sala.jugadores[jid]; if(!j) return;
+  if(en==='Daño adicional') j.extraArma=op;
+  else if(en==='Talento con habilidad') j.talHabilidad=op;
+  else if(en==='Profesional') j.profesionalArma=op;
+  else if(en==='Crítico superior') j.critSuperiorArma=op;
+  else if(en==='Entrenamiento intensivo'){ var attr=ATTRS.find(function(a){return a.n===op;}); if(attr) j.attrs[attr.k]=(j.attrs[attr.k]||0)+1; }
+  else if(en==='Talento con atributo') j.talAtributo=op;
+  APP.jugadores=sala.jugadores;
+  fbSet('salas/'+APP.salaId+'/jugadores/'+jid,j);
+  cerrarDetalle();
+  showNotif(en+' → '+op);
+  renderApp();
+};
+window.confirmarEleccionMultiMaster=function(jid,en){
+  const sala=getMockSala(APP.salaId); const j=sala.jugadores[jid]; if(!j) return;
+  var elegidas=Array.from(document.querySelectorAll('.chk-eleccion-multi:checked')).map(function(c){return c.value;});
+  if(en==='Instruido') j.instruidoHabs=elegidas;
+  APP.jugadores=sala.jugadores;
+  fbSet('salas/'+APP.salaId+'/jugadores/'+jid,j);
+  cerrarDetalle();
+  showNotif(en+' configurado');
+  renderApp();
+};
 
 function renderMModif(){
   const jugs=Object.values(APP.jugadores);
@@ -7047,16 +7378,25 @@ window.abrirDetalle=function(objId,origen){
 
   // Arma
   if(o.tipo==='arma'&&o.equipable){
+    const subcatLbl={corta:'Arma corta',media:'Arma media',grande:'Arma grande',energia:'Arma de energía',cac:'Cuerpo a cuerpo'}[o.subcat]||o.subcat;
+    if(o.subcat) rows+='<div class="obj-detail-row"><span class="obj-detail-key">CATEGORÍA</span><span class="obj-detail-val">'+subcatLbl+'</span></div>';
+    rows+='<div class="obj-detail-row"><span class="obj-detail-key">MANOS</span><span class="obj-detail-val">'+(o.manos===2?'Dos manos':'Una mano')+'</span></div>';
     if(o.daño) rows+='<div class="obj-detail-row"><span class="obj-detail-key">DAÑO TT</span><span class="obj-detail-val" style="color:var(--pip-warn);font-family:VT323,monospace;font-size:18px;">'+o.daño+'</span></div>';
     if(o.rf)   rows+='<div class="obj-detail-row"><span class="obj-detail-key">DAÑO RF</span><span class="obj-detail-val" style="color:var(--pip-warn);font-family:VT323,monospace;font-size:18px;">'+o.rf+'</span></div>';
     if(o.fa)   rows+='<div class="obj-detail-row"><span class="obj-detail-key">DAÑO FA</span><span class="obj-detail-val" style="color:var(--pip-warn);font-family:VT323,monospace;font-size:18px;">'+o.fa+'</span></div>';
-    // extraer alcance y cargador del desc
-    const descParts=o.desc.split('/').map(function(s){return s.trim()});
-    descParts.forEach(function(p){
-      if(p.indexOf('Carg')===0) rows+='<div class="obj-detail-row"><span class="obj-detail-key">CARGADOR</span><span class="obj-detail-val">'+p.replace('Carg.','').trim()+' balas</span></div>';
-      if(p.indexOf('Alc')===0)  rows+='<div class="obj-detail-row"><span class="obj-detail-key">ALCANCE</span><span class="obj-detail-val">'+p.replace('Alc.','').trim()+'</span></div>';
-      if(p.match(/^\d+mm$|^\./) ) rows+='<div class="obj-detail-row"><span class="obj-detail-key">MUNICIÓN</span><span class="obj-detail-val">'+p+'</span></div>';
-    });
+    if(o.subcat!=='cac'){
+      if(o.alcance)   rows+='<div class="obj-detail-row"><span class="obj-detail-key">ALCANCE</span><span class="obj-detail-val">'+o.alcance+' m</span></div>';
+      if(o.cargador)  rows+='<div class="obj-detail-row"><span class="obj-detail-key">CARGADOR</span><span class="obj-detail-val">'+o.cargador+' balas</span></div>';
+      const muniObj=o.muniId?getMuniById(o.muniId):null;
+      if(muniObj)     rows+='<div class="obj-detail-row"><span class="obj-detail-key">MUNICIÓN</span><span class="obj-detail-val">'+muniObj.n+'</span></div>';
+      const costes=[];
+      if(o.ttCost) costes.push('TT: '+o.ttCost);
+      if(o.rfCost) costes.push('RF: '+o.rfCost);
+      if(o.faCost) costes.push('FA: '+o.faCost);
+      if(costes.length) rows+='<div class="obj-detail-row"><span class="obj-detail-key">BALAS/DISPARO</span><span class="obj-detail-val">'+costes.join(' · ')+'</span></div>';
+    }
+    if(o.calidad) rows+='<div class="obj-detail-row"><span class="obj-detail-key">CALIDAD</span><span class="obj-detail-val" style="color:var(--pip-bright);">+'+o.calidad+' Ataque</span></div>';
+    if(o.estado)  rows+='<div class="obj-detail-row"><span class="obj-detail-key">ESTADO</span><span class="obj-detail-val" style="color:var(--pip-bright);">+'+o.estado+' Daño</span></div>';
   }
 
   // Armadura
