@@ -5359,7 +5359,14 @@ window.abrirEditorFichaCompleta=function(jid){
 };
 
 function renderMFichas(){
-  if(APP._editandoFichaId) return renderEditorFichaCompleta(APP._editandoFichaId);
+  if(APP._editandoFichaId){
+    try{
+      return renderEditorFichaCompleta(APP._editandoFichaId);
+    }catch(e){
+      console.error('Error al abrir el editor de ficha:',e);
+      return '<div class="card" style="border-color:var(--pip-danger);"><div class="card-hdr" style="color:var(--pip-danger);">⚠ ERROR AL ABRIR EL EDITOR</div><div style="padding:10px;font-size:10px;color:var(--pip-dim);">'+(e&&e.message?e.message:'Error desconocido')+'</div></div><button class="btn btn-block" onclick="APP._editandoFichaId=null;renderApp();">◂ VOLVER A FICHAS</button>';
+    }
+  }
   const jugs=Object.values(APP.jugadores);
   return`
   <div class="card"><div class="card-hdr">NUEVA FICHA</div><div class="card-body">
@@ -5439,7 +5446,7 @@ function renderEditorFichaCompleta(jid){
     +'</div>'
     +'<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin-bottom:4px;">GENERALES</div>'
     +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px;">'
-    +HAB_HABS.map(function(h){return '<div><label style="font-size:8px;color:var(--pip-dim);display:block;">'+h+'</label><input type="number" class="efc-hab-gen" data-k="'+h+'" value="'+(j.habilidades[h]||0)+'" min="0" max="10" '+s+'></div>';}).join('')
+    +HAB_HABS.map(function(h){return '<div><label style="font-size:8px;color:var(--pip-dim);display:block;">'+h+'</label><input type="number" class="efc-hab-gen" data-k="'+h+'" value="'+(j.habHabs[h]||0)+'" min="0" max="10" '+s+'></div>';}).join('')
     +'</div>'
     +'<button class="btn btn-block" onclick="masterGuardarHabilidades(\''+jid+'\')">▸ GUARDAR HABILIDADES</button>'
     +'</div></div>'
@@ -5495,7 +5502,7 @@ window.masterGuardarHabilidades=function(jid){
     var v=parseInt(inp.value); if(!isNaN(v)) j.habArmas[inp.dataset.k]=v;
   });
   document.querySelectorAll('.efc-hab-gen').forEach(function(inp){
-    var v=parseInt(inp.value); if(!isNaN(v)) j.habilidades[inp.dataset.k]=v;
+    var v=parseInt(inp.value); if(!isNaN(v)) j.habHabs[inp.dataset.k]=v;
   });
   APP.jugadores=sala.jugadores;
   fbSet('salas/'+APP.salaId+'/jugadores/'+jid,j);
