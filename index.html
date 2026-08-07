@@ -3756,7 +3756,14 @@ function renderInvGrupos(j, eq){
     const equipadoSlot=Object.keys(eq).find(function(s){return eq[s]===_eid||eq[s]===item.objId;})||null;
     const eqStyle=equipado?'background:rgba(74,254,130,.06);border-left:3px solid var(--pip);':'border-left:3px solid transparent;';
     let quickBtn='';
-    if(o.equipable&&o.slotTipo){
+    if(o.equipable&&o.slotTipo==='arma'){
+      // Armas: pueden llevarse dos (incluso iguales) — mostrar QUITAR si hay una puesta, y EQUIPAR si queda hueco libre, los dos a la vez si aplica
+      const hayHuecoLibre=(!eq.arma1)||(!eq.arma2&&eq.arma2!=='BLOQUEADO');
+      let btns='';
+      if(equipado) btns+='<button style="min-width:52px;padding:6px;border:1px solid var(--pip-danger);background:none;color:var(--pip-danger);font-family:VT323,monospace;font-size:12px;cursor:pointer;" data-slot="'+equipadoSlot+'" onclick="event.stopPropagation();desequipar(this.dataset.slot)">QUIT.</button>';
+      if(hayHuecoLibre) btns+='<button style="min-width:52px;padding:6px;border:1px solid var(--pip);background:none;color:var(--pip-bright);font-family:VT323,monospace;font-size:12px;cursor:pointer;" data-obj="'+o.id+'" onclick="event.stopPropagation();equipar(\'arma\',parseInt(this.dataset.obj))">EQUIP.</button>';
+      quickBtn=btns?'<div style="display:flex;flex-direction:column;gap:3px;">'+btns+'</div>':'';
+    } else if(o.equipable&&o.slotTipo){
       if(equipado){
         quickBtn='<button style="min-width:52px;padding:8px 6px;border:1px solid var(--pip-danger);background:none;color:var(--pip-danger);font-family:VT323,monospace;font-size:14px;cursor:pointer;" data-slot="'+equipadoSlot+'" onclick="event.stopPropagation();desequipar(this.dataset.slot)">QUIT.</button>';
       } else {
@@ -5345,6 +5352,11 @@ window.lvlupNext=function(){
 /* ═══════════════════════════════════════════
    MASTER VIEWS
    ═══════════════════════════════════════════ */
+window.abrirEditorFichaCompleta=function(jid){
+  APP._editandoFichaId=jid;
+  renderApp();
+};
+
 function renderMFichas(){
   if(APP._editandoFichaId) return renderEditorFichaCompleta(APP._editandoFichaId);
   const jugs=Object.values(APP.jugadores);
@@ -7419,7 +7431,11 @@ window.abrirDetalle=function(objId,origen){
   // Botones de acción (solo jugador y solo si el objeto está en su inventario)
   const esContextoTienda=(origen==='tienda');
   let acciones='';
-  if(j&&!esContextoTienda&&o.equipable&&o.slotTipo){
+  if(j&&!esContextoTienda&&o.equipable&&o.slotTipo==='arma'){
+    const hayHuecoLibre=(!eq.arma1)||(!eq.arma2&&eq.arma2!=='BLOQUEADO');
+    if(equipadoEn) acciones+='<button class="obj-equip-btn equipped" data-slot="'+equipadoEn+'" onclick="desequipar(this.dataset.slot);cerrarDetalle()">✕ DESEQUIPAR</button>';
+    if(hayHuecoLibre) acciones+='<button class="obj-equip-btn" data-obj="'+o.id+'" onclick="equipar(\'arma\',parseInt(this.dataset.obj));cerrarDetalle()">⚔ EQUIPAR'+(equipadoEn?' (2ª MANO)':'')+'</button>';
+  } else if(j&&!esContextoTienda&&o.equipable&&o.slotTipo){
     if(equipadoEn){
       acciones='<button class="obj-equip-btn equipped" data-slot="'+equipadoEn+'" onclick="desequipar(this.dataset.slot);cerrarDetalle()">✕ DESEQUIPAR</button>';
     } else {
