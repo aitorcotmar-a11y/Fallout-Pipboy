@@ -3349,7 +3349,6 @@ function renderJEstado(){
     +'<span style="font-family:VT323,monospace;font-size:28px;color:var(--pip-bright);text-shadow:var(--glow);line-height:1;min-width:20px;text-align:center;">'+(j.puntossuerte||0)+'</span>'
     +'<button style="width:26px;height:26px;border:1px solid var(--pip-border);background:none;color:var(--pip);font-size:16px;cursor:pointer;font-family:VT323,monospace;line-height:1;" data-field="puntossuerte" data-delta="1" onclick="cambiarContador(this)">+</button>'
     +'</div>'
-    +'<div style="font-size:7px;color:var(--pip-dim);margin-top:2px;">Máx '+calcSPts(j)+'</div>'
     +'</div>'
 
     // KARMA con -/+
@@ -4957,7 +4956,7 @@ window.wizardNext=function(){
     // Guardar elecciones de talento (wizardData ES la ficha, ya están copiados)
     // extraArma, talAtributo, talHabilidad ya están en d directamente
     // inicializar puntos de suerte al confirmar
-    d.puntossuerte=calcSPts(d);
+    d.puntossuerte=d.puntossuerte||0;
     d.karma=d.karma||0;
     if(!d.cuadros||!d.cuadros.length) d.cuadros=[
       {id:'mov',   label:'MOV',      valor:'', auto:true},
@@ -5329,6 +5328,10 @@ window.lvlupNext=function(){
     if(d.extraElegido==='Vitalidad'){
       j.pvMax+=30; j.pvAct=Math.min(j.pvAct+30,j.pvMax);
     }
+    // Afortunado: +1 punto de suerte (de una vez, el contador ya no depende de fórmula)
+    if(d.extraElegido==='Afortunado'){
+      j.puntossuerte=(j.puntossuerte||0)+1;
+    }
     j.levelUpPendiente=false;
     saveJ();
     showNotif('¡Nivel '+j.nivel+' alcanzado!');
@@ -5594,7 +5597,14 @@ window.abrirOtorgarExtra=function(jid){
 window.masterOtorgarExtra=function(jid,en){
   const sala=getMockSala(APP.salaId); const j=sala.jugadores[jid]; if(!j) return;
   if(!j.extras) j.extras=[];
-  if(!j.extras.includes(en)) j.extras.push(en);
+  if(!j.extras.includes(en)){
+    j.extras.push(en);
+    // Bonos de una sola vez, igual que al elegirlos en creación/subida de nivel
+    if(en==='Duro'){ j.pvMax+=10; j.pvAct+=10; }
+    if(en==='Vitalidad'){ j.pvMax+=30; j.pvAct=Math.min(j.pvAct+30,j.pvMax); }
+    if(en==='Afortunado'){ j.puntossuerte=(j.puntossuerte||0)+1; }
+    if(en==='Evolución perfecta'){ ATTRS.forEach(function(a){ j.attrs[a.k]=(j.attrs[a.k]||7)+2; }); }
+  }
   APP.jugadores=sala.jugadores;
   fbSet('salas/'+APP.salaId+'/jugadores/'+jid,j);
   const tipoEleccion=EXTRAS_CON_ELECCION[en];
@@ -6356,6 +6366,7 @@ window.masterDelRasgo=function(rid){
    Igual que Rasgos: lista todo (inicial/común/avanzado/legendario) + custom.
    Editar un extra base = override (nombre y categoría bloqueados).
    ═══════════════════════════════════════════ */
+const TIERS_EXTRA_COLOR={inicial:'#4afe82',comun:'#f5d742',avanzado:'#ff9a3d',legendario:'#ff4d4d'};
 const TIERS_EXTRA=[
   {k:'inicial',n:'INICIAL',arr:function(){return EXTRAS_INICIALES;}},
   {k:'comun',n:'COMÚN',arr:function(){return EXTRAS_COMUNES;}},
@@ -6430,9 +6441,11 @@ function renderMExtras(){
       :todosExtras.map(function(e){
         var tier=tierDeExtraBase(e.id);
         var esBase=!!tier;
+        var tierKey=esBase?tier:(e.tierCustom||'comun');
         var tierLabel=esBase?(TIERS_EXTRA.find(function(t){return t.k===tier;})||{n:tier}).n:((TIERS_EXTRA.find(function(t){return t.k===e.tierCustom;})||{n:'COMÚN'}).n);
-        return '<div class="shop-item">'
-          +'<div class="shop-info"><div class="shop-name">'+e.n+' <span style="font-size:8px;color:var(--pip-dim);border:1px solid var(--pip-border);padding:0 4px;">'+tierLabel+(esBase?' · BASE':'')+'</span></div>'
+        var tierColor=TIERS_EXTRA_COLOR[tierKey]||'var(--pip-dim)';
+        return '<div class="shop-item" style="border-left:3px solid '+tierColor+';">'
+          +'<div class="shop-info"><div class="shop-name" style="color:'+tierColor+';">'+e.n+' <span style="font-size:8px;color:'+tierColor+';border:1px solid '+tierColor+';padding:0 4px;">'+tierLabel+(esBase?' · BASE':'')+'</span></div>'
           +'<div class="shop-desc" style="font-size:11px;color:#7ddb8e;">'+(e.d||'')+'</div>'
           +(e.efectos&&e.efectos.length?'<div style="font-size:10px;color:var(--pip-dim);margin-top:2px;">'+e.efectos.map(function(ef){return (ef.signo==='-'?'−':'+')+ef.valor+' '+nombreParam(ef.cat,ef.param);}).join(' · ')+'</div>':'')
           +(e.banner?'<div style="font-size:10px;color:var(--pip-warn);margin-top:2px;">ℹ '+e.banner+'</div>':'')
@@ -7241,8 +7254,7 @@ window.cambiarContador=function(btn){
   const field=btn.dataset.field;
   const delta=parseInt(btn.dataset.delta);
   if(field==='puntossuerte'){
-    const max=calcSPts(j);
-    j.puntossuerte=Math.max(0,Math.min(max,(j.puntossuerte||0)+delta));
+    j.puntossuerte=(j.puntossuerte||0)+delta;
   } else if(field==='karma'){
     j.karma=(j.karma||0)+delta;
   }
