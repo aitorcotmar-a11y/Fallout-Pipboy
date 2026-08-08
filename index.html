@@ -736,6 +736,7 @@ const CATALOGO_PARAMS={
     {k:'def',n:'Defensa (DEF)'},
     {k:'pv',n:'Puntos de Vida (PV)'},
     {k:'iniciativa',n:'Iniciativa'},
+    {k:'mov',n:'Movilidad (MOV)'},
     {k:'puntos_suerte',n:'Puntos de suerte máximos'},
     {k:'carga',n:'Carga máxima'},
     {k:'rads',n:'Rads/hora'},
@@ -805,7 +806,7 @@ const RASGOS=[
   {id:'iridiscente', n:'Iridiscente',         d:'Rads recibidos ÷2'},
   {id:'kamikaze',    n:'Kamikaze',            d:'+5 Iniciativa · -1 bono AGI a DEF', efectos:[{cat:'derivado',param:'iniciativa',signo:'+',valor:5}]},
   {id:'madrugador',  n:'Madrugador',          d:'Duermes mínimo 4h · ℹ solo informativo'},
-  {id:'mano',        n:'Mano Dominante',      d:'+2 ataque Armas cortas · -2 resto de armas', efectos:[{cat:'derivado',param:'atk_cortas',signo:'+',valor:2},{cat:'derivado',param:'atk_medias',signo:'-',valor:2},{cat:'derivado',param:'atk_grandes',signo:'-',valor:2},{cat:'derivado',param:'atk_energia',signo:'-',valor:2},{cat:'derivado',param:'atk_cac',signo:'-',valor:2}]},
+  {id:'mano',        n:'Mano Dominante',      d:'+2 ataque con armas de una mano · -2 con armas de dos manos'},
   {id:'masacre',     n:'Masacre',             d:'+2 ataque · +1 daño recibido por enemigos', efectos:[{cat:'derivado',param:'atk_todas',signo:'+',valor:2}]},
   {id:'metabolismo', n:'Metabolismo rápido',  d:'Curar x2 al descansar · Rads ÷2 al descansar · ℹ solo informativo'},
   {id:'noctambulo',  n:'Noctámbulo',          d:'Noche +1 Atk · Día -1 Atk · ℹ solo informativo'},
@@ -1208,7 +1209,7 @@ function calcBlinjajeInfo(j){
     defBonus+=o.defBonus||0;
     radReduc+=o.radReduc||0;
     if(o.tipoBlinaje) tipoMax=o.tipoBlinaje;
-    if(o.fueMin&&j.attrs.fue<o.fueMin) fueOk=false;
+    if(o.fueMin&&calcFUEefectiva(j)<o.fueMin) fueOk=false;
     if(o.fueMin&&o.fueMin>fueReq) fueReq=o.fueMin;
   });
   const setBonus=calcSetBonus(j);
@@ -1231,7 +1232,7 @@ function calcAGIbonoDEF(j){
   });
   // Sin blindaje: mod AGI NO se suma a DEF
   if(!llevaBlindaje) return 0;
-  var mod=getMod(j.attrs.agi+(((j.rasgos||[]).includes('pequeno'))?1:0));
+  var mod=getMod(calcAtrEf(j,'agi')+(((j.rasgos||[]).includes('pequeno'))?1:0));
   // Pesada y servo-adaptado: sin bono AGI
   if(tipoMas==='pesada'||tipoMas==='servo-adaptado') return 0;
   // Intermedia y combate: máximo +1
@@ -1274,15 +1275,15 @@ function calcDEF(j){
 
 function calcFUEefectiva(j){
   const eq=j.equipo||{};
-  const _servoFue=eq.casco?getObjById(eq.casco):null; if(_servoFue&&_servoFue.ocupaTres) return j.attrs.fue+4;
+  const _servoFue=eq.casco?getObjById(eq.casco):null; if(_servoFue&&_servoFue.ocupaTres) return calcAtrEf(j,'fue')+4;
   const setBonus=calcSetBonus(j);
-  return j.attrs.fue+(setBonus.fue||0);
+  return calcAtrEf(j,'fue')+(setBonus.fue||0);
 }
-function calcMOV(j){return 10+getMod(j.attrs.agi)+(calcBonusEfectivos(j).derivado.mov||0)}
+function calcMOV(j){return 10+getMod(calcAtrEf(j,'agi'))+(calcBonusEfectivos(j).derivado.mov||0)}
 function calcCRIT(j){
   if((j.rasgos||[]).includes('disparo')) return null;
-  const m=getMod(j.attrs.sue);
-  var base=20-(m>0?m:0);
+  const m=getMod(calcAtrEf(j,'sue'));
+  var base=20-(m>0?m:0)-(calcBonusEfectivos(j).derivado.critico||0);
   // Crítico superior: -2 al umbral con el arma equipada
   if((j.extras||[]).includes('Crítico superior')&&j.critSuperiorArma){
     var eq=j.equipo||{};
@@ -1292,8 +1293,8 @@ function calcCRIT(j){
   }
   return base;
 }
-function calcPIF(j){var base=j.attrs.sue<=7?3:j.attrs.sue<=8?2:1;var br=calcBonusRasgos(j);return base+(br.pifia||0);}
-function calcSPts(j){const m=getMod(j.attrs.sue);const base=m>0?m:0;return base+(calcBonusEfectivos(j).derivado.puntos_suerte||0);}
+function calcPIF(j){var sueEf=calcAtrEf(j,'sue');var base=sueEf<=7?3:sueEf<=8?2:1;var br=calcBonusRasgos(j);return base+(br.pifia||0);}
+function calcSPts(j){const m=getMod(calcAtrEf(j,'sue'));const base=m>0?m:0;return base+(calcBonusEfectivos(j).derivado.puntos_suerte||0);}
 function calcCuadroValor(j,c){
   if(!c.auto) return c.valor||'—';
   switch(c.id){
@@ -1301,7 +1302,7 @@ function calcCuadroValor(j,c){
     case 'atk':    {
       // Ataque base: Mod.AGI + bonos generales (sin habilidad específica de arma)
       var brAtk=calcBonusRasgos(j);
-      var modAgiAtk=getMod(j.attrs.agi+((j.rasgos||[]).includes('pequeno')?1:0));
+      var modAgiAtk=getMod(calcAtrEf(j,'agi')+((j.rasgos||[]).includes('pequeno')?1:0));
       var radEfAtk2=calcEfectosRad(j); var penRadAtk2=radEfAtk2.reduce(function(s,e){return s+(e.penHab||0);},0);
       var atk=modAgiAtk+(j.penMod||0)+(brAtk.atkTodas||0)+penRadAtk2;
       return (atk>=0?'+':'')+atk;
@@ -1311,21 +1312,21 @@ function calcCuadroValor(j,c){
     case 'crit':   { var c=calcCRIT(j); return c===null?'—':c+'+'; }
     case 'pif':    return calcPIF(j)+'-';
     case 'sue':    return calcSPts(j)+' pts';
-    case 'modagi': return (getMod(j.attrs.agi)>=0?'+':'')+getMod(j.attrs.agi);
-    case 'modres': return (getMod(j.attrs.res)>=0?'+':'')+getMod(j.attrs.res);
-    case 'modfue': return (getMod(j.attrs.fue)>=0?'+':'')+getMod(j.attrs.fue);
-    case 'modint': return (getMod(j.attrs.int)>=0?'+':'')+getMod(j.attrs.int);
-    case 'modper': return (getMod(j.attrs.per)>=0?'+':'')+getMod(j.attrs.per);
-    case 'modcar': return (getMod(j.attrs.car)>=0?'+':'')+getMod(j.attrs.car);
-    case 'modsue': return (getMod(j.attrs.sue)>=0?'+':'')+getMod(j.attrs.sue);
+    case 'modagi': { var mv=getMod(calcAtrEf(j,'agi')); return (mv>=0?'+':'')+mv; }
+    case 'modres': { var mv=getMod(calcAtrEf(j,'res')); return (mv>=0?'+':'')+mv; }
+    case 'modfue': { var mv=getMod(calcAtrEf(j,'fue')); return (mv>=0?'+':'')+mv; }
+    case 'modint': { var mv=getMod(calcAtrEf(j,'int')); return (mv>=0?'+':'')+mv; }
+    case 'modper': { var mv=getMod(calcAtrEf(j,'per')); return (mv>=0?'+':'')+mv; }
+    case 'modcar': { var mv=getMod(calcAtrEf(j,'car')); return (mv>=0?'+':'')+mv; }
+    case 'modsue': { var mv=getMod(calcAtrEf(j,'sue')); return (mv>=0?'+':'')+mv; }
     // Atributos
-    case 'fue':    return j.attrs.fue;
-    case 'agi':    return j.attrs.agi;
-    case 'res':    return j.attrs.res;
-    case 'int':    return j.attrs.int;
-    case 'per':    return j.attrs.per;
-    case 'car':    return j.attrs.car;
-    case 'sueA':   return j.attrs.sue;
+    case 'fue':    return calcAtrEf(j,'fue');
+    case 'agi':    return calcAtrEf(j,'agi');
+    case 'res':    return calcAtrEf(j,'res');
+    case 'int':    return calcAtrEf(j,'int');
+    case 'per':    return calcAtrEf(j,'per');
+    case 'car':    return calcAtrEf(j,'car');
+    case 'sueA':   return calcAtrEf(j,'sue');
     // Habilidades armas
     case 'hArmaC':  return (j.habArmas['Armas cortas']||0)+(j.penMod||0);
     case 'hArmaM':  return (j.habArmas['Armas medias']||0)+(j.penMod||0);
@@ -1408,6 +1409,8 @@ function calcBonusEfectivos(j){
   }
   return out;
 }
+function calcAtrEf(j,k){ return (j.attrs&&j.attrs[k]!=null?j.attrs[k]:7)+(calcBonusEfectivos(j).atributo[k]||0); }
+function calcPVMaxEfectivo(j){ return (j.pvMax||1)+(calcBonusEfectivos(j).derivado.pv||0); }
 function calcBonusDrogas(j){
   var g=calcBonusEfectivos(j);
   var atr=g.atributo||{};
@@ -1434,7 +1437,7 @@ function calcFatigaEfectiva(j){
 
 function calcEstadoFatiga(j){
   var fef=calcFatigaEfectiva(j);
-  var res=j.attrs?j.attrs.res:7;
+  var res=j.attrs?calcAtrEf(j,'res'):7;
   if(fef===0) return null;
   if(fef>=3&&fef<=6) return {label:'CANSADO',color:'var(--pip-warn)',desc:'-2 a todas las tiradas',fef:fef};
   if(fef>=7&&fef<=res) return {label:'EXHAUSTO',color:'var(--pip-danger)',desc:'Desventaja en todas las tiradas',fef:fef};
@@ -1443,12 +1446,12 @@ function calcEstadoFatiga(j){
 }
 
 function calcIniciativa(j){
-  var base=getMod(j.attrs.agi||7)+((j.rasgos||[]).includes('pequeno')?1:0);
+  var base=getMod(calcAtrEf(j,'agi')+((j.rasgos||[]).includes('pequeno')?1:0));
   var setBonus=calcSetBonus(j);
   return base+(setBonus.iniciativa||0)+(calcBonusEfectivos(j).derivado.iniciativa||0);
 }
 
-function calcCarga(j){return j.attrs.fue*10+(j.clase==='superviviente'?20:0)-(j.rasgos.includes('pequeno')?15:0)+(calcBonusEfectivos(j).derivado.carga||0)}
+function calcCarga(j){return calcAtrEf(j,'fue')*10+(j.clase==='superviviente'?20:0)-(j.rasgos.includes('pequeno')?15:0)+(calcBonusEfectivos(j).derivado.carga||0)}
 function calcCargaUsada(j){
   var pesoInv=(j.inventario||[]).reduce(function(s,i){const o=getObjById(i.objId)||APP.tienda.find(function(x){return x.id===i.objId});return s+(o?(o.pc||0)*i.qty:0)},0);
   var pesoMuni=getMunicionCatalogo().reduce(function(s,m){
@@ -1719,9 +1722,9 @@ function renderSelector(){
     return;
   }
   lista.innerHTML=jugs.map(j=>{
-    const pvPct=Math.round((j.pvAct/j.pvMax)*100);
+    const pvMaxEf=calcPVMaxEfectivo(j); const pvPct=Math.round((j.pvAct/pvMaxEf)*100);
     const color=pvPct<30?'var(--pip-danger)':pvPct<60?'var(--pip-warn)':'var(--pip-bright)';
-    const estado=j.confirmada?`${j.pvAct}/${j.pvMax} PV · ${CLASES[j.clase].n}`:'SIN CONFIRMAR — CREACIÓN PENDIENTE';
+    const estado=j.confirmada?`${j.pvAct}/${calcPVMaxEfectivo(j)} PV · ${CLASES[j.clase].n}`:'SIN CONFIRMAR — CREACIÓN PENDIENTE';
     return `<div class="jugador-item" onclick="entrarJugadorConPin('${j.id}')">
       <div style="flex:1;">
         <div class="jugador-item-name">${j.nombre} ${j.online?'<span style="font-size:9px;color:#4afe82;">● ONLINE</span>':''}</div>
@@ -3138,7 +3141,7 @@ function renderArmaSlotBlock(j,slot){
   var habArmaKey=armaObj?(subcatMap[armaObj.subcat]||'Combate'):'Combate';
   var gEf=calcBonusEfectivos(j); // motor único: drogas + rasgos + extras convertidos a datos
   var habArmaVal=armaObj?(j.habArmas[habArmaKey]||0)+(gEf.hab_arma[habArmaKey]||0):0;
-  var modAgi=getMod(j.attrs.agi+((j.rasgos||[]).includes('pequeno')?1:0));
+  var modAgi=getMod(calcAtrEf(j,'agi')+((j.rasgos||[]).includes('pequeno')?1:0));
   var radEfAtk=calcEfectosRad(j); var penRadAtk=radEfAtk.reduce(function(s,e){return s+(e.penHab||0);},0);
   // Bono de ataque por subcat del arma (rasgos/extras con efecto "Ataque con Armas X" + "Ataque con cualquier arma")
   var bonSubcatAtk=0;
@@ -3146,18 +3149,26 @@ function renderArmaSlotBlock(j,slot){
     var subcatDerKey={corta:'atk_cortas',media:'atk_medias',grande:'atk_grandes',energia:'atk_energia',cac:'atk_cac'}[armaObj.subcat];
     if(subcatDerKey) bonSubcatAtk=(gEf.derivado[subcatDerKey]||0)+(gEf.derivado.atk_todas||0);
   }
-  // Extra Luchador: +1 ataque con cualquier arma equipada (no puños, ese bloque es aparte) — comprobación especial: atk_todas también llega a Puños y Luchador no debe hacerlo
+  // Extra Luchador: +1 ataque con cualquier arma equipada (el manual no excluye los puños; ese bono se añade también en el bloque de Puños)
   var bonLuchador=(armaObj&&(j.extras||[]).includes('Luchador'))?1:0;
   // Extra Cazador: +1 ataque con armas medias a distancia sin RF/FA (solo TT)
   var bonCazador=(armaObj&&armaObj.subcat==='media'&&!armaObj.rf&&!armaObj.fa&&(j.extras||[]).includes('Cazador'))?1:0;
   // Talento con habilidad: si coincide con la habilidad de arma del arma equipada, +1 automático (Explosivos y habilidades generales solo muestran banner)
   var bonTalHab=(armaObj&&j.talHabilidad&&j.talHabilidad===habArmaKey&&(j.extras||[]).includes('Talento con habilidad'))?1:0;
-  var bonAtaqueTT=armaObj?(modAgi+habArmaVal+(j.penMod||0)+penRadAtk+bonSubcatAtk+(armaObj.calidad||0)+(gEf.derivado.ataque_tt||0)+bonLuchador+bonCazador+bonTalHab):0;
+  // Rasgo Mano Dominante: +2 con armas de una mano, -2 con armas de dos manos (según cómo se empuña, no por subcategoría)
+  var bonManoDom=0;
+  if(armaObj&&(j.rasgos||[]).includes('mano')){
+    var usandoDosManos=armaObj.manos===2||(esCaCMedia&&dosManosSlot);
+    bonManoDom=usandoDosManos?-2:2;
+  }
+  // Regla del manual: en CaC se suma el Mod. FUE tanto al ataque como al daño
+  var esCaC=armaObj&&armaObj.subcat==='cac';
+  var modFueCaC=esCaC?getMod(calcAtrEf(j,'fue')):0;
+  var bonAtaqueTT=armaObj?(modAgi+habArmaVal+(j.penMod||0)+penRadAtk+bonSubcatAtk+(armaObj.calidad||0)+(gEf.derivado.ataque_tt||0)+bonLuchador+bonCazador+bonTalHab+modFueCaC+bonManoDom):0;
   var bonAtaqueRF=armaObj?(bonAtaqueTT-2+(gEf.derivado.ataque_rf||0)):0;
   var bonAtaqueFA=armaObj?(bonAtaqueTT+(gEf.derivado.ataque_fa||0)):0;
   // FA = desventaja (mostrar valor pero indicar desventaja)
-  var esCaC=armaObj&&armaObj.subcat==='cac';
-  var bonDañoCaCTotal=esCaC?(gEf.derivado.daño_cac||0):0;
+  var bonDañoCaCTotal=esCaC?(gEf.derivado.daño_cac||0)+modFueCaC:0;
   var bonDañoDistTotal=(!esCaC&&armaObj&&armaObj.subcat!=='explosivo')?(gEf.derivado.daño_dist||0):0;
   // Daño Adicional extra
   var dañoAdicExtra=armaObj?(armaObj.estado||0):0;
@@ -3168,7 +3179,7 @@ function renderArmaSlotBlock(j,slot){
     var subcatLabel={corta:'Armas cortas',media:'Armas medias',grande:'Armas grandes',energia:'Armas de energía',cac:'Combate'}[armaObj.subcat]||'';
     if(j.extraArma&&j.extraArma===subcatLabel&&(j.extras||[]).some(function(e){return e==='Daño adicional';})) dañoAdicExtra+=2;
     // Profesional: +4 daño con arma elegida (distancia)
-    if(j.profesionalArma&&j.profesionalArma===subcatLabel&&(j.extras||[]).includes('Profesional')) dañoAdicExtra+=4;
+    if(j.profesionalArma&&j.profesionalArma===subcatLabel&&j.profesionalArma!=='Combate'&&(j.extras||[]).includes('Profesional')) dañoAdicExtra+=4;
   }
   var bonDañoTotal=bonDañoCaCTotal+bonDañoDistTotal+dañoAdicExtra;
   var bonDañoDroga=bonDañoTotal>0?'+'+bonDañoTotal:'';
@@ -3237,7 +3248,7 @@ function renderJEstado(){
   const j=myFicha();
   if(!j||!j.attrs) return '<div class="empty" style="padding:30px;text-align:center;">Cargando ficha...</div>';
   if(!j.confirmada) return '<div style="padding:30px;text-align:center;">'    +'<div style="font-family:VT323,monospace;font-size:24px;color:var(--pip-warn);margin-bottom:12px;">⚠ FICHA PENDIENTE</div>'    +'<div style="font-size:11px;color:var(--pip-dim);margin-bottom:16px;">Tu personaje aún no ha sido creado.</div>'    +'<button class="btn" onclick="abrirWizard()">▸ CREAR PERSONAJE</button>'    +'</div>';
-  const pvPct=Math.round((j.pvAct/j.pvMax)*100);
+  const pvMaxEf=calcPVMaxEfectivo(j); const pvPct=Math.round((j.pvAct/pvMaxEf)*100);
   const radPct=Math.min(100,Math.round((j.rads/1000)*100));
   const pvColor=pvPct<25?'var(--pip-danger)':pvPct<50?'var(--pip-warn)':'var(--pip)';
   const cU=calcCargaUsada(j), cM=calcCarga(j), sobre=cU>cM;
@@ -3322,7 +3333,7 @@ function renderJEstado(){
     // ── Barras PV y RAD ──
     +'<div class="bar-row"><span class="bar-lbl">PV</span>'
     +'<div class="bar-track"><div class="bar-fill '+(pvPct<25?'bfdanger':pvPct<50?'bfwarn':'bfhp')+'" style="width:'+pvPct+'%"></div></div>'
-    +'<span class="bar-nums" style="color:'+pvColor+';">'+j.pvAct+'/'+j.pvMax+'</span></div>'
+    +'<span class="bar-nums" style="color:'+pvColor+';">'+j.pvAct+'/'+calcPVMaxEfectivo(j)+'</span></div>'
     +'<div class="bar-row"><span class="bar-lbl" style="color:var(--pip-rad)">RAD</span>'
     +'<div class="bar-track"><div class="bar-fill bfrad" style="width:'+radPct+'%"></div></div>'
     +'<span class="bar-nums" style="color:var(--pip-rad);">'+Math.ceil(j.rads||0)+'</span></div>'
@@ -3421,9 +3432,9 @@ function renderJEstado(){
     // ── Aviso desventaja FUE ──
     +[armaObj,armaObj2].filter(Boolean).map(function(ao){
       var msgs=[];
-      if(ao.subcat==='cac'&&ao.daño==='2D8'&&j.attrs.fue<14)
+      if(ao.subcat==='cac'&&ao.daño==='2D8'&&calcFUEefectiva(j)<14)
         msgs.push('⚠ '+ao.n+': FUE<14 · Tiradas de ataque con DESVENTAJA');
-      if(ao.id===219&&j.attrs.fue<14) // Recortada Cal.20
+      if(ao.id===219&&calcFUEefectiva(j)<14) // Recortada Cal.20
         msgs.push('⚠ Recortada Cal.20: FUE<14 · Tiradas de ataque con DESVENTAJA');
       return msgs.map(function(m){
         return '<div style="border:1px solid var(--pip-danger);background:rgba(255,60,60,.06);padding:5px 10px;margin-top:3px;font-size:10px;color:var(--pip-danger);">'+m+'</div>';
@@ -3438,13 +3449,15 @@ function renderJEstado(){
       var bonAtaque=sinArmas?((setBonus.ataqueCaC)||0):0;
       var bonDaño=sinArmas?((setBonus.dañoCaC)||0):0;
       var brP=calcBonusRasgos(j);
-      var bonDañoDrogaP=(brP.dañoCaC||0);
+      var modFuePunos=getMod(calcAtrEf(j,'fue'));
+      var bonDañoDrogaP=(brP.dañoCaC||0)+modFuePunos;
       var hab=habCombate+pen+bonAtaque+(brP.habCombate||0);
       var totalBonDaño=bonDaño+bonDañoDrogaP;
       var daño='1D4'+(totalBonDaño>0?'+'+totalBonDaño:'');
       // Ataque CaC: modAGI + Combate + bonos
       var radEfPun=calcEfectosRad(j); var penRadPun=radEfPun.reduce(function(s,e){return s+(e.penHab||0);},0);
-      var bonAtaqueCaC=getMod(j.attrs.agi+((j.rasgos||[]).includes('pequeno')?1:0))+habCombate+pen+(brP.atkCaC||0)+(brP.atkTodas||0)+penRadPun;
+      var bonLuchadorPun=(j.extras||[]).includes('Luchador')?1:0;
+      var bonAtaqueCaC=getMod(calcAtrEf(j,'agi')+((j.rasgos||[]).includes('pequeno')?1:0))+habCombate+pen+(brP.atkCaC||0)+(brP.atkTodas||0)+penRadPun+modFuePunos+bonLuchadorPun;
       return '<div style="border:1px solid rgba(74,254,130,.2);background:rgba(74,254,130,.02);margin-top:4px;display:flex;align-items:center;padding:5px 10px;gap:8px;">'
         +'<div style="flex:1;">'
         +'<div style="font-size:8px;color:var(--pip-dim);letter-spacing:1px;">👊 PUÑOS</div>'
@@ -3460,7 +3473,7 @@ function renderJEstado(){
       var pen=j.penMod||0;
       var brEx=calcBonusRasgos(j);
       var radEfEx=calcEfectosRad(j); var penRadEx=radEfEx.reduce(function(s,e){return s+(e.penHab||0);},0);
-      var modAgiEx=getMod(j.attrs.agi+((j.rasgos||[]).includes('pequeno')?1:0));
+      var modAgiEx=getMod(calcAtrEf(j,'agi')+((j.rasgos||[]).includes('pequeno')?1:0));
       var bonAtaqueExplos=modAgiEx+habExplos+pen+(brEx.atkTodas||0)+penRadEx;
       return '<div style="border:1px solid rgba(74,254,130,.2);background:rgba(74,254,130,.03);padding:7px 10px;margin-top:4px;display:flex;align-items:center;gap:10px;">'        +'<div style="flex:1;">'        +'<div style="font-size:8px;color:var(--pip-dim);letter-spacing:1px;">💣 EXPLOSIVOS</div>'        +'<div style="font-size:10px;color:var(--pip-dim);">Explosivos '+habExplos+(pen<0?'<span style="color:var(--pip-danger);font-size:8px;"> (pen.)</span>':'')+' </div>'        +'<div style="font-size:12px;color:var(--pip-bright);">atk '+(bonAtaqueExplos>=0?'+':'')+bonAtaqueExplos+'</div>'        +'</div>'        +'<div style="font-family:VT323,monospace;font-size:14px;color:var(--pip-dim);text-align:center;">Daño según<br>explosivo</div>'        +'</div>';
     })()
@@ -3647,13 +3660,14 @@ function renderJArmas(){
       const radEf=calcEfectosRad(j);
       const penRad=radEf.reduce(function(s,e){return s+(e.penHab||0);},0);
       const bonSet=(h==='Combate'&&sb.ataqueCaC)?sb.ataqueCaC:0;
-      var bonRasgo=0; // bonos de habilidad pura (rasgos de ataque van al ataque)
+      var bonRasgo=calcBonusEfectivos(j).hab_arma[h]||0;
       const vef=v+(j.penMod||0)+bonSet+bonRasgo+penRad;
       const penActivo=(j.penMod||0)<0;
+      const bonTotalMostrar=bonSet+bonRasgo;
       return`<div class="skill-row">
-      <span class="skill-name">${h}${bonSet>0?`<span style="font-size:8px;color:var(--pip-warn);"> +${bonSet}</span>`:''}</span>
+      <span class="skill-name">${h}${bonTotalMostrar>0?`<span style="font-size:8px;color:var(--pip-warn);"> +${bonTotalMostrar}</span>`:''}</span>
       <div class="skill-dots">${[1,2,3,4,5,6,7,8,9,10].map(i=>`<div class="dot ${vef>=i?'on':''} ro" style="${penActivo&&vef<v&&i>vef&&i<=v?'border-color:var(--pip-danger);':''}"></div>`).join('')}</div>
-      <span class="skill-total" style="${penActivo?'color:var(--pip-danger);':bonSet>0?'color:var(--pip-warn);':''}">${vef}${penActivo?`<span style="font-size:8px;color:var(--pip-dim);"> (${v})</span>`:''}</span>
+      <span class="skill-total" style="${penActivo?'color:var(--pip-danger);':bonTotalMostrar>0?'color:var(--pip-warn);':''}">${vef}${penActivo?`<span style="font-size:8px;color:var(--pip-dim);"> (${v})</span>`:''}</span>
     </div>`;}).join('')}
   </div></div>`;
 }
@@ -3742,11 +3756,13 @@ function renderJHabs(){
       const radEfH=calcEfectosRad(j);
       const penRadH=radEfH.reduce(function(s,e){return s+(e.penHab||0);},0);
       var bonInstruido=(j.instruidoHabs&&j.instruidoHabs.includes(h)&&(j.extras||[]).includes('Instruido'))?2:0;
-      const vef=v+bonSet+penRadH+bonInstruido; // bonachón ya incluido en v (puntos base fijados)
+      var bonGenerico=calcBonusEfectivos(j).hab_general[h]||0;
+      const vef=v+bonSet+penRadH+bonInstruido+bonGenerico; // bonachón ya incluido en v (puntos base fijados)
+      const bonMostrarH=bonSet+bonInstruido+bonGenerico;
       return`<div class="skill-row">
-      <span class="skill-name">${h}${(bonSet)>0?`<span style="font-size:8px;color:var(--pip-warn);"> +${bonSet}</span>`:''}</span>
+      <span class="skill-name">${h}${bonMostrarH>0?`<span style="font-size:8px;color:var(--pip-warn);"> +${bonMostrarH}</span>`:''}</span>
       <div class="skill-dots">${[1,2,3,4,5,6,7,8,9,10].map(i=>`<div class="dot ${vef>=i?'on':''} ro"></div>`).join('')}</div>
-      <span class="skill-total" style="${(bonSet)>0?'color:var(--pip-warn);':''}">${vef}</span>
+      <span class="skill-total" style="${bonMostrarH>0?'color:var(--pip-warn);':''}">${vef}</span>
     </div>`}).join('')}
   </div></div>`;
 }
@@ -3838,7 +3854,7 @@ function renderJInv(){
     const o=objId?getObjById(objId):null;
     if(o){
       // slot ocupado
-      const fueProb=(o.fueMin&&j.attrs.fue<o.fueMin);
+      const fueProb=(o.fueMin&&calcFUEefectiva(j)<o.fueMin);
       const esServoSlot=o.ocupaTres;
       // Si es servo y no es casco, no mostrar botón QUITAR individual (se muestra en casco)
       const btnQuitar=esServoSlot&&slotKey!=='casco'
@@ -4385,7 +4401,7 @@ window.jugCura=function(){
   const inp=document.getElementById('pv-delta-inp');
   const v=inp?Math.abs(parseInt(inp.value)||0):0;
   if(v<=0) v=1;
-  j.pvAct=Math.min(j.pvMax,j.pvAct+v);
+  j.pvAct=Math.min(calcPVMaxEfectivo(j),j.pvAct+v);
   saveJ();renderApp();
 };
 
@@ -5013,7 +5029,7 @@ function checkLevelUp(){
 window.abrirLvlUp=function(){
   const j=myFicha();
   const nuevoNivel=j.nivel+1;
-  const mod=getMod(j.attrs.res);
+  const mod=getMod(calcAtrEf(j,'res'));
   const soloMod=j.nivel>=5;
   APP.lvlupData={
     habArmasDelta:{...j.habArmas},
@@ -5073,7 +5089,7 @@ function renderLvlupPaso(paso,d,j){
   // ── DADO ──
   if(paso==='dado'){
     const dadoN=CLASES[j.clase].dadoN;
-    const mod=getMod(j.attrs.res);
+    const mod=getMod(calcAtrEf(j,'res'));
     const modStr=mod>=0?'+'+mod:String(mod);
     const soloMod=j.nivel>=5;
     if(soloMod && d.pvGanados===null) d.pvGanados=Math.max(0,mod);
@@ -5211,7 +5227,7 @@ function renderLvlupPaso(paso,d,j){
 
 window.pvInputChange=function(delta, rawVal){
   const j=myFicha(); const d=APP.lvlupData;
-  const dado=CLASES[j.clase].dadoN; const mod=getMod(j.attrs.res);
+  const dado=CLASES[j.clase].dadoN; const mod=getMod(calcAtrEf(j,'res'));
   if(rawVal!==undefined){
     d.pvDadoFisico=Math.min(dado,Math.max(1,parseInt(rawVal)||1));
   } else {
@@ -5385,7 +5401,7 @@ function renderMFichas(){
     <div style="font-size:9px;color:var(--pip-dim);margin-top:5px;text-align:center;">El jugador elegirá clase y atributos al entrar por primera vez</div>
   </div></div>
   ${!jugs.length?'<div class="empty">Sin fichas creadas</div>':jugs.map(j=>{
-    const pvPct=Math.round((j.pvAct/j.pvMax)*100);const radPct=Math.min(100,Math.round((j.rads/1000)*100));
+    const pvMaxEf=calcPVMaxEfectivo(j); const pvPct=Math.round((j.pvAct/pvMaxEf)*100);const radPct=Math.min(100,Math.round((j.rads/1000)*100));
     const pvColor=pvPct<25?'var(--pip-danger)':pvPct<50?'var(--pip-warn)':'var(--pip)';
     return`<div class="ficha-card">
       <div class="ficha-hdr">
@@ -5401,7 +5417,7 @@ function renderMFichas(){
       <div class="mini-bar-row">
         <span class="mini-lbl">PV</span>
         <div class="mini-track"><div style="height:100%;background:${pvColor};width:${pvPct}%;transition:width .3s;"></div></div>
-        <span class="mini-val" style="color:${pvColor};">${j.pvAct}/${j.pvMax}</span>
+        <span class="mini-val" style="color:${pvColor};">${j.pvAct}/${calcPVMaxEfectivo(j)}</span>
       </div>
       <div class="mini-bar-row">
         <span class="mini-lbl" style="color:var(--pip-rad);">RAD</span>
@@ -5628,7 +5644,9 @@ window.abrirEleccionExtraMaster=function(jid,en,tipo){
   const modal=document.getElementById('obj-detail-modal');
   const box=document.getElementById('obj-detail-box');
   var opciones=[];
-  if(tipo==='arma') opciones=['Armas cortas','Armas medias','Armas grandes','Armas de energía','Combate'];
+  if(tipo==='arma') opciones=en==='Profesional'
+    ?['Armas cortas','Armas medias','Armas grandes','Armas de energía']
+    :['Armas cortas','Armas medias','Armas grandes','Armas de energía','Combate'];
   else if(tipo==='atributo') opciones=ATTRS.map(function(a){return a.n;});
   var listaHtml=tipo==='habilidades'
     ?'<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px;">'
@@ -5681,7 +5699,7 @@ function renderMModif(){
     <label class="plyr-chk"><input type="checkbox" id="chk-todos" onchange="toggleTodos(this)"><span class="plyr-chk-name">TODOS LOS JUGADORES</span></label>
     ${jugs.map(j=>`<label class="plyr-chk">
       <input type="checkbox" class="chk-j" data-id="${j.id}">
-      <span class="plyr-chk-name">${j.nombre} <span style="font-size:9px;color:var(--pip-dim);">(${j.pvAct}/${j.pvMax}PV · ${j.rads}Rads)</span></span>
+      <span class="plyr-chk-name">${j.nombre} <span style="font-size:9px;color:var(--pip-dim);">(${j.pvAct}/${calcPVMaxEfectivo(j)}PV · ${j.rads}Rads)</span></span>
     </label>`).join('')}
   </div>
   <div class="mod-panel">
@@ -7021,7 +7039,7 @@ window.masterMod=function(tipo){
       if(j.pvAct===0)showNotif(j.nombre+': INCAPACITADO');
       if((j.rasgos||[]).includes('masacre')&&v>0&&vM>v)showNotif(j.nombre+': Masacre · -'+vM+' PV');
     }
-    else if(tipo==='cura'){const v=parseInt(document.getElementById('m-pv').value)||0;j.pvAct=Math.min(j.pvMax,j.pvAct+v);}
+    else if(tipo==='cura'){const v=parseInt(document.getElementById('m-pv').value)||0;j.pvAct=Math.min(calcPVMaxEfectivo(j),j.pvAct+v);}
     else if(tipo==='rad+'){
       const v=parseInt(document.getElementById('m-rad').value)||0;
       // Uranium Fever: inmune a radiación
@@ -7540,7 +7558,7 @@ window.abrirDetalle=function(objId,origen){
   if(o.tipo==='armadura'&&o.equipable){
     if(o.tipoBlinaje) rows+='<div class="obj-detail-row"><span class="obj-detail-key">CATEGORÍA</span><span class="obj-detail-val">'+getTipoBlinjajeLabel(o.tipoBlinaje)+'</span></div>';
     if(o.defBonus)    rows+='<div class="obj-detail-row"><span class="obj-detail-key">BONUS DEF</span><span class="obj-detail-val" style="color:var(--pip-bright);">+'+o.defBonus+'</span></div>';
-    if(o.fueMin)      rows+='<div class="obj-detail-row"><span class="obj-detail-key">FUE MÍNIMA</span><span class="obj-detail-val" style="color:var(--pip-warn);">'+o.fueMin+(j&&j.attrs.fue<o.fueMin?' <span style="color:var(--pip-danger)">⚠ No cumples</span>':'')+'</span></div>';
+    if(o.fueMin)      rows+='<div class="obj-detail-row"><span class="obj-detail-key">FUE MÍNIMA</span><span class="obj-detail-val" style="color:var(--pip-warn);">'+o.fueMin+(j&&calcFUEefectiva(j)<o.fueMin?' <span style="color:var(--pip-danger)">⚠ No cumples</span>':'')+'</span></div>';
     if(o.radReduc)    rows+='<div class="obj-detail-row"><span class="obj-detail-key">RADS/H</span><span class="obj-detail-val" style="color:var(--pip-rad);">-'+o.radReduc+' Rads/hora</span></div>';
     if(o.slotTipo)    rows+='<div class="obj-detail-row"><span class="obj-detail-key">SLOT</span><span class="obj-detail-val">'+o.slotTipo.toUpperCase()+'</span></div>';
   }
