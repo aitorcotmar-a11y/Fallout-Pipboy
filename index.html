@@ -530,7 +530,7 @@ function radZonaTick(){
   (rz.jugadoresIds||[]).forEach(function(id){
     const j=sala.jugadores[id]; if(!j) return;
     if((j.extras||[]).includes('Uranium Fever')) return; // inmune
-    const reduccionExtra=(j.extras||[]).includes('Resistente a la radiación')?5:0; // -5 Rads/hora
+    const reduccionExtra=-(calcBonusEfectivos(j).derivado.rads||0); // efecto 'rads' negativo = reducción (p.ej. Resistente a la radiación)
     const tasaEfectivaHora=Math.max(0,(rz.radsHora||0)-reduccionExtra);
     const factorIridiscente=(j.rasgos||[]).includes('iridiscente')?0.5:1;
     const perMin=(tasaEfectivaHora/60)*factorIridiscente;
@@ -736,6 +736,7 @@ const CATALOGO_PARAMS={
     {k:'def',n:'Defensa (DEF)'},
     {k:'pv',n:'Puntos de Vida (PV)'},
     {k:'iniciativa',n:'Iniciativa'},
+    {k:'puntos_suerte',n:'Puntos de suerte máximos'},
     {k:'carga',n:'Carga máxima'},
     {k:'rads',n:'Rads/hora'},
     {k:'critico',n:'Umbral de crítico'},
@@ -843,11 +844,11 @@ const EXTRAS_INICIALES=[
   {id:'luchador',n:'Luchador',d:'+1 a las tiradas de ataque con cualquier arma equipada (no afecta a los puños)'},
 ];
 const EXTRAS_COMUNES=[
-  {id:'afortunado',n:'Afortunado',d:'Obtén 1 punto de suerte adicional'},
+  {id:'afortunado',n:'Afortunado',d:'Obtén 1 punto de suerte adicional', efectos:[{cat:'derivado',param:'puntos_suerte',signo:'+',valor:1}]},
   {id:'apañado',n:'Apañado',d:'En fabricación, sustituye 1 recurso por chatarra'},
   {id:'aprendizaje',n:'Aprendizaje rápido',d:'+1 PE extra al final de sesión'},
   {id:'barriga',n:'Barriga de plomo',d:'Comida y agua irradiada como si fueran cocinadas'},
-  {id:'bolsillos',n:'Bolsillos rápidos',d:'+20 puntos de carga a mano'},
+  {id:'bolsillos',n:'Bolsillos rápidos',d:'+20 puntos de carga a mano', efectos:[{cat:'derivado',param:'carga',signo:'+',valor:20}]},
   {id:'comprension',n:'Comprensión rápida',d:'La mitad de tiempo aprendiendo conocimientos'},
   {id:'daño_adic',n:'Daño adicional',d:'+2 al daño con un tipo de arma a elegir'},
   {id:'entrenamiento',n:'Entrenamiento intensivo',d:'+1 punto a un atributo a elegir'},
@@ -857,7 +858,7 @@ const EXTRAS_COMUNES=[
   {id:'noctambulo',n:'Noctámbulo',d:'Solo necesitas dormir 6h cada dos días'},
   {id:'oportunista',n:'Oportunista',d:'+2 ataque y daño vs. enemigos que no han actuado'},
   {id:'precision',n:'Precisión instintiva',d:'Repite una tirada de ataque fallida 1 vez/combate'},
-  {id:'rad_resist',n:'Resistente a la radiación',d:'-5 Rads/hora'},
+  {id:'rad_resist',n:'Resistente a la radiación',d:'-5 Rads/hora', efectos:[{cat:'derivado',param:'rads',signo:'-',valor:5}]},
   {id:'sangre_fria',n:'Sangre Fría',d:'Sin penalizadores por disparar a cobertura parcial'},
   {id:'tal_atributo',n:'Talento con atributo',d:'+1 a tiradas con el atributo: '},
   {id:'tal_habilidad',n:'Talento con habilidad',d:'+1 a tiradas con la habilidad: '},
@@ -1290,7 +1291,7 @@ function calcCRIT(j){
   return base;
 }
 function calcPIF(j){var base=j.attrs.sue<=7?3:j.attrs.sue<=8?2:1;var br=calcBonusRasgos(j);return base+(br.pifia||0);}
-function calcSPts(j){const m=getMod(j.attrs.sue);const base=m>0?m:0;return base+((j.extras||[]).includes('Afortunado')?1:0);}
+function calcSPts(j){const m=getMod(j.attrs.sue);const base=m>0?m:0;return base+(calcBonusEfectivos(j).derivado.puntos_suerte||0);}
 function calcCuadroValor(j,c){
   if(!c.auto) return c.valor||'—';
   switch(c.id){
@@ -1403,7 +1404,7 @@ function calcBonusEfectivos(j){
 function calcBonusDrogas(j){
   var g=calcBonusEfectivos(j);
   var atr=g.atributo||{};
-  var bonos={int:atr.int||0,per:atr.per||0,fue:atr.fue||0,car:atr.car||0,res:atr.res||0,agi:atr.agi||0,sue:atr.sue||0,dañoCaC:(g.derivado&&g.derivado.daño_cac)||0};
+  var bonos={int:atr.int||0,per:atr.per||0,fue:atr.fue||0,car:atr.car||0,res:atr.res||0,agi:atr.agi||0,sue:atr.sue||0};
   return bonos;
 }
 
@@ -3430,9 +3431,8 @@ function renderJEstado(){
       var sinArmas=!j.equipo||((!j.equipo.arma1||j.equipo.arma1==='BLOQUEADO')&&(!j.equipo.arma2||j.equipo.arma2==='BLOQUEADO'));
       var bonAtaque=sinArmas?((setBonus.ataqueCaC)||0):0;
       var bonDaño=sinArmas?((setBonus.dañoCaC)||0):0;
-      var bdP=calcBonusDrogas(j);
       var brP=calcBonusRasgos(j);
-      var bonDañoDrogaP=(bdP.dañoCaC||0)+(brP.dañoCaC||0);
+      var bonDañoDrogaP=(brP.dañoCaC||0);
       var hab=habCombate+pen+bonAtaque+(brP.habCombate||0);
       var totalBonDaño=bonDaño+bonDañoDrogaP;
       var daño='1D4'+(totalBonDaño>0?'+'+totalBonDaño:'');
