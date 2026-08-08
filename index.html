@@ -1399,6 +1399,11 @@ function calcBonusEfectivos(j){
     var e=todasExtras.find(function(x){return x.n===en;});
     if(e) aplicar(e.efectos);
   });
+  var setActual=calcSetArmadura(j);
+  if(setActual){
+    var setDef=(APP.setsArmadura||[]).find(function(x){return x.id===setActual;});
+    if(setDef) aplicar(setDef.efectos);
+  }
   return out;
 }
 function calcBonusDrogas(j){
@@ -5912,10 +5917,34 @@ function renderMObjetos(){
       var defB=fv('defBonus',1);
       var tipB=fv('tipoBlinaje','ligera');
       var setV=fv('set','');
-      var slotV=fv('slotTipo','casco');
+      var slotV=(APP._objSlotArmaduraSelected&&!editObj)?APP._objSlotArmaduraSelected:fv('slotTipo','casco');
       var fueMinV=fv('fueMin',0);
       var radReducV=fv('radReduc',0);
-      return row2({l:'BONUS DEF',h:'<input type="number" id="no-defbonus" value="'+defB+'" min="0" max="15" '+sm+'>'},             {l:'SLOT',h:'<select id="no-slotarm" '+s+'>'+SLOTS_ARM.map(function(sl){return '<option value="'+sl+'"'+(slotV===sl?' selected':'')+'>'+sl.toUpperCase()+'</option>';}).join('')+'</select>'})        +row1('CATEGORÍA','<select id="no-tipoblinaje" '+s+'>'+TIPOS_BLINDAJE.map(function(t){return '<option value="'+t+'"'+(tipB===t?' selected':'')+'>'+t+'</option>';}).join('')+'</select>')        +row2({l:'FUE mínima',h:'<input type="number" id="no-fuemin" value="'+fueMinV+'" min="0" max="20" '+sm+'>'},              {l:'Rads/h reducción',h:'<input type="number" id="no-radreduc" value="'+radReducV+'" min="0" '+sm+'>'})        +'<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin-bottom:5px;">SET DE ARMADURA</div>'        +'<div style="display:grid;grid-template-columns:1fr auto;gap:5px;margin-bottom:5px;">'        +'<select id="no-set" '+s+'>'        +'<option value="">— Sin set —</option>'        +sets.map(function(s2){return '<option value="'+s2.id+'"'+(setV===s2.id?' selected':'')+'>'+s2.n+' ('+s2.tipo+')</option>';}).join('')        +'</select>'        +'<button class="btn btn-sm" onclick="abrirCrearSet()" style="white-space:nowrap;">+ NUEVO</button>'        +'</div>'        +(setV?(function(){var s2=sets.find(function(x){return x.id===setV;});return s2?'<div style="font-size:9px;color:var(--pip-warn);padding:4px 8px;border:1px solid rgba(245,185,66,.3);margin-bottom:5px;">Set: '+s2.n+' · '+s2.efecto+'</div>':'';})():'')        ;    })():'')
+      return row2(
+          {l:'BONUS DEF',h:'<input type="number" id="no-defbonus" value="'+defB+'" min="0" max="15" '+sm+'>'},
+          {l:'HUECO (casco/pecho/extremidades)',h:'<select id="no-slotarm" onchange="APP._objSlotArmaduraSelected=this.value;" '+s+'>'+SLOTS_ARM.map(function(sl){return '<option value="'+sl+'"'+(slotV===sl?' selected':'')+'>'+sl.toUpperCase()+'</option>';}).join('')+'</select>'}
+        )
+        +row1('CATEGORÍA','<select id="no-tipoblinaje" '+s+'>'+TIPOS_BLINDAJE.map(function(t){return '<option value="'+t+'"'+(tipB===t?' selected':'')+'>'+t+'</option>';}).join('')+'</select>')
+        +row2(
+          {l:'FUE mínima',h:'<input type="number" id="no-fuemin" value="'+fueMinV+'" min="0" max="20" '+sm+'>'},
+          {l:'Rads/h reducción',h:'<input type="number" id="no-radreduc" value="'+radReducV+'" min="0" '+sm+'>'}
+        )
+        +'<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin-bottom:5px;">SET DE ARMADURA</div>'
+        +'<div style="display:grid;grid-template-columns:1fr auto;gap:5px;margin-bottom:5px;">'
+        +'<select id="no-set" '+s+'>'
+        +'<option value="">— Sin set —</option>'
+        +sets.map(function(s2){return '<option value="'+s2.id+'"'+(setV===s2.id?' selected':'')+'>'+s2.n+' ('+s2.tipo+')</option>';}).join('')
+        +'</select>'
+        +'<button class="btn btn-sm" onclick="abrirCrearSet()" style="white-space:nowrap;">+ NUEVO</button>'
+        +'</div>'
+        +(setV?(function(){
+            var s2=sets.find(function(x){return x.id===setV;});
+            if(!s2) return '';
+            var efHtml=(s2.efectos&&s2.efectos.length)?s2.efectos.map(function(ef){return (ef.signo==='-'?'−':'+')+ef.valor+' '+nombreParam(ef.cat,ef.param);}).join(' · '):'';
+            return '<div style="font-size:9px;color:var(--pip-warn);padding:4px 8px;border:1px solid rgba(245,185,66,.3);margin-bottom:5px;">Set: '+s2.n+(s2.efecto?' · '+s2.efecto:'')+(efHtml?'<br>'+efHtml:'')+'</div>';
+          })():'')
+        ;
+    })():'')
     // Campos extra para drogas: efectos múltiples sobre el catálogo cerrado
     +(esDroga?(function(){
       const draft=APP._draftObjEfectos||[];
@@ -6036,6 +6065,7 @@ window.toggleArmaFields=function(tipo){
   APP._objTipoSelected=tipo;
   APP._currentFormTipo=tipo;
   APP._objSubcatSelected=null; // reset subcat al cambiar tipo
+  APP._objSlotArmaduraSelected=null; // reset hueco de armadura al cambiar tipo
   if(tipo!=='droga'){ APP._draftObjEfectos=null; APP._draftObjAdicCat=null; } // limpiar draft si sales de droga
   // Rerenderizar para mostrar/ocultar campos de armadura/arma
   var mc=document.getElementById('main-content');
@@ -6168,7 +6198,7 @@ window.masterSaveObj=function(){
     const o=Object.assign({id:Date.now(),n:n.trim(),tipo,val,pc,desc},extraArma,extraArmadura,extraDroga,extraMunicion);
     APP.tienda.push(o); sala.tienda=APP.tienda; showNotif(n+' añadido');
   }
-  APP._currentFormTipo=null; APP._objTipoSelected=null; APP._objSubcatSelected=null; APP._draftObjEfectos=null; APP._draftObjEfCat=null; APP._draftObjAdicCat=null;
+  APP._currentFormTipo=null; APP._objTipoSelected=null; APP._objSubcatSelected=null; APP._objSlotArmaduraSelected=null; APP._draftObjEfectos=null; APP._draftObjEfCat=null; APP._draftObjAdicCat=null;
   fbSet('salas/'+APP.salaId+'/tienda',APP.tienda); renderApp();
 };
 ;
@@ -7106,9 +7136,82 @@ window.abrirCrearSet=function(){
   const modal=document.getElementById('obj-detail-modal');
   const box=document.getElementById('obj-detail-box');
   const s='style="font-family:VT323,monospace;font-size:15px;padding:4px 6px;background:var(--pip-dark);border:1px solid var(--pip-border);color:var(--pip-bright);width:100%;"';
+  const sm='style="font-family:VT323,monospace;font-size:15px;padding:4px 6px;background:var(--pip-dark);border:1px solid var(--pip-border);color:var(--pip-bright);width:65px;"';
   const TIPOS=['ligera','intermedia','combate','pesada','servo-adaptado'];
-  box.innerHTML='<div style="padding:20px;">'    +'<div style="font-family:VT323,monospace;font-size:18px;color:var(--pip-bright);margin-bottom:12px;">+ NUEVO SET DE ARMADURA</div>'    +'<div style="margin-bottom:8px;"><label style="font-size:9px;color:var(--pip-dim);display:block;margin-bottom:3px;">NOMBRE DEL SET</label><input type="text" id="ns-nombre" placeholder="Ej: Raider" '+s+'></div>'    +'<div style="margin-bottom:8px;"><label style="font-size:9px;color:var(--pip-dim);display:block;margin-bottom:3px;">TIPO DE BLINDAJE</label><select id="ns-tipo" '+s+'>'+TIPOS.map(function(t){return '<option value="'+t+'">'+t+'</option>';}).join('')+'</select></div>'    +'<div style="margin-bottom:12px;"><label style="font-size:9px;color:var(--pip-dim);display:block;margin-bottom:3px;">EFECTO SET COMPLETO</label><input type="text" id="ns-efecto" placeholder="Ej: +2 Atletismo" '+s+'></div>'    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">'    +'<button class="btn btn-warn" onclick="cerrarDetalle()">CANCELAR</button>'    +'<button class="btn" onclick="guardarNuevoSet()">▸ CREAR</button>'    +'</div></div>';  modal.style.display='flex';};
-window.guardarNuevoSet=function(){  const nombre=(document.getElementById('ns-nombre')||{}).value||'';  if(!nombre.trim()){showNotif('Escribe un nombre');return;}  const tipo=(document.getElementById('ns-tipo')||{}).value||'ligera';  const efecto=(document.getElementById('ns-efecto')||{}).value||'';  const id=nombre.toLowerCase().replace(/[^a-z0-9]/g,'');  const sala=getMockSala(APP.salaId);  if(!sala.setsArmadura) sala.setsArmadura=[];  if(sala.setsArmadura.find(function(s){return s.id===id;})){showNotif('Ya existe un set con ese nombre');return;}  sala.setsArmadura.push({id:id,n:nombre.trim(),efecto:efecto,tipo:tipo});  APP.setsArmadura=sala.setsArmadura;  fbSet('salas/'+APP.salaId+'/setsArmadura',sala.setsArmadura);  cerrarDetalle();  showNotif('Set '+nombre+' creado');  renderApp();};
+  if(!APP._draftSetEfectos) APP._draftSetEfectos=[];
+  renderModalCrearSet();
+  modal.style.display='flex';
+};
+
+function renderModalCrearSet(){
+  const box=document.getElementById('obj-detail-box');
+  const s='style="font-family:VT323,monospace;font-size:15px;padding:4px 6px;background:var(--pip-dark);border:1px solid var(--pip-border);color:var(--pip-bright);width:100%;"';
+  const sm='style="font-family:VT323,monospace;font-size:15px;padding:4px 6px;background:var(--pip-dark);border:1px solid var(--pip-border);color:var(--pip-bright);width:65px;"';
+  const TIPOS=['ligera','intermedia','combate','pesada','servo-adaptado'];
+  const draft=APP._draftSetEfectos||[];
+  const catActual=APP._draftSetEfCat||'atributo';
+  const paramsActuales=CATALOGO_PARAMS[catActual]||[];
+  const efectosListHtml=!draft.length?'<div style="font-size:10px;color:var(--pip-dim);padding:4px 0;">Sin efectos añadidos todavía</div>'
+    :draft.map(function(ef,i){
+      return '<div style="display:flex;align-items:center;justify-content:space-between;border:1px solid var(--pip-border);padding:4px 8px;margin-bottom:4px;">'
+        +'<span style="font-size:12px;color:var(--pip-bright);">'+(ef.signo==='-'?'−':'+')+ef.valor+' · '+nombreParam(ef.cat,ef.param)+'</span>'
+        +'<button class="chip chip-r" data-i="'+i+'" onclick="masterDelEfectoSetDraft(parseInt(this.dataset.i))">×</button>'
+        +'</div>';
+    }).join('');
+  box.innerHTML='<div style="padding:20px;">'
+    +'<div style="font-family:VT323,monospace;font-size:18px;color:var(--pip-bright);margin-bottom:12px;">+ NUEVO SET DE ARMADURA</div>'
+    +'<div style="margin-bottom:8px;"><label style="font-size:9px;color:var(--pip-dim);display:block;margin-bottom:3px;">NOMBRE DEL SET</label><input type="text" id="ns-nombre" placeholder="Ej: Raider" '+s+'></div>'
+    +'<div style="margin-bottom:8px;"><label style="font-size:9px;color:var(--pip-dim);display:block;margin-bottom:3px;">TIPO DE BLINDAJE</label><select id="ns-tipo" '+s+'>'+TIPOS.map(function(t){return '<option value="'+t+'">'+t+'</option>';}).join('')+'</select></div>'
+    +'<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin:10px 0 4px;border-bottom:1px solid var(--pip-border);padding-bottom:3px;">EFECTOS (se aplican al llevar las 3 piezas del set)</div>'
+    +efectosListHtml
+    +'<div style="display:grid;grid-template-columns:1fr;gap:6px;margin-top:6px;padding:8px;border:1px dashed var(--pip-border);">'
+    +'<select id="ns-ef-cat" onchange="masterCambiarCatEfectoSet(this.value)" '+s+'>'+CATEGORIAS_EFECTO.map(function(c){return '<option value="'+c.k+'"'+(catActual===c.k?' selected':'')+'>'+c.n+'</option>';}).join('')+'</select>'
+    +'<select id="ns-ef-param" '+s+'>'+paramsActuales.map(function(p){return '<option value="'+p.k+'">'+p.n+'</option>';}).join('')+'</select>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;"><select id="ns-ef-signo" '+s+'><option value="+">+ (suma)</option><option value="-">− (resta)</option></select><input type="number" id="ns-ef-valor" value="1" min="0" '+sm+'></div>'
+    +'<button class="btn btn-sm" onclick="masterAddEfectoSetDraft()">+ AÑADIR EFECTO</button>'
+    +'</div>'
+    +'<div style="margin:10px 0 12px;"><label style="font-size:9px;color:var(--pip-dim);display:block;margin-bottom:3px;">TEXTO INFORMATIVO <span style="opacity:.7;">(aclaración que verá el jugador)</span></label><input type="text" id="ns-efecto" placeholder="Ej: aumenta la resistencia al frío" '+s+'></div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">'
+    +'<button class="btn btn-warn" onclick="APP._draftSetEfectos=null;cerrarDetalle()">CANCELAR</button>'
+    +'<button class="btn" onclick="guardarNuevoSet()">▸ CREAR</button>'
+    +'</div></div>';
+}
+
+window.masterCambiarCatEfectoSet=function(cat){
+  APP._draftSetEfCat=cat;
+  renderModalCrearSet();
+};
+window.masterAddEfectoSetDraft=function(){
+  const cat=(document.getElementById('ns-ef-cat')||{}).value||'atributo';
+  const param=(document.getElementById('ns-ef-param')||{}).value;
+  const signo=(document.getElementById('ns-ef-signo')||{}).value||'+';
+  const valor=parseInt((document.getElementById('ns-ef-valor')||{}).value)||0;
+  if(!param||valor<=0) return showNotif('Elige un parámetro y un valor mayor que 0');
+  if(!APP._draftSetEfectos) APP._draftSetEfectos=[];
+  APP._draftSetEfectos.push({cat:cat,param:param,signo:signo,valor:valor});
+  renderModalCrearSet();
+};
+window.masterDelEfectoSetDraft=function(i){
+  APP._draftSetEfectos.splice(i,1);
+  renderModalCrearSet();
+};
+window.guardarNuevoSet=function(){
+  const nombre=(document.getElementById('ns-nombre')||{}).value||'';
+  if(!nombre.trim()){showNotif('Escribe un nombre');return;}
+  const tipo=(document.getElementById('ns-tipo')||{}).value||'ligera';
+  const efecto=(document.getElementById('ns-efecto')||{}).value||'';
+  const id=nombre.toLowerCase().replace(/[^a-z0-9]/g,'');
+  const sala=getMockSala(APP.salaId);
+  if(!sala.setsArmadura) sala.setsArmadura=[];
+  if(sala.setsArmadura.find(function(s){return s.id===id;})){showNotif('Ya existe un set con ese nombre');return;}
+  sala.setsArmadura.push({id:id,n:nombre.trim(),efecto:efecto,tipo:tipo,efectos:(APP._draftSetEfectos||[]).slice()});
+  APP.setsArmadura=sala.setsArmadura;
+  APP._draftSetEfectos=null; APP._draftSetEfCat=null;
+  fbSet('salas/'+APP.salaId+'/setsArmadura',sala.setsArmadura);
+  cerrarDetalle();
+  showNotif('Set '+nombre+' creado');
+  renderApp();
+};
 window.abrirEnviarMaster=function(oid){
   const sala=getMockSala(APP.salaId);
   const o=getObjById(oid)||APP.tienda.find(function(x){return x.id===oid||x.id===parseInt(oid);});
