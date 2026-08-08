@@ -529,7 +529,7 @@ function radZonaTick(){
   const idsAfectados=[];
   (rz.jugadoresIds||[]).forEach(function(id){
     const j=sala.jugadores[id]; if(!j) return;
-    if((j.extras||[]).includes('Uranium Fever')) return; // inmune
+    // extra 'Uranium Fever' borrado a petición del usuario, pendiente de recrear
     const reduccionExtra=-(calcBonusEfectivos(j).derivado.rads||0); // efecto 'rads' negativo = reducción (p.ej. Resistente a la radiación)
     const tasaEfectivaHora=Math.max(0,(rz.radsHora||0)-reduccionExtra);
     const factorIridiscente=(j.rasgos||[]).includes('iridiscente')?0.5:1;
@@ -795,119 +795,11 @@ function aplicarOverridesContenido(){
     });
   });
 }
-const RASGOS=[
-  {id:'bestia',      n:'Bestia',              d:'+2 daño CaC · -1 Combate', efectos:[{cat:'derivado',param:'daño_cac',signo:'+',valor:2},{cat:'derivado',param:'atk_cac',signo:'-',valor:1}]},
-  {id:'bonachon',    n:'Bonachón',            d:'-2 pts armas · +2 fijos Medicina y Conversación'},
-  {id:'capacitado',  n:'Capacitado',          d:'+5 pts atributos · -1 pts armas y habilidades'},
-  {id:'creado',      n:'Creado para destruir',d:'+4 daño CaC · +1 Pifia', efectos:[{cat:'derivado',param:'daño_cac',signo:'+',valor:4},{cat:'derivado',param:'daño_dist',signo:'+',valor:4},{cat:'derivado',param:'pifia',signo:'+',valor:1}]},
-  {id:'disciplina',  n:'Disciplina gatillo',  d:'+1 ataque RF · -2 daño RF', efectos:[{cat:'derivado',param:'ataque_rf',signo:'+',valor:1},{cat:'derivado',param:'daño_rf',signo:'-',valor:2}]},
-  {id:'disparo',     n:'Disparo Rápido',      d:'+2 armas a distancia · Críticos bloqueados', efectos:[{cat:'derivado',param:'atk_cortas',signo:'+',valor:2},{cat:'derivado',param:'atk_medias',signo:'+',valor:2},{cat:'derivado',param:'atk_grandes',signo:'+',valor:2},{cat:'derivado',param:'atk_energia',signo:'+',valor:2}]},
-  {id:'gafe',        n:'Gafe',                d:'+2 Pifia', efectos:[{cat:'derivado',param:'pifia',signo:'+',valor:2}]},
-  {id:'iridiscente', n:'Iridiscente',         d:'Rads recibidos ÷2'},
-  {id:'kamikaze',    n:'Kamikaze',            d:'+5 Iniciativa · -1 bono AGI a DEF', efectos:[{cat:'derivado',param:'iniciativa',signo:'+',valor:5}]},
-  {id:'madrugador',  n:'Madrugador',          d:'Duermes mínimo 4h · ℹ solo informativo'},
-  {id:'mano',        n:'Mano Dominante',      d:'+2 ataque con armas de una mano · -2 con armas de dos manos'},
-  {id:'masacre',     n:'Masacre',             d:'+2 ataque · +1 daño recibido por enemigos', efectos:[{cat:'derivado',param:'atk_todas',signo:'+',valor:2}]},
-  {id:'metabolismo', n:'Metabolismo rápido',  d:'Curar x2 al descansar · Rads ÷2 al descansar · ℹ solo informativo'},
-  {id:'noctambulo',  n:'Noctámbulo',          d:'Noche +1 Atk · Día -1 Atk · ℹ solo informativo'},
-  {id:'pequeno',     n:'Pequeño Armazón',     d:'+1 AGI · -15 puntos de carga'},
-  {id:'quimodep',    n:'Quimio-dependiente',  d:'Quimio-dependiente · ℹ solo informativo'},
-  {id:'quimores',    n:'Quimio-resistente',   d:'Quimio-resistente · ℹ solo informativo'},
-  {id:'refinamiento',n:'Refinamiento',        d:'+2 Crit en TT · -2 Ataque en RF y FA · ℹ Crit solo informativo', efectos:[{cat:'derivado',param:'ataque_rf',signo:'-',valor:2},{cat:'derivado',param:'ataque_fa',signo:'-',valor:2}]},
-  {id:'sexapeal',    n:'Sex Appeal',          d:'Ventaja Conversación sexo opuesto · ℹ solo informativo'},
-  {id:'tecnico',     n:'Técnico',             d:'+2 pts armas+hab · atributos máx.15 en creación'},
-  {id:'tribal',      n:'Tribal',              d:'Ventaja Supervivencia · Desventaja Ciencia · ℹ solo informativo'},
-];
-const EXTRAS_INICIALES=[
-  {id:'accion_heroica',n:'Acción heroica',d:'1 vez por sesión, obtienes ventaja en una tirada a tu elección'},
-  {id:'duro',n:'Duro',d:'Comienzas con 10 puntos más de vida'},
-  {id:'entereza',n:'Entereza',d:'Ventaja en las pruebas relacionadas con RES'},
-  {id:'lumbreras',n:'Lumbreras',d:'Ventaja en las pruebas relacionadas con INT'},
-  {id:'presencia_influyente',n:'Presencia influyente',d:'Ventaja en las pruebas relacionadas con CAR'},
-  {id:'pro_armascortas',n:'Pro en Armas cortas',d:'+2 rangos en Armas cortas (supera el límite de 2 puntos de la creación)'},
-  {id:'pro_armasmedias',n:'Pro en Armas medias',d:'+2 rangos en Armas medias (supera el límite de 2 puntos de la creación)'},
-  {id:'pro_armasgrandes',n:'Pro en Armas grandes',d:'+2 rangos en Armas grandes (supera el límite de 2 puntos de la creación)'},
-  {id:'pro_armasenergia',n:'Pro en Armas de energía',d:'+2 rangos en Armas de energía (supera el límite de 2 puntos de la creación)'},
-  {id:'pro_explosivos',n:'Pro en Explosivos',d:'+2 rangos en Explosivos (supera el límite de 2 puntos de la creación)'},
-  {id:'pro_combate',n:'Pro en Combate',d:'+2 rangos en Combate (supera el límite de 2 puntos de la creación)'},
-  {id:'pro_atletismo',n:'Pro en Atletismo',d:'+2 rangos en Atletismo (supera el límite de 2 puntos de la creación)'},
-  {id:'pro_ciencia',n:'Pro en Ciencia',d:'+2 rangos en Ciencia (supera el límite de 2 puntos de la creación)'},
-  {id:'pro_conversacion',n:'Pro en Conversación',d:'+2 rangos en Conversación (supera el límite de 2 puntos de la creación)'},
-  {id:'pro_ganzua',n:'Pro en Ganzúa',d:'+2 rangos en Ganzúa (supera el límite de 2 puntos de la creación)'},
-  {id:'pro_medicina',n:'Pro en Medicina',d:'+2 rangos en Medicina (supera el límite de 2 puntos de la creación)'},
-  {id:'pro_reparacion',n:'Pro en Reparación',d:'+2 rangos en Reparación (supera el límite de 2 puntos de la creación)'},
-  {id:'pro_sigilo',n:'Pro en Sigilo',d:'+2 rangos en Sigilo (supera el límite de 2 puntos de la creación)'},
-  {id:'pro_supervivencia',n:'Pro en Supervivencia',d:'+2 rangos en Supervivencia (supera el límite de 2 puntos de la creación)'},
-  {id:'resistencia_natural',n:'Resistencia natural',d:'Recuperas el doble de puntos de vida cuando descansas'},
-  {id:'vista_aguila',n:'Vista de águila',d:'Ventaja en las pruebas relacionadas con PER'},
-  {id:'cazador_engendros',n:'Cazador de engendros',d:'+1 a las tiradas y al daño contra bestias mutantes y otros engendros'},
-  {id:'cazador',n:'Cazador',d:'+1 a las tiradas de ataque con armas medias a distancia no automáticas (solo TT)'},
-  {id:'luchador',n:'Luchador',d:'+1 a las tiradas de ataque con cualquier arma equipada (no afecta a los puños)'},
-];
-const EXTRAS_COMUNES=[
-  {id:'afortunado',n:'Afortunado',d:'Obtén 1 punto de suerte adicional', efectos:[{cat:'derivado',param:'puntos_suerte',signo:'+',valor:1}]},
-  {id:'apañado',n:'Apañado',d:'En fabricación, sustituye 1 recurso por chatarra'},
-  {id:'aprendizaje',n:'Aprendizaje rápido',d:'+1 PE extra al final de sesión'},
-  {id:'barriga',n:'Barriga de plomo',d:'Comida y agua irradiada como si fueran cocinadas'},
-  {id:'bolsillos',n:'Bolsillos rápidos',d:'+20 puntos de carga a mano', efectos:[{cat:'derivado',param:'carga',signo:'+',valor:20}]},
-  {id:'comprension',n:'Comprensión rápida',d:'La mitad de tiempo aprendiendo conocimientos'},
-  {id:'daño_adic',n:'Daño adicional',d:'+2 al daño con un tipo de arma a elegir'},
-  {id:'entrenamiento',n:'Entrenamiento intensivo',d:'+1 punto a un atributo a elegir'},
-  {id:'manitas',n:'Manitas',d:'Repite una tirada de fabricación fallida 1 vez/día'},
-  {id:'mejores_cur',n:'Mejores curaciones',d:'+1D4 adicional al aplicar primeros auxilios'},
-  {id:'mula',n:'Mula',d:'+50 puntos de carga', efectos:[{cat:'derivado',param:'carga',signo:'+',valor:50}]},
-  {id:'noctambulo',n:'Noctámbulo',d:'Solo necesitas dormir 6h cada dos días'},
-  {id:'oportunista',n:'Oportunista',d:'+2 ataque y daño vs. enemigos que no han actuado'},
-  {id:'precision',n:'Precisión instintiva',d:'Repite una tirada de ataque fallida 1 vez/combate'},
-  {id:'rad_resist',n:'Resistente a la radiación',d:'-5 Rads/hora', efectos:[{cat:'derivado',param:'rads',signo:'-',valor:5}]},
-  {id:'sangre_fria',n:'Sangre Fría',d:'Sin penalizadores por disparar a cobertura parcial'},
-  {id:'tal_atributo',n:'Talento con atributo',d:'+1 a tiradas con el atributo: '},
-  {id:'tal_habilidad',n:'Talento con habilidad',d:'+1 a tiradas con la habilidad: '},
-];
-const PRO_EXTRA_MAP={
-  'Pro en Armas cortas':{tipo:'arma',n:'Armas cortas'},
-  'Pro en Armas medias':{tipo:'arma',n:'Armas medias'},
-  'Pro en Armas grandes':{tipo:'arma',n:'Armas grandes'},
-  'Pro en Armas de energía':{tipo:'arma',n:'Armas de energía'},
-  'Pro en Explosivos':{tipo:'arma',n:'Explosivos'},
-  'Pro en Combate':{tipo:'arma',n:'Combate'},
-  'Pro en Atletismo':{tipo:'hab',n:'Atletismo'},
-  'Pro en Ciencia':{tipo:'hab',n:'Ciencia'},
-  'Pro en Conversación':{tipo:'hab',n:'Conversación'},
-  'Pro en Ganzúa':{tipo:'hab',n:'Ganzúa'},
-  'Pro en Medicina':{tipo:'hab',n:'Medicina'},
-  'Pro en Reparación':{tipo:'hab',n:'Reparación'},
-  'Pro en Sigilo':{tipo:'hab',n:'Sigilo'},
-  'Pro en Supervivencia':{tipo:'hab',n:'Supervivencia'},
-};
-const EXTRAS_AVANZADOS=[
-  {id:'blindaje_nat',n:'Blindaje natural',d:'+2 a la defensa', efectos:[{cat:'derivado',param:'def',signo:'+',valor:2}]},
-  {id:'canibal',n:'Caníbal',d:'Sangre y carne humana como agua y comida purificadas'},
-  {id:'crit_sup',n:'Crítico superior',d:'+2 al umbral de crítico con el arma: '},
-  {id:'currante',n:'Currante',d:'La mitad de tiempo en fabricar cosas'},
-  {id:'efic_ener',n:'Eficiencia energética',d:'Armas de energía consumen la mitad de batería'},
-  {id:'fiesteo',n:'Fiesteo',d:'Inmune a adicciones y sobredosis'},
-  {id:'francotirador',n:'Francotirador',d:'Duplica el alcance de armas a distancia'},
-  {id:'fuerza_imp',n:'Fuerza imparable',d:'+4 al daño en CaC', efectos:[{cat:'derivado',param:'daño_cac',signo:'+',valor:4}]},
-  {id:'heisenberg',n:'Heisenberg',d:'Drogas fabricadas duran el doble, -2 toxicidad'},
-  {id:'instruido',n:'Instruido',d:'+2 en habilidades elegidas: '},
-  {id:'maestro_c',n:'Maestro en combate',d:'Repite 1 tirada de daño por turno con un tipo de arma'},
-  {id:'perforante',n:'Perforante',d:'+2 CaC vs. protec. intermedias / +4 vs. pesadas'},
-  {id:'profesional',n:'Profesional',d:'+4 al daño con el arma: '},
-  {id:'radioactivo',n:'Radioactivo',d:'Ignora la mitad de tus Rads para efectos negativos'},
-  {id:'refinamiento_av',n:'Refinamiento',d:'+1 a los atributos elegidos: '},
-];
-const EXTRAS_LEGENDARIOS=[
-  {id:'adamantio',n:'Esqueleto de Adamantio',d:'-5 PV de cada ataque recibido'},
-  {id:'evolucion',n:'Evolución perfecta',d:'+2 permanente a todos los atributos'},
-  {id:'flipado',n:'Flipado de...',d:'Desarrollas 1 mejora única por semana'},
-  {id:'leyenda',n:'Leyenda viva',d:'Ventaja en tiradas sociales; PNJ neutrales = favorable'},
-  {id:'lider',n:'Líder legendario',d:'Aliados a 10m +2 tiradas; 1 acción extra/sesión a aliado'},
-  {id:'mcgiver',n:'Mcgiver',d:'Fabrica 2 cosas a la vez, mitad de recursos'},
-  {id:'wanderer',n:'The Wanderer',d:'Primera muerte de sesión: vuelves con 1 PV'},
-  {id:'uranium',n:'Uranium Fever',d:'Inmune a radiación, enfermedades y efectos extremos'},
-  {id:'vitalidad',n:'Vitalidad',d:'+30 PV extras'},
-];
+const RASGOS=[]; // vaciado a petición del usuario — se recrearán a mano desde el creador
+const EXTRAS_INICIALES=[]; // vaciado a petición del usuario
+const EXTRAS_COMUNES=[]; // vaciado a petición del usuario
+const EXTRAS_AVANZADOS=[]; // vaciado a petición del usuario
+const EXTRAS_LEGENDARIOS=[]; // vaciado a petición del usuario
 
 // Tabla PE por nivel (exacta según manual D20)
 // Categorías de extras: nv 2,4,6 → comunes | nv 8,10 → comunes+avanzados | nv 12 → todos
@@ -1284,13 +1176,7 @@ function calcCRIT(j){
   if((j.rasgos||[]).includes('disparo')) return null;
   const m=getMod(calcAtrEf(j,'sue'));
   var base=20-(m>0?m:0)-(calcBonusEfectivos(j).derivado.critico||0);
-  // Crítico superior: -2 al umbral con el arma equipada
-  if((j.extras||[]).includes('Crítico superior')&&j.critSuperiorArma){
-    var eq=j.equipo||{};
-    var subcatMap={corta:'Armas cortas',media:'Armas medias',grande:'Armas grandes',energia:'Armas de energía',cac:'Combate'};
-    var armasEq=[eq.arma1,eq.arma2].filter(function(id){return id&&id!=='BLOQUEADO';}).map(getObjById).filter(Boolean);
-    if(armasEq.some(function(a){return subcatMap[a.subcat]===j.critSuperiorArma;})) base=Math.max(2,base-2);
-  }
+  // extra 'Crítico superior' borrado a petición del usuario, pendiente de recrear
   return base;
 }
 function calcPIF(j){var sueEf=calcAtrEf(j,'sue');var base=sueEf<=7?3:sueEf<=8?2:1;var br=calcBonusRasgos(j);return base+(br.pifia||0);}
@@ -2531,7 +2417,7 @@ window.dispararArma=function(modo,coste,slot){
     // Energía: coste en %
     if(armaObj.muniId==='muni_fusion'){
       var costeEfic=coste;
-      if((j.extras||[]).includes('Eficiencia energética')) costeEfic=Math.max(1,Math.floor(coste/2));
+      // extra 'Eficiencia energética' borrado a petición del usuario, pendiente de recrear
       j.cargador[slot]=Math.max(0,cargAct-costeEfic);
     } else {
       j.cargador[slot]=cargAct-coste;
@@ -3150,11 +3036,11 @@ function renderArmaSlotBlock(j,slot){
     if(subcatDerKey) bonSubcatAtk=(gEf.derivado[subcatDerKey]||0)+(gEf.derivado.atk_todas||0);
   }
   // Extra Luchador: +1 ataque con cualquier arma equipada (el manual no excluye los puños; ese bono se añade también en el bloque de Puños)
-  var bonLuchador=(armaObj&&(j.extras||[]).includes('Luchador'))?1:0;
+  var bonLuchador=0; // extra 'Luchador' borrado a petición del usuario, pendiente de recrear
   // Extra Cazador: +1 ataque con armas medias a distancia sin RF/FA (solo TT)
-  var bonCazador=(armaObj&&armaObj.subcat==='media'&&!armaObj.rf&&!armaObj.fa&&(j.extras||[]).includes('Cazador'))?1:0;
+  var bonCazador=0; // extra 'Cazador' borrado a petición del usuario, pendiente de recrear
   // Talento con habilidad: si coincide con la habilidad de arma del arma equipada, +1 automático (Explosivos y habilidades generales solo muestran banner)
-  var bonTalHab=(armaObj&&j.talHabilidad&&j.talHabilidad===habArmaKey&&(j.extras||[]).includes('Talento con habilidad'))?1:0;
+  var bonTalHab=0; // extra 'Talento con habilidad' borrado a petición del usuario, pendiente de recrear
   // Rasgo Mano Dominante: +2 con armas de una mano, -2 con armas de dos manos (según cómo se empuña, no por subcategoría)
   var bonManoDom=0;
   if(armaObj&&(j.rasgos||[]).includes('mano')){
@@ -3177,9 +3063,9 @@ function renderArmaSlotBlock(j,slot){
     var dañoSubcatKey={corta:'daño_corta',media:'daño_media',grande:'daño_grande',energia:'daño_energia'}[armaObj.subcat];
     if(dañoSubcatKey) dañoAdicExtra+=(gEf.derivado[dañoSubcatKey]||0);
     var subcatLabel={corta:'Armas cortas',media:'Armas medias',grande:'Armas grandes',energia:'Armas de energía',cac:'Combate'}[armaObj.subcat]||'';
-    if(j.extraArma&&j.extraArma===subcatLabel&&(j.extras||[]).some(function(e){return e==='Daño adicional';})) dañoAdicExtra+=2;
+    // extra 'Daño adicional' borrado a petición del usuario, pendiente de recrear
     // Profesional: +4 daño con arma elegida (distancia)
-    if(j.profesionalArma&&j.profesionalArma===subcatLabel&&j.profesionalArma!=='Combate'&&(j.extras||[]).includes('Profesional')) dañoAdicExtra+=4;
+    // extra 'Profesional' borrado a petición del usuario, pendiente de recrear
   }
   var bonDañoTotal=bonDañoCaCTotal+bonDañoDistTotal+dañoAdicExtra;
   var bonDañoDroga=bonDañoTotal>0?'+'+bonDañoTotal:'';
@@ -3456,7 +3342,7 @@ function renderJEstado(){
       var daño='1D4'+(totalBonDaño>0?'+'+totalBonDaño:'');
       // Ataque CaC: modAGI + Combate + bonos
       var radEfPun=calcEfectosRad(j); var penRadPun=radEfPun.reduce(function(s,e){return s+(e.penHab||0);},0);
-      var bonLuchadorPun=(j.extras||[]).includes('Luchador')?1:0;
+      var bonLuchadorPun=0; // extra 'Luchador' borrado a petición del usuario, pendiente de recrear
       var bonAtaqueCaC=getMod(calcAtrEf(j,'agi')+((j.rasgos||[]).includes('pequeno')?1:0))+habCombate+pen+(brP.atkCaC||0)+(brP.atkTodas||0)+penRadPun+modFuePunos+bonLuchadorPun;
       return '<div style="border:1px solid rgba(74,254,130,.2);background:rgba(74,254,130,.02);margin-top:4px;display:flex;align-items:center;padding:5px 10px;gap:8px;">'
         +'<div style="flex:1;">'
@@ -3525,61 +3411,8 @@ function renderJEstado(){
       if(r.includes('sexapeal'))     msgs.push('💋 SEX APPEAL · Ventaja Conversación sexo opuesto');
       if(r.includes('tribal'))       msgs.push('🌿 TRIBAL · Ventaja Supervivencia · Desventaja Ciencia');
       if(r.includes('refinamiento')) msgs.push('🎯 REFINAMIENTO · +2 Crit en TT · -2 Ataque en RF y FA');
-      // Extras informativos
+      // Extras informativos borrados a petición del usuario junto con los extras — pendiente de recrear si hace falta
       var ex=j.extras||[];
-      if(ex.includes('Apañado'))             msgs.push('🔧 APAÑADO · Fabricación: sustituye 1 recurso por chatarra');
-      if(ex.includes('Aprendizaje rápido'))  msgs.push('📖 APRENDIZAJE RÁPIDO · +1 PE al final de sesión');
-      if(ex.includes('Barriga de plomo'))    msgs.push('🍺 BARRIGA DE PLOMO · Comida/agua irradiada sin penalización');
-      if(ex.includes('Bolsillos rápidos'))   msgs.push('🎒 BOLSILLOS RÁPIDOS · +20 puntos de carga a mano');
-      if(ex.includes('Comprensión rápida'))  msgs.push('🧠 COMPRENSIÓN RÁPIDA · Aprendes conocimientos en la mitad de tiempo');
-      if(ex.includes('Daño adicional'))      msgs.push('⚔ DAÑO ADICIONAL · +2 daño con '+(j.extraArma||'arma no elegida'));
-      if(ex.includes('Manitas'))             msgs.push('🛠 MANITAS · Repite 1 tirada de fabricación fallida/día');
-      if(ex.includes('Mejores curaciones'))  msgs.push('💉 MEJORES CURACIONES · +1D4 al aplicar primeros auxilios');
-      if(ex.includes('Noctámbulo'))          msgs.push('🌙 NOCTÁMBULO · Duermes solo 6h cada dos días');
-      if(ex.includes('Oportunista'))         msgs.push('⚡ OPORTUNISTA · +2 ataque y daño vs. enemigos que no han actuado');
-      if(ex.includes('Precisión instintiva'))msgs.push('🎯 PRECISIÓN INSTINTIVA · Repite 1 tirada de ataque fallida/combate');
-      if(ex.includes('Resistente a la radiación')) msgs.push('☢ RESISTENTE A LA RADIACIÓN · -5 Rads/hora');
-      if(ex.includes('Sangre Fría'))         msgs.push('❄ SANGRE FRÍA · Sin penalizadores por disparar a cobertura parcial');
-      if(ex.includes('Talento con atributo'))msgs.push('🌟 TALENTO CON ATRIBUTO · +1 a tiradas de '+(j.talAtributo?(ATTRS.find(function(a){return a.k===j.talAtributo;})||{n:j.talAtributo}).n:'atributo no elegido'));
-      if(ex.includes('Talento con habilidad')){
-        var thAplicaAuto=j.talHabilidad&&HAB_ARMAS.includes(j.talHabilidad)&&j.talHabilidad!=='Explosivos';
-        msgs.push('🌟 TALENTO CON HABILIDAD · +1 a tiradas de '+(j.talHabilidad||'habilidad no elegida')+(j.talHabilidad?(thAplicaAuto?' (ya aplicado al ataque)':' (recuerda sumarlo a mano)'):''));
-      }
-      // Extras iniciales (creación de personaje)
-      if(ex.includes('Acción heroica'))       msgs.push('⭐ ACCIÓN HEROICA · 1 vez por sesión: ventaja en una tirada a tu elección');
-      if(ex.includes('Entereza'))             msgs.push('💪 ENTEREZA · Ventaja en pruebas de RES');
-      if(ex.includes('Lumbreras'))            msgs.push('🧠 LUMBRERAS · Ventaja en pruebas de INT');
-      if(ex.includes('Presencia influyente')) msgs.push('🗣 PRESENCIA INFLUYENTE · Ventaja en pruebas de CAR');
-      if(ex.includes('Resistencia natural'))  msgs.push('❤ RESISTENCIA NATURAL · Recuperas el doble de PV al descansar');
-      if(ex.includes('Vista de águila'))      msgs.push('🦅 VISTA DE ÁGUILA · Ventaja en pruebas de PER');
-      if(ex.includes('Cazador de engendros')) msgs.push('🎯 CAZADOR DE ENGENDROS · +1 a tiradas y daño contra bestias mutantes y engendros');
-      // Extras avanzados
-      if(ex.includes('Blindaje natural'))       msgs.push('🛡 BLINDAJE NATURAL · +2 DEF permanente');
-      if(ex.includes('Crítico superior'))       msgs.push('🎯 CRÍTICO SUPERIOR · -2 umbral crit con '+(j.critSuperiorArma||'arma no elegida'));
-      if(ex.includes('Eficiencia energética'))  msgs.push('⚡ EFICIENCIA ENERGÉTICA · Armas energía consumen la mitad');
-      if(ex.includes('Francotirador'))          msgs.push('🔭 FRANCOTIRADOR · Alcance de armas a distancia ×2');
-      if(ex.includes('Fuerza imparable'))       msgs.push('💪 FUERZA IMPARABLE · +4 daño CaC');
-      if(ex.includes('Profesional'))            msgs.push('🏆 PROFESIONAL · +4 daño con '+(j.profesionalArma||'arma no elegida'));
-      if(ex.includes('Refinamiento'))           msgs.push('⭐ REFINAMIENTO · +1 a '+(j.refinamientoAttrs&&j.refinamientoAttrs.length?(j.refinamientoAttrs.map(function(k){return ATTRS.find(function(a){return a.k===k;})||{n:k};}).map(function(a){return a.n;}).join(', ')):'atributos no elegidos'));
-      if(ex.includes('Instruido'))              msgs.push('📚 INSTRUIDO · +2 en '+(j.instruidoHabs&&j.instruidoHabs.length?j.instruidoHabs.join(', '):'habilidades no elegidas'));
-      if(ex.includes('Caníbal'))                msgs.push('🥩 CANÍBAL · Carne y sangre humana como comida/agua purificada');
-      if(ex.includes('Currante'))               msgs.push('🔨 CURRANTE · Fabricas en la mitad de tiempo');
-      if(ex.includes('Fiesteo'))                msgs.push('🎉 FIESTEO · Inmune a adicciones y sobredosis');
-      if(ex.includes('Francotirador'))          ; // ya puesto arriba
-      if(ex.includes('Heisenberg'))             msgs.push('🧪 HEISENBERG · Drogas fabricadas duran ×2, -2 toxicidad');
-      if(ex.includes('Maestro en combate'))     msgs.push('⚔ MAESTRO EN COMBATE · Repite 1 tirada de daño/turno');
-      if(ex.includes('Perforante'))             msgs.push('🗡 PERFORANTE · +2 vs intermedias / +4 vs pesadas');
-      if(ex.includes('Radioactivo'))            msgs.push('☢ RADIOACTIVO · Ignora la mitad de Rads para efectos');
-      // Extras legendarios
-      if(ex.includes('Esqueleto de Adamantio')) msgs.push('🦴 ESQUELETO DE ADAMANTIO · -5 PV de cada ataque recibido');
-      if(ex.includes('Evolución perfecta'))     msgs.push('🌟 EVOLUCIÓN PERFECTA · +2 a todos los atributos (aplicado)');
-      if(ex.includes('Flipado de...'))          msgs.push('🔮 FLIPADO DE... · Develops 1 mejora única por semana');
-      if(ex.includes('Leyenda viva'))           msgs.push('👑 LEYENDA VIVA · Ventaja social · PNJ neutrales favorables');
-      if(ex.includes('Líder legendario'))       msgs.push('⚔ LÍDER LEGENDARIO · Aliados +2 tiradas · 1 acción extra/sesión');
-      if(ex.includes('Mcgiver'))                msgs.push('🔧 MCGIVER · Fabrica 2 cosas a la vez con mitad de recursos');
-      if(ex.includes('The Wanderer'))           msgs.push('🌅 THE WANDERER · Primera muerte de sesión: vuelves con 1 PV');
-      if(ex.includes('Uranium Fever'))          msgs.push('☢ URANIUM FEVER · Inmune a radiación, enfermedades y efectos extremos');
-      if(ex.includes('Vitalidad'))              msgs.push('❤ VITALIDAD · +30 PV máximos (aplicado)');
       if(!msgs.length) return '';
       return '<div class="card" style="margin-top:6px;border-color:rgba(74,254,130,.2);">'        +'<div class="card-hdr" style="font-size:10px;">📋 RASGOS PASIVOS</div>'        +'<div style="padding:6px 10px;">'        +msgs.map(function(m){return '<div style="font-size:11px;color:var(--pip-bright);padding:3px 0;border-bottom:1px solid rgba(74,254,130,.1);">'+m+'</div>';}).join('')        +'</div></div>';
     })()
@@ -3755,7 +3588,7 @@ function renderJHabs(){
       const bonSet=(h==='Sigilo'&&sb.sigilo)?sb.sigilo:(h==='Supervivencia'&&sb.supervivencia)?sb.supervivencia:(h==='Ganzúa'&&sb.ganzua)?sb.ganzua:0;
       const radEfH=calcEfectosRad(j);
       const penRadH=radEfH.reduce(function(s,e){return s+(e.penHab||0);},0);
-      var bonInstruido=(j.instruidoHabs&&j.instruidoHabs.includes(h)&&(j.extras||[]).includes('Instruido'))?2:0;
+      var bonInstruido=0; // extra 'Instruido' borrado a petición del usuario, pendiente de recrear
       var bonGenerico=calcBonusEfectivos(j).hab_general[h]||0;
       const vef=v+bonSet+penRadH+bonInstruido+bonGenerico; // bonachón ya incluido en v (puntos base fijados)
       const bonMostrarH=bonSet+bonInstruido+bonGenerico;
@@ -4561,7 +4394,7 @@ window.usarObj=function(idx){
     aplicarEfectoDroga(j,o);
     saveJ(); renderApp();
     showNotif(o.n+' usado · ver EFECTOS ACTIVOS');
-    if(o.adiccionDado&&!(j.extras||[]).includes('Fiesteo')) abrirModalAdiccion(o);
+    if(o.adiccionDado) abrirModalAdiccion(o); // extra 'Fiesteo' borrado a petición del usuario, pendiente de recrear
     return;
   }
   saveJ(); renderApp(); showNotif(o.n+' usado');
@@ -4936,18 +4769,7 @@ window.wzHabHab=function(h,v){
 window.wzExtra=function(n){
   const deselect=APP.wizardData.extraInicial===n;
   APP.wizardData.extraInicial=deselect?'':n;
-  if(deselect){
-    // Al deseleccionar, borrar elección guardada
-    if(n==='Entrenamiento intensivo') APP.wizardData.extraAtributo='';
-    if(n==='Daño adicional') APP.wizardData.extraArma='';
-    if(n==='Talento con atributo') APP.wizardData.talAtributo='';
-    if(n==='Talento con habilidad') APP.wizardData.talHabilidad='';
-  } else {
-    if(n==='Entrenamiento intensivo'){ document.getElementById('wizard-body').innerHTML=renderWizardStep(4,APP.wizardData); abrirModalEntrenamiento('wizard'); return; }
-    if(n==='Daño adicional'){ document.getElementById('wizard-body').innerHTML=renderWizardStep(4,APP.wizardData); abrirModalDañoAdic('wizard'); return; }
-    if(n==='Talento con atributo'){ document.getElementById('wizard-body').innerHTML=renderWizardStep(4,APP.wizardData); abrirModalTalAtributo('wizard'); return; }
-    if(n==='Talento con habilidad'){ document.getElementById('wizard-body').innerHTML=renderWizardStep(4,APP.wizardData); abrirModalTalHabilidad('wizard'); return; }
-  }
+  // disparadores por nombre borrados a petición del usuario, pendientes de recrear
   document.getElementById('wizard-body').innerHTML=renderWizardStep(4,APP.wizardData);
 };
 window.wzTrasfondo=function(v){APP.wizardData.trasfondo=v};
@@ -4964,18 +4786,9 @@ window.wizardNext=function(){
     d.pvMax=CLASES[d.clase].dadoN+d.attrs.res;
     d.pvAct=d.pvMax;
     if(d.extraInicial)d.extras=[d.extraInicial];
-    // Duro: +10 PV iniciales
-    if(d.extraInicial==='Duro'){ d.pvMax+=10; d.pvAct+=10; }
-    // Pro en X: +2 rangos directos en la habilidad/arma elegida (supera el límite de 2 pts de creación)
-    if(PRO_EXTRA_MAP[d.extraInicial]){
-      var proInfo=PRO_EXTRA_MAP[d.extraInicial];
-      if(proInfo.tipo==='arma') d.habArmas[proInfo.n]=(d.habArmas[proInfo.n]||0)+2;
-      else d.habHabs[proInfo.n]=(d.habHabs[proInfo.n]||0)+2;
-    }
-    // Aplicar Entrenamiento Intensivo
-    if(d.extraInicial==='Entrenamiento intensivo'&&d.extraAtributo&&ATTRS.find(function(a){return a.k===d.extraAtributo;})){
-      d.attrs[d.extraAtributo]=(d.attrs[d.extraAtributo]||7)+1;
-    }
+    // extras 'Duro' y 'Pro en X' borrados a petición del usuario, pendientes de recrear
+    // (nota: 'Pro en X' usaba una variable PRO_EXTRA_MAP que nunca llegó a definirse en ningún sitio — bug latente ya inofensivo)
+    // extra 'Entrenamiento intensivo' borrado a petición del usuario, pendiente de recrear
     // Guardar elecciones de talento (wizardData ES la ficha, ya están copiados)
     // extraArma, talAtributo, talHabilidad ya están en d directamente
     // inicializar puntos de suerte al confirmar
@@ -5288,25 +5101,7 @@ window.lvlAttrDown=function(k){
 window.lvlExtra=function(n){
   const deselect=APP.lvlupData.extraElegido===n;
   APP.lvlupData.extraElegido=deselect?'':n;
-  if(deselect){
-    if(n==='Entrenamiento intensivo') APP.lvlupData.extraAtributo='';
-    if(n==='Daño adicional') APP.lvlupData.extraArma='';
-    if(n==='Talento con atributo') APP.lvlupData.talAtributo='';
-    if(n==='Talento con habilidad') APP.lvlupData.talHabilidad='';
-    if(n==='Crítico superior') APP.lvlupData.critSuperiorArma='';
-    if(n==='Profesional') APP.lvlupData.profesionalArma='';
-    if(n==='Refinamiento') APP.lvlupData.refinamientoAttrs=[];
-    if(n==='Instruido') APP.lvlupData.instruidoHabs=[];
-  } else {
-    if(n==='Entrenamiento intensivo'){ document.getElementById('lvlup-body').innerHTML=renderLvlupPaso('extra',APP.lvlupData,myFicha()); abrirModalEntrenamiento('lvlup'); return; }
-    if(n==='Daño adicional'){ document.getElementById('lvlup-body').innerHTML=renderLvlupPaso('extra',APP.lvlupData,myFicha()); abrirModalDañoAdic('lvlup'); return; }
-    if(n==='Talento con atributo'){ document.getElementById('lvlup-body').innerHTML=renderLvlupPaso('extra',APP.lvlupData,myFicha()); abrirModalTalAtributo('lvlup'); return; }
-    if(n==='Talento con habilidad'){ document.getElementById('lvlup-body').innerHTML=renderLvlupPaso('extra',APP.lvlupData,myFicha()); abrirModalTalHabilidad('lvlup'); return; }
-    if(n==='Crítico superior'){ document.getElementById('lvlup-body').innerHTML=renderLvlupPaso('extra',APP.lvlupData,myFicha()); abrirModalCritSuperior('lvlup'); return; }
-    if(n==='Profesional'){ document.getElementById('lvlup-body').innerHTML=renderLvlupPaso('extra',APP.lvlupData,myFicha()); abrirModalProfesional('lvlup'); return; }
-    if(n==='Refinamiento'){ document.getElementById('lvlup-body').innerHTML=renderLvlupPaso('extra',APP.lvlupData,myFicha()); abrirModalRefinamientoAv('lvlup'); return; }
-    if(n==='Instruido'){ document.getElementById('lvlup-body').innerHTML=renderLvlupPaso('extra',APP.lvlupData,myFicha()); abrirModalInstruido('lvlup'); return; }
-  }
+  // disparadores por nombre borrados a petición del usuario, pendientes de recrear
   document.getElementById('lvlup-body').innerHTML=renderLvlupPaso('extra',APP.lvlupData,myFicha());
 };
 
@@ -5327,10 +5122,7 @@ window.lvlupNext=function(){
     j.habHabs={...d.habHabsDelta};
     j.attrs={...d.attrDelta};
     if(d.extraElegido)j.extras=[...(j.extras||[]),d.extraElegido];
-    // Copiar elecciones de extras especiales
-    if(d.extraElegido==='Entrenamiento intensivo'&&d.extraAtributo){
-      j.attrs[d.extraAtributo]=(j.attrs[d.extraAtributo]||7)+1;
-    }
+    // extras 'Entrenamiento intensivo', 'Evolución perfecta', 'Vitalidad' y 'Afortunado' borrados a petición del usuario, pendientes de recrear
     if(d.extraAtributo) j.extraAtributo=d.extraAtributo;
     if(d.extraArma)     j.extraArma=d.extraArma;
     if(d.talAtributo)      j.talAtributo=d.talAtributo;
@@ -5343,18 +5135,6 @@ window.lvlupNext=function(){
       d.refinamientoAttrs.forEach(function(k){ if(j.attrs[k]!==undefined) j.attrs[k]+=1; });
     }
     if(d.instruidoHabs&&d.instruidoHabs.length) j.instruidoHabs=d.instruidoHabs;
-    // Evolución perfecta: +2 a todos los atributos
-    if(d.extraElegido==='Evolución perfecta'){
-      ATTRS.forEach(function(a){ j.attrs[a.k]=(j.attrs[a.k]||7)+2; });
-    }
-    // Vitalidad: +30 PVmax
-    if(d.extraElegido==='Vitalidad'){
-      j.pvMax+=30; j.pvAct=Math.min(j.pvAct+30,j.pvMax);
-    }
-    // Afortunado: +1 punto de suerte (de una vez, el contador ya no depende de fórmula)
-    if(d.extraElegido==='Afortunado'){
-      j.puntossuerte=(j.puntossuerte||0)+1;
-    }
     j.levelUpPendiente=false;
     saveJ();
     showNotif('¡Nivel '+j.nivel+' alcanzado!');
@@ -5594,11 +5374,7 @@ window.masterOtorgarRasgo=function(jid,rid){
 };
 
 // Extras que necesitan elegir algo más al otorgarlos (arma/habilidad/atributo)
-const EXTRAS_CON_ELECCION={
-  'Daño adicional':'arma', 'Talento con habilidad':'arma', 'Profesional':'arma', 'Crítico superior':'arma',
-  'Entrenamiento intensivo':'atributo', 'Talento con atributo':'atributo',
-  'Instruido':'habilidades'
-};
+const EXTRAS_CON_ELECCION={}; // vaciado a petición del usuario junto con los extras — se recreará según haga falta
 window.abrirOtorgarExtra=function(jid){
   const sala=getMockSala(APP.salaId); const j=sala.jugadores[jid]; if(!j) return;
   const todos=[].concat(EXTRAS_INICIALES,EXTRAS_COMUNES,EXTRAS_AVANZADOS,EXTRAS_LEGENDARIOS,APP.extrasCustom||[]);
@@ -5622,11 +5398,7 @@ window.masterOtorgarExtra=function(jid,en){
   if(!j.extras) j.extras=[];
   if(!j.extras.includes(en)){
     j.extras.push(en);
-    // Bonos de una sola vez, igual que al elegirlos en creación/subida de nivel
-    if(en==='Duro'){ j.pvMax+=10; j.pvAct+=10; }
-    if(en==='Vitalidad'){ j.pvMax+=30; j.pvAct=Math.min(j.pvAct+30,j.pvMax); }
-    if(en==='Afortunado'){ j.puntossuerte=(j.puntossuerte||0)+1; }
-    if(en==='Evolución perfecta'){ ATTRS.forEach(function(a){ j.attrs[a.k]=(j.attrs[a.k]||7)+2; }); }
+    // extras 'Duro', 'Vitalidad', 'Afortunado' y 'Evolución perfecta' borrados a petición del usuario, pendientes de recrear
   }
   APP.jugadores=sala.jugadores;
   fbSet('salas/'+APP.salaId+'/jugadores/'+jid,j);
@@ -5668,12 +5440,7 @@ window.abrirEleccionExtraMaster=function(jid,en,tipo){
 };
 window.confirmarEleccionExtraMaster=function(jid,en,op){
   const sala=getMockSala(APP.salaId); const j=sala.jugadores[jid]; if(!j) return;
-  if(en==='Daño adicional') j.extraArma=op;
-  else if(en==='Talento con habilidad') j.talHabilidad=op;
-  else if(en==='Profesional') j.profesionalArma=op;
-  else if(en==='Crítico superior') j.critSuperiorArma=op;
-  else if(en==='Entrenamiento intensivo'){ var attr=ATTRS.find(function(a){return a.n===op;}); if(attr) j.attrs[attr.k]=(j.attrs[attr.k]||0)+1; }
-  else if(en==='Talento con atributo') j.talAtributo=op;
+  // comprobaciones por nombre borradas a petición del usuario, pendientes de recrear
   APP.jugadores=sala.jugadores;
   fbSet('salas/'+APP.salaId+'/jugadores/'+jid,j);
   cerrarDetalle();
@@ -5682,8 +5449,7 @@ window.confirmarEleccionExtraMaster=function(jid,en,op){
 };
 window.confirmarEleccionMultiMaster=function(jid,en){
   const sala=getMockSala(APP.salaId); const j=sala.jugadores[jid]; if(!j) return;
-  var elegidas=Array.from(document.querySelectorAll('.chk-eleccion-multi:checked')).map(function(c){return c.value;});
-  if(en==='Instruido') j.instruidoHabs=elegidas;
+  // comprobación por nombre borrada a petición del usuario, pendiente de recrear
   APP.jugadores=sala.jugadores;
   fbSet('salas/'+APP.salaId+'/jugadores/'+jid,j);
   cerrarDetalle();
@@ -7029,12 +6795,7 @@ window.masterMod=function(tipo){
     if(tipo==='daño'){
       const v=parseInt(document.getElementById('m-pv').value)||0;
       var vM=v+((j.rasgos||[]).includes('masacre')&&v>0?1:0);
-      // Esqueleto de Adamantio: -5 al daño recibido
-      if((j.extras||[]).includes('Esqueleto de Adamantio')&&vM>0){
-        var redAdamantio=Math.min(5,vM);
-        vM=Math.max(0,vM-5);
-        if(vM<v) showNotif(j.nombre+': Adamantio · -'+redAdamantio+' daño reducido');
-      }
+      // extra 'Esqueleto de Adamantio' borrado a petición del usuario, pendiente de recrear
       j.pvAct=Math.max(0,j.pvAct-vM);
       if(j.pvAct===0)showNotif(j.nombre+': INCAPACITADO');
       if((j.rasgos||[]).includes('masacre')&&v>0&&vM>v)showNotif(j.nombre+': Masacre · -'+vM+' PV');
@@ -7042,10 +6803,7 @@ window.masterMod=function(tipo){
     else if(tipo==='cura'){const v=parseInt(document.getElementById('m-pv').value)||0;j.pvAct=Math.min(calcPVMaxEfectivo(j),j.pvAct+v);}
     else if(tipo==='rad+'){
       const v=parseInt(document.getElementById('m-rad').value)||0;
-      // Uranium Fever: inmune a radiación
-      if((j.extras||[]).includes('Uranium Fever')){
-        showNotif(j.nombre+': Uranium Fever · Inmune a radiación'); return;
-      }
+      // extra 'Uranium Fever' borrado a petición del usuario, pendiente de recrear
       const vR=(j.rasgos||[]).includes('iridiscente')?Math.floor(v/2):v;
       j.rads=Math.min(1000,j.rads+vR);
       if(vR<v)showNotif(j.nombre+': Iridiscente · +'+vR+' rads (÷2)');
