@@ -839,9 +839,11 @@ function getPEparaSubir(n){
 function puedeSubirNivel(j){var pe=getPEparaSubir(j.nivel);return pe!==null&&j.pe>=pe;}
 function getListaExtrasNivel(nivel){
   const cat=getCatExtraNivel(nivel);
-  if(cat==='legendario') return [...EXTRAS_COMUNES,...EXTRAS_AVANZADOS,...EXTRAS_LEGENDARIOS];
-  if(cat==='avanzado')   return [...EXTRAS_COMUNES,...EXTRAS_AVANZADOS];
-  return EXTRAS_COMUNES;
+  const custom=APP.extrasCustom||[];
+  const porTier=function(t){ return custom.filter(function(e){return e.tierCustom===t;}); };
+  if(cat==='legendario') return [...porTier('comun'),...porTier('avanzado'),...porTier('legendario')];
+  if(cat==='avanzado')   return [...porTier('comun'),...porTier('avanzado')];
+  return porTier('comun');
 }
 function getCatLabelNivel(nivel){
   const cat=getCatExtraNivel(nivel);
@@ -3191,7 +3193,7 @@ function renderJEstado(){
   const extrasBlock=(j.extras||[]).length
     ?'<div class="card" style="margin-top:8px;"><div class="card-hdr">EXTRAS ACTIVOS</div><div class="card-body" style="padding:6px 10px;">'
       +(j.extras||[]).map(function(e){
-        var exObj=[].concat(EXTRAS_INICIALES,EXTRAS_COMUNES).find(function(x){return x.n===e;});
+        var exObj=[].concat(EXTRAS_INICIALES,EXTRAS_COMUNES,EXTRAS_AVANZADOS,EXTRAS_LEGENDARIOS,APP.extrasCustom||[]).find(function(x){return x.n===e;});
         var desc=exObj?exObj.d:'';
         return '<div style="padding:4px 0;border-bottom:1px solid rgba(74,254,130,.08);"><div style="font-size:11px;color:var(--pip-bright);">▸ '+e+'</div>'+(desc?'<div style="font-size:9px;color:var(--pip-dim);">'+desc+'</div>':'')+'</div>';
       }).join('')
@@ -3458,7 +3460,7 @@ function renderJCreacion(){
   </div>
   <div class="card"><div class="card-hdr">IDENTIDAD</div><div class="card-body">
     <div class="resumen-row"><span class="resumen-key">CLASE</span><span class="resumen-val">${CLASES[j.clase].n} (${CLASES[j.clase].dado})</span></div>
-    <div class="resumen-row"><span class="resumen-key">RASGOS</span><span class="resumen-val">${j.rasgos.length?j.rasgos.map(r=>RASGOS.find(x=>x.id===r)?.n||r).join(', '):'Ninguno'}</span></div>
+    <div class="resumen-row"><span class="resumen-key">RASGOS</span><span class="resumen-val">${j.rasgos.length?j.rasgos.map(r=>[].concat(RASGOS,APP.rasgosCustom||[]).find(x=>String(x.id)===String(r))?.n||r).join(', '):'Ninguno'}</span></div>
     <div class="resumen-row"><span class="resumen-key">EXTRA INICIAL</span><span class="resumen-val">${j.extraInicial||'Ninguno'}</span></div>
     <div class="resumen-row"><span class="resumen-key">TRASFONDO</span><span class="resumen-val">${j.trasfondo||'—'}</span></div>
   </div></div>
@@ -3470,7 +3472,7 @@ function renderJCreacion(){
     }).join(''):'<div class="empty" style="padding:10px;">Sin extras adicionales aún</div>'}
   </div></div>
   <div class="card" style="margin-top:6px;"><div class="card-hdr">RASGOS</div><div class="card-body" style="padding:6px 10px;">
-    ${(j.rasgos||[]).length?(j.rasgos||[]).map(r=>{const obj=RASGOS.find(x=>x.id===r);return obj?`<div style="padding:5px 0;border-bottom:1px solid rgba(74,254,130,.08);"><div style="font-size:11px;color:var(--pip-bright);">▸ ${obj.n}</div><div style="font-size:10px;color:var(--pip-dim);margin-top:2px;">${obj.d}</div></div>`:'';}).join(''):'<div class="empty" style="padding:10px;">Sin rasgos</div>'}
+    ${(j.rasgos||[]).length?(j.rasgos||[]).map(r=>{const obj=[].concat(RASGOS,APP.rasgosCustom||[]).find(x=>String(x.id)===String(r));return obj?`<div style="padding:5px 0;border-bottom:1px solid rgba(74,254,130,.08);"><div style="font-size:11px;color:var(--pip-bright);">▸ ${obj.n}</div><div style="font-size:10px;color:var(--pip-dim);margin-top:2px;">${obj.d}</div></div>`:'';}).join(''):'<div class="empty" style="padding:10px;">Sin rasgos</div>'}
   </div></div>`;
 }
 
@@ -4579,7 +4581,7 @@ function renderWS_Clase(d){
 function renderWS_Rasgos(d){
   return`
   <div style="font-size:10px;color:var(--pip-dim);margin-bottom:10px;">Elige hasta 2 rasgos. Cada uno tiene ventajas y desventajas que se compensan.</div>
-  ${RASGOS.map(r=>{
+  ${[].concat(RASGOS,APP.rasgosCustom||[]).map(r=>{
     const sel=d.rasgos.includes(r.id);
     const dis=!sel&&d.rasgos.length>=2;
     const clsR=sel?'sel':''; const clsD=dis?'disabled':'';
@@ -4628,7 +4630,7 @@ function renderWS_Habilidades(d){
 function renderWS_Extra(d){
   return`
   <div style="font-size:10px;color:var(--pip-dim);margin-bottom:10px;">Elige 1 extra inicial.</div>
-  ${EXTRAS_INICIALES.map(e=>{
+  ${(APP.extrasCustom||[]).filter(function(e){return e.tierCustom==='inicial';}).map(e=>{
     const sel=d.extraInicial===e.n;
     const safeNm=e.n.replace(/'/g,'&#39;'); return`<div class="extra-item ${sel?'sel':''}" onclick="wzExtra('${safeNm}')">
       <div><span class="extra-name">${e.n}</span><span class="extra-cat">INICIAL</span></div>
@@ -4659,7 +4661,7 @@ function renderWS_Resumen(d){
     <div class="resumen-row"><span class="resumen-key">CLASE</span><span class="resumen-val">${CLASES[d.clase].n} · ${CLASES[d.clase].dado}</span></div>
     <div class="resumen-row"><span class="resumen-key">PV INICIALES</span><span class="resumen-val">${pv}</span></div>
     <div class="resumen-row"><span class="resumen-key">DEF BASE</span><span class="resumen-val">${def}</span></div>
-    <div class="resumen-row"><span class="resumen-key">RASGOS</span><span class="resumen-val">${d.rasgos.length?d.rasgos.map(r=>RASGOS.find(x=>x.id===r)?.n||r).join(', '):'Ninguno'}</span></div>
+    <div class="resumen-row"><span class="resumen-key">RASGOS</span><span class="resumen-val">${d.rasgos.length?d.rasgos.map(r=>[].concat(RASGOS,APP.rasgosCustom||[]).find(x=>String(x.id)===String(r))?.n||r).join(', '):'Ninguno'}</span></div>
     <div class="resumen-row"><span class="resumen-key">EXTRA INICIAL</span><span class="resumen-val">${d.extraInicial||'Ninguno'}</span></div>
     <div class="resumen-row"><span class="resumen-key">TRASFONDO</span><span class="resumen-val">${d.trasfondo||'—'}</span></div>
   </div></div>
@@ -4999,9 +5001,9 @@ function renderLvlupPaso(paso,d,j){
     var nivel=d.nuevoNivel;
     var lista=getListaExtrasNivel(nivel);
     var catLabel=getCatLabelNivel(nivel);
-    var comunes=lista.filter(function(e){return EXTRAS_COMUNES.some(function(x){return x.id===e.id});});
-    var avanzados=lista.filter(function(e){return EXTRAS_AVANZADOS.some(function(x){return x.id===e.id});});
-    var legendarios=lista.filter(function(e){return EXTRAS_LEGENDARIOS.some(function(x){return x.id===e.id});});
+    var comunes=lista.filter(function(e){return e.tierCustom==='comun';});
+    var avanzados=lista.filter(function(e){return e.tierCustom==='avanzado';});
+    var legendarios=lista.filter(function(e){return e.tierCustom==='legendario';});
 
     function buildEI(e,cat){
       var sel=d.extraElegido===e.n;
