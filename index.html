@@ -1275,27 +1275,33 @@ function calcBonusRasgos(j){
 function calcBonusEfectivos(j){
   // Motor genérico: agrega drogas activas + rasgo(s) + extras del jugador, por categoría/parámetro del catálogo cerrado
   var out={atributo:{},hab_arma:{},hab_general:{},derivado:{}};
-  function aplicar(efectos){
+  var elecciones=j.eleccionesExtra||{};
+  function aplicar(efectos,eleccionKey){
     (efectos||[]).forEach(function(e){
       var delta=(e.signo==='-'?-1:1)*e.valor;
+      var param=e.param;
+      if(e.eleccion){
+        param=eleccionKey?elecciones[eleccionKey]:null;
+        if(!param||(e.opciones||[]).indexOf(param)===-1) return; // el jugador todavía no ha elegido, o eligió algo fuera de las opciones válidas
+      }
       if(!out[e.cat]) out[e.cat]={};
-      out[e.cat][e.param]=(out[e.cat][e.param]||0)+delta;
+      out[e.cat][param]=(out[e.cat][param]||0)+delta;
     });
   }
-  (j.efectosActivos||[]).forEach(function(ef){ aplicar(ef.efectosGen); });
+  (j.efectosActivos||[]).forEach(function(ef){ aplicar(ef.efectosGen,null); });
   (j.rasgos||[]).forEach(function(rid){
     var r=RASGOS.find(function(x){return x.id===rid;})||(APP.rasgosCustom||[]).find(function(x){return String(x.id)===String(rid);});
-    if(r) aplicar(r.efectos);
+    if(r) aplicar(r.efectos,null);
   });
   var todasExtras=[].concat(EXTRAS_INICIALES,EXTRAS_COMUNES,EXTRAS_AVANZADOS,EXTRAS_LEGENDARIOS,APP.extrasCustom||[]);
   (j.extras||[]).forEach(function(en){
     var e=todasExtras.find(function(x){return x.n===en;});
-    if(e) aplicar(e.efectos);
+    if(e) aplicar(e.efectos,en);
   });
   var setActual=calcSetArmadura(j);
   if(setActual){
     var setDef=(APP.setsArmadura||[]).find(function(x){return x.id===setActual;});
-    if(setDef) aplicar(setDef.efectos);
+    if(setDef) aplicar(setDef.efectos,null);
   }
   return out;
 }
@@ -4639,9 +4645,11 @@ function renderWS_Extra(d){
   <div style="font-size:10px;color:var(--pip-dim);margin-bottom:10px;">Elige 1 extra inicial.</div>
   ${(APP.extrasCustom||[]).filter(function(e){return e.tierCustom==='inicial';}).map(e=>{
     const sel=d.extraInicial===e.n;
+    const efEl=(e.efectos||[]).find(function(ef){return ef.eleccion;});
     const safeNm=e.n.replace(/'/g,'&#39;'); return`<div class="extra-item ${sel?'sel':''}" onclick="wzExtra('${safeNm}')">
       <div><span class="extra-name">${e.n}</span><span class="extra-cat">INICIAL</span></div>
       <div class="extra-desc">${e.d}</div>
+      ${sel&&efEl?'<div style="font-size:9px;color:var(--pip-warn);margin-top:3px;">→ '+(d.eleccionExtra?nombreParam(efEl.cat,d.eleccionExtra):'⚠ falta elegir')+'</div>':''}
       ${sel?'<span class="extra-check">✓</span>':''}
     </div>`;
   }).join('')}`;
@@ -4775,11 +4783,48 @@ window.wzHabHab=function(h,v){
   }
   document.getElementById('wizard-body').innerHTML=renderWizardStep(3,APP.wizardData);
 };
+window.abrirEleccionExtraJugador=function(en,efEleccion,origen){
+  const j=myFicha();
+  const modal=document.getElementById('obj-detail-modal');
+  const box=document.getElementById('obj-detail-box');
+  // En creación no hay elecciones previas (ficha nueva); en subida de nivel sí las de la ficha ya confirmada
+  const yaElegidas=origen==='lvlup'?Object.values(j.eleccionesExtra||{}):[];
+  const listaHtml=efEleccion.opciones.map(function(op){
+    const bloqueada=yaElegidas.indexOf(op)!==-1;
+    const nombre=nombreParam(efEleccion.cat,op);
+    return bloqueada
+      ?'<div style="padding:8px;border:1px solid var(--pip-border);margin-bottom:4px;opacity:.4;"><span style="font-size:12px;color:var(--pip-dim);">'+nombre+'</span><span style="font-size:9px;color:var(--pip-danger);margin-left:6px;">YA ELEGIDA EN OTRO EXTRA</span></div>'
+      :'<div style="padding:8px;border:1px solid var(--pip-border);margin-bottom:4px;cursor:pointer;" data-op="'+op+'" data-origen="'+origen+'" onclick="confirmarEleccionExtraJugador(this.dataset.op,this.dataset.origen)">'
+        +'<span style="font-size:12px;color:var(--pip-bright);">'+nombre+'</span></div>';
+  }).join('');
+  box.innerHTML='<div style="padding:16px;">'
+    +'<div style="font-family:VT323,monospace;font-size:18px;color:var(--pip-bright);margin-bottom:6px;">'+en+'</div>'
+    +'<div style="font-size:9px;color:var(--pip-dim);margin-bottom:10px;">¿A qué parámetro afecta?</div>'
+    +listaHtml
+    +'</div>';
+  modal.style.display='flex';
+};
+window.confirmarEleccionExtraJugador=function(op,origen){
+  if(origen==='wizard'){
+    APP.wizardData.eleccionExtra=op;
+    cerrarDetalle();
+    document.getElementById('wizard-body').innerHTML=renderWizardStep(4,APP.wizardData);
+  } else {
+    APP.lvlupData.eleccionExtra=op;
+    cerrarDetalle();
+    document.getElementById('lvlup-body').innerHTML=renderLvlupPaso('extra',APP.lvlupData,myFicha());
+  }
+};
 window.wzExtra=function(n){
   const deselect=APP.wizardData.extraInicial===n;
   APP.wizardData.extraInicial=deselect?'':n;
-  // disparadores por nombre borrados a petición del usuario, pendientes de recrear
+  APP.wizardData.eleccionExtra='';
   document.getElementById('wizard-body').innerHTML=renderWizardStep(4,APP.wizardData);
+  if(!deselect){
+    var def=(APP.extrasCustom||[]).find(function(x){return x.n===n;});
+    var efEl=def&&(def.efectos||[]).find(function(e){return e.eleccion;});
+    if(efEl) abrirEleccionExtraJugador(n,efEl,'wizard');
+  }
 };
 window.wzTrasfondo=function(v){APP.wizardData.trasfondo=v};
 
@@ -4795,9 +4840,7 @@ window.wizardNext=function(){
     d.pvMax=CLASES[d.clase].dadoN+d.attrs.res;
     d.pvAct=d.pvMax;
     if(d.extraInicial)d.extras=[d.extraInicial];
-    // extras 'Duro' y 'Pro en X' borrados a petición del usuario, pendientes de recrear
-    // (nota: 'Pro en X' usaba una variable PRO_EXTRA_MAP que nunca llegó a definirse en ningún sitio — bug latente ya inofensivo)
-    // extra 'Entrenamiento intensivo' borrado a petición del usuario, pendiente de recrear
+    if(d.extraInicial&&d.eleccionExtra){ d.eleccionesExtra={}; d.eleccionesExtra[d.extraInicial]=d.eleccionExtra; }
     // Guardar elecciones de talento (wizardData ES la ficha, ya están copiados)
     // extraArma, talAtributo, talHabilidad ya están en d directamente
     // inicializar puntos de suerte al confirmar
@@ -5015,9 +5058,11 @@ function renderLvlupPaso(paso,d,j){
     function buildEI(e,cat){
       var sel=d.extraElegido===e.n;
       var yaT=j.extras&&j.extras.includes(e.n);
+      var efEl=(e.efectos||[]).find(function(ef){return ef.eleccion;});
       return '<div class="extra-item '+(sel?'sel':'')+(yaT?' disabled':'')+'" data-nombre="'+e.n.replace(/"/g,'&quot;')+'" onclick="'+(yaT?'showNotif(\'Ya obtenido\')':'lvlExtra(this.dataset.nombre)')+'">'
         +'<div><span class="extra-name">'+e.n+'</span><span class="extra-cat">'+cat+'</span>'+(yaT?'<span style="font-size:8px;color:var(--pip-dim);margin-left:4px;">YA OBTENIDO</span>':'')+'</div>'
         +'<div class="extra-desc">'+e.d+'</div>'
+        +(sel&&efEl?'<div style="font-size:9px;color:var(--pip-warn);margin-top:3px;">→ '+(d.eleccionExtra?nombreParam(efEl.cat,d.eleccionExtra):'⚠ falta elegir')+'</div>':'')
         +(sel?'<span class="extra-check">✓</span>':'')
         +'</div>';
     }
@@ -5110,8 +5155,13 @@ window.lvlAttrDown=function(k){
 window.lvlExtra=function(n){
   const deselect=APP.lvlupData.extraElegido===n;
   APP.lvlupData.extraElegido=deselect?'':n;
-  // disparadores por nombre borrados a petición del usuario, pendientes de recrear
+  APP.lvlupData.eleccionExtra='';
   document.getElementById('lvlup-body').innerHTML=renderLvlupPaso('extra',APP.lvlupData,myFicha());
+  if(!deselect){
+    var def=(APP.extrasCustom||[]).find(function(x){return x.n===n;});
+    var efEl=def&&(def.efectos||[]).find(function(e){return e.eleccion;});
+    if(efEl) abrirEleccionExtraJugador(n,efEl,'lvlup');
+  }
 };
 
 window.lvlupBack=function(){APP.lvlupData.paso=Math.max(0,APP.lvlupData.paso-1);renderLvlUp()};
@@ -5131,7 +5181,7 @@ window.lvlupNext=function(){
     j.habHabs={...d.habHabsDelta};
     j.attrs={...d.attrDelta};
     if(d.extraElegido)j.extras=[...(j.extras||[]),d.extraElegido];
-    // extras 'Entrenamiento intensivo', 'Evolución perfecta', 'Vitalidad' y 'Afortunado' borrados a petición del usuario, pendientes de recrear
+    if(d.extraElegido&&d.eleccionExtra){ if(!j.eleccionesExtra) j.eleccionesExtra={}; j.eleccionesExtra[d.extraElegido]=d.eleccionExtra; }
     if(d.extraAtributo) j.extraAtributo=d.extraAtributo;
     if(d.extraArma)     j.extraArma=d.extraArma;
     if(d.talAtributo)      j.talAtributo=d.talAtributo;
@@ -5347,6 +5397,7 @@ window.masterQuitarRasgo=function(jid,rid){
 window.masterQuitarExtra=function(jid,en){
   const sala=getMockSala(APP.salaId); const j=sala.jugadores[jid]; if(!j) return;
   j.extras=(j.extras||[]).filter(function(x){return x!==en;});
+  if(j.eleccionesExtra&&j.eleccionesExtra[en]!==undefined) delete j.eleccionesExtra[en];
   APP.jugadores=sala.jugadores;
   fbSet('salas/'+APP.salaId+'/jugadores/'+jid,j);
   showNotif('Extra quitado');
@@ -5407,13 +5458,14 @@ window.masterOtorgarExtra=function(jid,en){
   if(!j.extras) j.extras=[];
   if(!j.extras.includes(en)){
     j.extras.push(en);
-    // extras 'Duro', 'Vitalidad', 'Afortunado' y 'Evolución perfecta' borrados a petición del usuario, pendientes de recrear
   }
   APP.jugadores=sala.jugadores;
   fbSet('salas/'+APP.salaId+'/jugadores/'+jid,j);
-  const tipoEleccion=EXTRAS_CON_ELECCION[en];
-  if(tipoEleccion){
-    abrirEleccionExtraMaster(jid,en,tipoEleccion);
+  var todosExtrasDef=[].concat(EXTRAS_INICIALES,EXTRAS_COMUNES,EXTRAS_AVANZADOS,EXTRAS_LEGENDARIOS,APP.extrasCustom||[]);
+  var def=todosExtrasDef.find(function(x){return x.n===en;});
+  var efEleccion=def&&(def.efectos||[]).find(function(e){return e.eleccion;});
+  if(efEleccion){
+    abrirEleccionExtraMaster(jid,en,efEleccion);
     return;
   }
   cerrarDetalle();
@@ -5421,48 +5473,35 @@ window.masterOtorgarExtra=function(jid,en){
   renderApp();
 };
 
-window.abrirEleccionExtraMaster=function(jid,en,tipo){
+window.abrirEleccionExtraMaster=function(jid,en,efEleccion){
+  const sala=getMockSala(APP.salaId); const j=sala.jugadores[jid]; if(!j) return;
   const modal=document.getElementById('obj-detail-modal');
   const box=document.getElementById('obj-detail-box');
-  var opciones=[];
-  if(tipo==='arma') opciones=en==='Profesional'
-    ?['Armas cortas','Armas medias','Armas grandes','Armas de energía']
-    :['Armas cortas','Armas medias','Armas grandes','Armas de energía','Combate'];
-  else if(tipo==='atributo') opciones=ATTRS.map(function(a){return a.n;});
-  var listaHtml=tipo==='habilidades'
-    ?'<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px;">'
-      +HAB_ARMAS.concat(HAB_HABS).map(function(h){
-        return '<label style="display:flex;align-items:center;gap:4px;border:1px solid var(--pip-border);padding:4px 8px;font-size:11px;color:var(--pip-bright);"><input type="checkbox" class="chk-eleccion-multi" value="'+h+'">'+h+'</label>';
-      }).join('')
-      +'</div>'
-    :opciones.map(function(op){
-        return '<div style="padding:8px;border:1px solid var(--pip-border);margin-bottom:4px;cursor:pointer;" data-jid="'+jid+'" data-en="'+en+'" data-op="'+op+'" onclick="confirmarEleccionExtraMaster(this.dataset.jid,this.dataset.en,this.dataset.op)">'
-          +'<span style="font-size:12px;color:var(--pip-bright);">'+op+'</span></div>';
-      }).join('');
+  const yaElegidas=Object.values(j.eleccionesExtra||{});
+  const listaHtml=efEleccion.opciones.map(function(op){
+    const bloqueada=yaElegidas.indexOf(op)!==-1;
+    const nombre=nombreParam(efEleccion.cat,op);
+    return bloqueada
+      ?'<div style="padding:8px;border:1px solid var(--pip-border);margin-bottom:4px;opacity:.4;"><span style="font-size:12px;color:var(--pip-dim);">'+nombre+'</span><span style="font-size:9px;color:var(--pip-danger);margin-left:6px;">YA ELEGIDA EN OTRO EXTRA</span></div>'
+      :'<div style="padding:8px;border:1px solid var(--pip-border);margin-bottom:4px;cursor:pointer;" data-jid="'+jid+'" data-en="'+en+'" data-op="'+op+'" onclick="confirmarEleccionExtraMaster(this.dataset.jid,this.dataset.en,this.dataset.op)">'
+        +'<span style="font-size:12px;color:var(--pip-bright);">'+nombre+'</span></div>';
+  }).join('');
   box.innerHTML='<div style="padding:16px;">'
     +'<div style="font-family:VT323,monospace;font-size:18px;color:var(--pip-bright);margin-bottom:6px;">'+en+'</div>'
-    +'<div style="font-size:9px;color:var(--pip-dim);margin-bottom:10px;">¿A qué afecta?</div>'
+    +'<div style="font-size:9px;color:var(--pip-dim);margin-bottom:10px;">¿A qué parámetro afecta?</div>'
     +listaHtml
-    +(tipo==='habilidades'?'<button class="btn btn-block" data-jid="'+jid+'" data-en="'+en+'" onclick="confirmarEleccionMultiMaster(this.dataset.jid,this.dataset.en)">▸ CONFIRMAR</button>':'')
     +'</div>';
   modal.style.display='flex';
 };
 window.confirmarEleccionExtraMaster=function(jid,en,op){
   const sala=getMockSala(APP.salaId); const j=sala.jugadores[jid]; if(!j) return;
-  // comprobaciones por nombre borradas a petición del usuario, pendientes de recrear
+  if(!j.eleccionesExtra) j.eleccionesExtra={};
+  if(Object.values(j.eleccionesExtra).indexOf(op)!==-1){ showNotif('Esa opción ya está elegida en otro extra'); return; }
+  j.eleccionesExtra[en]=op;
   APP.jugadores=sala.jugadores;
   fbSet('salas/'+APP.salaId+'/jugadores/'+jid,j);
   cerrarDetalle();
   showNotif(en+' → '+op);
-  renderApp();
-};
-window.confirmarEleccionMultiMaster=function(jid,en){
-  const sala=getMockSala(APP.salaId); const j=sala.jugadores[jid]; if(!j) return;
-  // comprobación por nombre borrada a petición del usuario, pendiente de recrear
-  APP.jugadores=sala.jugadores;
-  fbSet('salas/'+APP.salaId+'/jugadores/'+jid,j);
-  cerrarDetalle();
-  showNotif(en+' configurado');
   renderApp();
 };
 
@@ -6223,10 +6262,14 @@ function renderMExtras(){
   const paramsActuales=CATALOGO_PARAMS[catActual]||[];
   const tierDraft=APP._draftExtraTier||'comun';
 
+  const eleccionActiva=!!APP._draftEfEleccionExtra;
   const efectosListHtml=!draft.length?'<div style="font-size:10px;color:var(--pip-dim);padding:4px 0;">Sin efectos añadidos todavía</div>'
     :draft.map(function(ef,i){
+      var txt=ef.eleccion
+        ?'🔀 '+(ef.signo==='-'?'−':'+')+ef.valor+' · el jugador elige entre: '+ef.opciones.map(function(p){return nombreParam(ef.cat,p);}).join(', ')
+        :(ef.signo==='-'?'−':'+')+ef.valor+' · '+nombreParam(ef.cat,ef.param);
       return '<div style="display:flex;align-items:center;justify-content:space-between;border:1px solid var(--pip-border);padding:4px 8px;margin-bottom:4px;">'
-        +'<span style="font-size:12px;color:var(--pip-bright);">'+(ef.signo==='-'?'−':'+')+ef.valor+' · '+nombreParam(ef.cat,ef.param)+'</span>'
+        +'<span style="font-size:12px;color:var(--pip-bright);">'+txt+'</span>'
         +'<button class="chip chip-r" data-i="'+i+'" onclick="masterDelEfectoDraftExtra(parseInt(this.dataset.i))">×</button>'
         +'</div>';
     }).join('');
@@ -6247,8 +6290,12 @@ function renderMExtras(){
     +'<div style="display:grid;grid-template-columns:1fr;gap:6px;margin-top:6px;padding:8px;border:1px dashed var(--pip-border);">'
     +row1('CATEGORÍA DEL EFECTO','<select id="ex-ef-cat" onchange="masterCambiarCatEfectoExtra(this.value)" '+s+'>'
       +CATEGORIAS_EFECTO.map(function(c){return '<option value="'+c.k+'"'+(catActual===c.k?' selected':'')+'>'+c.n+'</option>';}).join('')+'</select>')
-    +row1('PARÁMETRO','<select id="ex-ef-param" '+s+'>'
-      +paramsActuales.map(function(p){return '<option value="'+p.k+'">'+p.n+'</option>';}).join('')+'</select>')
+    +'<label style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--pip-bright);padding:4px 0;"><input type="checkbox" id="ex-ef-eleccion" '+(eleccionActiva?'checked':'')+' onchange="APP._draftEfEleccionExtra=this.checked;masterCambiarCatEfectoExtra(document.getElementById(\'ex-ef-cat\').value)"> El jugador elige el parámetro al recibirlo (ej. "Pro en X")</label>'
+    +(eleccionActiva
+      ?row1('OPCIONES QUE PODRÁ ELEGIR EL JUGADOR','<div style="display:flex;flex-wrap:wrap;gap:5px;max-height:140px;overflow-y:auto;padding:6px;border:1px solid var(--pip-border);">'
+          +paramsActuales.map(function(p){return '<label style="display:flex;align-items:center;gap:4px;border:1px solid var(--pip-border);padding:3px 6px;font-size:10px;color:var(--pip-bright);"><input type="checkbox" class="ex-ef-opcion" value="'+p.k+'">'+p.n+'</label>';}).join('')
+          +'</div>')
+      :row1('PARÁMETRO','<select id="ex-ef-param" '+s+'>'+paramsActuales.map(function(p){return '<option value="'+p.k+'">'+p.n+'</option>';}).join('')+'</select>'))
     +row2({l:'SIGNO',h:'<select id="ex-ef-signo" '+s+'><option value="+">+ (suma)</option><option value="-">− (resta)</option></select>'},
           {l:'VALOR',h:'<input type="number" id="ex-ef-valor" value="1" min="0" '+sm+'>'})
     +'<button class="btn btn-sm" onclick="masterAddEfectoDraftExtra()">+ AÑADIR EFECTO</button>'
@@ -6272,7 +6319,7 @@ function renderMExtras(){
         return '<div class="shop-item" style="border-left:3px solid '+tierColor+';">'
           +'<div class="shop-info"><div class="shop-name" style="color:'+tierColor+';">'+e.n+' <span style="font-size:8px;color:'+tierColor+';border:1px solid '+tierColor+';padding:0 4px;">'+tierLabel+(esBase?' · BASE':'')+'</span></div>'
           +'<div class="shop-desc" style="font-size:11px;color:#7ddb8e;">'+(e.d||'')+'</div>'
-          +(e.efectos&&e.efectos.length?'<div style="font-size:10px;color:var(--pip-dim);margin-top:2px;">'+e.efectos.map(function(ef){return (ef.signo==='-'?'−':'+')+ef.valor+' '+nombreParam(ef.cat,ef.param);}).join(' · ')+'</div>':'')
+          +(e.efectos&&e.efectos.length?'<div style="font-size:10px;color:var(--pip-dim);margin-top:2px;">'+e.efectos.map(function(ef){return ef.eleccion?('🔀 '+(ef.signo==='-'?'−':'+')+ef.valor+' · a elegir entre '+ef.opciones.length+' opciones'):((ef.signo==='-'?'−':'+')+ef.valor+' '+nombreParam(ef.cat,ef.param));}).join(' · ')+'</div>':'')
           +(e.banner?'<div style="font-size:10px;color:var(--pip-warn);margin-top:2px;">ℹ '+e.banner+'</div>':'')
           +'</div>'
           +'<div style="display:flex;gap:3px;flex-shrink:0;">'
@@ -6297,13 +6344,20 @@ window.masterCambiarCatEfectoExtra=function(cat){
 
 window.masterAddEfectoDraftExtra=function(){
   const cat=(document.getElementById('ex-ef-cat')||{}).value||'atributo';
-  const param=(document.getElementById('ex-ef-param')||{}).value;
   const signo=(document.getElementById('ex-ef-signo')||{}).value||'+';
   const valor=parseInt((document.getElementById('ex-ef-valor')||{}).value)||0;
-  if(!param) return showNotif('Selecciona un parámetro');
   if(!valor) return showNotif('El valor debe ser mayor que 0');
   if(!APP._draftEfectosExtra) APP._draftEfectosExtra=[];
-  APP._draftEfectosExtra.push({cat:cat,param:param,signo:signo,valor:valor});
+  if(APP._draftEfEleccionExtra){
+    var opciones=Array.from(document.querySelectorAll('.ex-ef-opcion:checked')).map(function(c){return c.value;});
+    if(opciones.length<2) return showNotif('Marca al menos 2 opciones para que el jugador elija');
+    APP._draftEfectosExtra.push({cat:cat,eleccion:true,opciones:opciones,signo:signo,valor:valor});
+  } else {
+    const param=(document.getElementById('ex-ef-param')||{}).value;
+    if(!param) return showNotif('Selecciona un parámetro');
+    APP._draftEfectosExtra.push({cat:cat,param:param,signo:signo,valor:valor});
+  }
+  APP._draftEfEleccionExtra=false;
   APP._draftExtraN=(document.getElementById('ex-n')||{}).value||'';
   APP._draftExtraD=(document.getElementById('ex-d')||{}).value||'';
   APP._draftExtraBanner=(document.getElementById('ex-banner')||{}).value||'';
@@ -6324,7 +6378,7 @@ window.masterDelEfectoDraftExtra=function(i){
 };
 
 function limpiarDraftExtra(){
-  APP._draftEfectosExtra=[]; APP._draftEfCatExtra=null;
+  APP._draftEfectosExtra=[]; APP._draftEfCatExtra=null; APP._draftEfEleccionExtra=false;
   APP._draftExtraN=''; APP._draftExtraD=''; APP._draftExtraBanner=''; APP._draftExtraTier='comun';
   APP._editExtraId=null;
 }
