@@ -3774,26 +3774,12 @@ function renderJInv(){
         +btnQuitar
         +'</div></div>';
     } else {
-      // slot vacío — mostrar items equipables del inventario para ese slot
-      const equipables=j.inventario.filter(function(item){
-        const obj=getObjById(item.objId);
-        return obj&&obj.equipable&&(esHuecoArma?obj.slotTipo==='arma':obj.slotTipo===slotKey);
-      });
-      let opciones='';
-      if(equipables.length){
-        opciones='<div style="margin-top:5px;display:flex;flex-wrap:wrap;gap:3px;">'
-          +equipables.map(function(item){
-            const obj=getObjById(item.objId);
-            return '<button class="chip chip-g" onclick="equipar(\''+slotKey+'\','+obj.id+')" style="font-size:8px;">'+obj.n.replace(/Protección |Intermedia |Ligera |Pesada |Armadura Combate |Servo-traje Adaptado |Servo-Armadura /gi,'').trim()+'</button>';
-          }).join('')
-          +'</div>';
-      }
+      // slot vacío — sin botones rápidos aquí, se equipa desde la ventana de detalle del objeto
       return '<div style="border:1px dashed var(--pip-border);padding:7px 8px;margin-bottom:5px;background:rgba(74,254,130,.01);">'
         +'<div style="display:flex;align-items:center;gap:8px;">'
         +'<span style="font-size:10px;color:var(--pip-dim);width:80px;letter-spacing:1px;">'+icono+' '+label+'</span>'
         +'<span style="font-size:10px;color:var(--pip-dim);flex:1;">— VACÍO</span>'
         +'</div>'
-        +opciones
         +'</div>';
     }
   }
