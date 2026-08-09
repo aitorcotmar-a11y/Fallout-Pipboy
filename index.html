@@ -1279,13 +1279,16 @@ function calcBonusEfectivos(j){
   function aplicar(efectos,eleccionKey){
     (efectos||[]).forEach(function(e){
       var delta=(e.signo==='-'?-1:1)*e.valor;
-      var param=e.param;
+      var cat=e.cat, param=e.param;
       if(e.eleccion){
-        param=eleccionKey?elecciones[eleccionKey]:null;
-        if(!param||(e.opciones||[]).indexOf(param)===-1) return; // el jugador todavía no ha elegido, o eligió algo fuera de las opciones válidas
+        var elegida=eleccionKey?elecciones[eleccionKey]:null;
+        if(!elegida) return; // el jugador todavía no ha elegido
+        var valido=(e.opciones||[]).some(function(o){return o.cat===elegida.cat&&o.param===elegida.param;});
+        if(!valido) return; // eligió algo que ya no es una opción válida de este efecto
+        cat=elegida.cat; param=elegida.param;
       }
-      if(!out[e.cat]) out[e.cat]={};
-      out[e.cat][param]=(out[e.cat][param]||0)+delta;
+      if(!out[cat]) out[cat]={};
+      out[cat][param]=(out[cat][param]||0)+delta;
     });
   }
   (j.efectosActivos||[]).forEach(function(ef){ aplicar(ef.efectosGen,null); });
@@ -4649,7 +4652,7 @@ function renderWS_Extra(d){
     const safeNm=e.n.replace(/'/g,'&#39;'); return`<div class="extra-item ${sel?'sel':''}" onclick="wzExtra('${safeNm}')">
       <div><span class="extra-name">${e.n}</span><span class="extra-cat">INICIAL</span></div>
       <div class="extra-desc">${e.d}</div>
-      ${sel&&efEl?'<div style="font-size:9px;color:var(--pip-warn);margin-top:3px;">→ '+(d.eleccionExtra?nombreParam(efEl.cat,d.eleccionExtra):'⚠ falta elegir')+'</div>':''}
+      ${sel&&efEl?'<div style="font-size:9px;color:var(--pip-warn);margin-top:3px;">→ '+(d.eleccionExtra?nombreParam(d.eleccionExtra.cat,d.eleccionExtra.param):'⚠ falta elegir')+'</div>':''}
       ${sel?'<span class="extra-check">✓</span>':''}
     </div>`;
   }).join('')}`;
@@ -4787,14 +4790,15 @@ window.abrirEleccionExtraJugador=function(en,efEleccion,origen){
   const j=myFicha();
   const modal=document.getElementById('obj-detail-modal');
   const box=document.getElementById('obj-detail-box');
+  APP._eleccionEnCursoOpciones=efEleccion.opciones; // para recuperar el par {cat,param} al confirmar por índice
   // En creación no hay elecciones previas (ficha nueva); en subida de nivel sí las de la ficha ya confirmada
   const yaElegidas=origen==='lvlup'?Object.values(j.eleccionesExtra||{}):[];
-  const listaHtml=efEleccion.opciones.map(function(op){
-    const bloqueada=yaElegidas.indexOf(op)!==-1;
-    const nombre=nombreParam(efEleccion.cat,op);
+  const listaHtml=efEleccion.opciones.map(function(o,i){
+    const bloqueada=yaElegidas.some(function(el){return el.cat===o.cat&&el.param===o.param;});
+    const nombre=nombreParam(o.cat,o.param);
     return bloqueada
       ?'<div style="padding:8px;border:1px solid var(--pip-border);margin-bottom:4px;opacity:.4;"><span style="font-size:12px;color:var(--pip-dim);">'+nombre+'</span><span style="font-size:9px;color:var(--pip-danger);margin-left:6px;">YA ELEGIDA EN OTRO EXTRA</span></div>'
-      :'<div style="padding:8px;border:1px solid var(--pip-border);margin-bottom:4px;cursor:pointer;" data-op="'+op+'" data-origen="'+origen+'" onclick="confirmarEleccionExtraJugador(this.dataset.op,this.dataset.origen)">'
+      :'<div style="padding:8px;border:1px solid var(--pip-border);margin-bottom:4px;cursor:pointer;" data-i="'+i+'" data-origen="'+origen+'" onclick="confirmarEleccionExtraJugador(parseInt(this.dataset.i),this.dataset.origen)">'
         +'<span style="font-size:12px;color:var(--pip-bright);">'+nombre+'</span></div>';
   }).join('');
   box.innerHTML='<div style="padding:16px;">'
@@ -4804,7 +4808,8 @@ window.abrirEleccionExtraJugador=function(en,efEleccion,origen){
     +'</div>';
   modal.style.display='flex';
 };
-window.confirmarEleccionExtraJugador=function(op,origen){
+window.confirmarEleccionExtraJugador=function(i,origen){
+  const op=APP._eleccionEnCursoOpciones[i];
   if(origen==='wizard'){
     APP.wizardData.eleccionExtra=op;
     cerrarDetalle();
@@ -5062,7 +5067,7 @@ function renderLvlupPaso(paso,d,j){
       return '<div class="extra-item '+(sel?'sel':'')+(yaT?' disabled':'')+'" data-nombre="'+e.n.replace(/"/g,'&quot;')+'" onclick="'+(yaT?'showNotif(\'Ya obtenido\')':'lvlExtra(this.dataset.nombre)')+'">'
         +'<div><span class="extra-name">'+e.n+'</span><span class="extra-cat">'+cat+'</span>'+(yaT?'<span style="font-size:8px;color:var(--pip-dim);margin-left:4px;">YA OBTENIDO</span>':'')+'</div>'
         +'<div class="extra-desc">'+e.d+'</div>'
-        +(sel&&efEl?'<div style="font-size:9px;color:var(--pip-warn);margin-top:3px;">→ '+(d.eleccionExtra?nombreParam(efEl.cat,d.eleccionExtra):'⚠ falta elegir')+'</div>':'')
+        +(sel&&efEl?'<div style="font-size:9px;color:var(--pip-warn);margin-top:3px;">→ '+(d.eleccionExtra?nombreParam(d.eleccionExtra.cat,d.eleccionExtra.param):'⚠ falta elegir')+'</div>':'')
         +(sel?'<span class="extra-check">✓</span>':'')
         +'</div>';
     }
@@ -5477,13 +5482,14 @@ window.abrirEleccionExtraMaster=function(jid,en,efEleccion){
   const sala=getMockSala(APP.salaId); const j=sala.jugadores[jid]; if(!j) return;
   const modal=document.getElementById('obj-detail-modal');
   const box=document.getElementById('obj-detail-box');
+  APP._eleccionEnCursoOpciones=efEleccion.opciones;
   const yaElegidas=Object.values(j.eleccionesExtra||{});
-  const listaHtml=efEleccion.opciones.map(function(op){
-    const bloqueada=yaElegidas.indexOf(op)!==-1;
-    const nombre=nombreParam(efEleccion.cat,op);
+  const listaHtml=efEleccion.opciones.map(function(o,i){
+    const bloqueada=yaElegidas.some(function(el){return el.cat===o.cat&&el.param===o.param;});
+    const nombre=nombreParam(o.cat,o.param);
     return bloqueada
       ?'<div style="padding:8px;border:1px solid var(--pip-border);margin-bottom:4px;opacity:.4;"><span style="font-size:12px;color:var(--pip-dim);">'+nombre+'</span><span style="font-size:9px;color:var(--pip-danger);margin-left:6px;">YA ELEGIDA EN OTRO EXTRA</span></div>'
-      :'<div style="padding:8px;border:1px solid var(--pip-border);margin-bottom:4px;cursor:pointer;" data-jid="'+jid+'" data-en="'+en+'" data-op="'+op+'" onclick="confirmarEleccionExtraMaster(this.dataset.jid,this.dataset.en,this.dataset.op)">'
+      :'<div style="padding:8px;border:1px solid var(--pip-border);margin-bottom:4px;cursor:pointer;" data-jid="'+jid+'" data-en="'+en+'" data-i="'+i+'" onclick="confirmarEleccionExtraMaster(this.dataset.jid,this.dataset.en,parseInt(this.dataset.i))">'
         +'<span style="font-size:12px;color:var(--pip-bright);">'+nombre+'</span></div>';
   }).join('');
   box.innerHTML='<div style="padding:16px;">'
@@ -5493,15 +5499,16 @@ window.abrirEleccionExtraMaster=function(jid,en,efEleccion){
     +'</div>';
   modal.style.display='flex';
 };
-window.confirmarEleccionExtraMaster=function(jid,en,op){
+window.confirmarEleccionExtraMaster=function(jid,en,i){
   const sala=getMockSala(APP.salaId); const j=sala.jugadores[jid]; if(!j) return;
+  const op=APP._eleccionEnCursoOpciones[i];
   if(!j.eleccionesExtra) j.eleccionesExtra={};
-  if(Object.values(j.eleccionesExtra).indexOf(op)!==-1){ showNotif('Esa opción ya está elegida en otro extra'); return; }
+  if(Object.values(j.eleccionesExtra).some(function(el){return el.cat===op.cat&&el.param===op.param;})){ showNotif('Esa opción ya está elegida en otro extra'); return; }
   j.eleccionesExtra[en]=op;
   APP.jugadores=sala.jugadores;
   fbSet('salas/'+APP.salaId+'/jugadores/'+jid,j);
   cerrarDetalle();
-  showNotif(en+' → '+op);
+  showNotif(en+' → '+nombreParam(op.cat,op.param));
   renderApp();
 };
 
@@ -6263,10 +6270,11 @@ function renderMExtras(){
   const tierDraft=APP._draftExtraTier||'comun';
 
   const eleccionActiva=!!APP._draftEfEleccionExtra;
+  const opcionesAcum=APP._draftOpcionesEleccion||[]; // [{cat,param}]
   const efectosListHtml=!draft.length?'<div style="font-size:10px;color:var(--pip-dim);padding:4px 0;">Sin efectos añadidos todavía</div>'
     :draft.map(function(ef,i){
       var txt=ef.eleccion
-        ?'🔀 '+(ef.signo==='-'?'−':'+')+ef.valor+' · el jugador elige entre: '+ef.opciones.map(function(p){return nombreParam(ef.cat,p);}).join(', ')
+        ?'🔀 '+(ef.signo==='-'?'−':'+')+ef.valor+' · el jugador elige entre: '+ef.opciones.map(function(o){return nombreParam(o.cat,o.param);}).join(', ')
         :(ef.signo==='-'?'−':'+')+ef.valor+' · '+nombreParam(ef.cat,ef.param);
       return '<div style="display:flex;align-items:center;justify-content:space-between;border:1px solid var(--pip-border);padding:4px 8px;margin-bottom:4px;">'
         +'<span style="font-size:12px;color:var(--pip-bright);">'+txt+'</span>'
@@ -6288,17 +6296,23 @@ function renderMExtras(){
     +'<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin:8px 0 4px;border-bottom:1px solid var(--pip-border);padding-bottom:3px;">EFECTOS</div>'
     +efectosListHtml
     +'<div style="display:grid;grid-template-columns:1fr;gap:6px;margin-top:6px;padding:8px;border:1px dashed var(--pip-border);">'
+    +'<label style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--pip-bright);padding:4px 0;"><input type="checkbox" id="ex-ef-eleccion" '+(eleccionActiva?'checked':'')+' onchange="masterToggleEleccionExtra(this.checked)"> El jugador elige el parámetro al recibirlo (ej. "Pro en X")</label>'
+    +(eleccionActiva&&opcionesAcum.length
+      ?'<div style="margin-bottom:4px;"><label '+lbl+'>OPCIONES YA AÑADIDAS A ESTE EFECTO</label><div style="display:flex;flex-wrap:wrap;gap:4px;">'
+        +opcionesAcum.map(function(o,i){return '<span style="font-size:9px;color:var(--pip-bright);border:1px solid var(--pip);padding:2px 6px;">'+nombreParam(o.cat,o.param)+' <span style="color:var(--pip-danger);cursor:pointer;" data-i="'+i+'" onclick="masterQuitarOpcionEleccion(parseInt(this.dataset.i))">×</span></span>';}).join('')
+        +'</div></div>'
+      :'')
     +row1('CATEGORÍA DEL EFECTO','<select id="ex-ef-cat" onchange="masterCambiarCatEfectoExtra(this.value)" '+s+'>'
       +CATEGORIAS_EFECTO.map(function(c){return '<option value="'+c.k+'"'+(catActual===c.k?' selected':'')+'>'+c.n+'</option>';}).join('')+'</select>')
-    +'<label style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--pip-bright);padding:4px 0;"><input type="checkbox" id="ex-ef-eleccion" '+(eleccionActiva?'checked':'')+' onchange="APP._draftEfEleccionExtra=this.checked;masterCambiarCatEfectoExtra(document.getElementById(\'ex-ef-cat\').value)"> El jugador elige el parámetro al recibirlo (ej. "Pro en X")</label>'
     +(eleccionActiva
-      ?row1('OPCIONES QUE PODRÁ ELEGIR EL JUGADOR','<div style="display:flex;flex-wrap:wrap;gap:5px;max-height:140px;overflow-y:auto;padding:6px;border:1px solid var(--pip-border);">'
+      ?row1('MARCA OPCIONES DE ESTA CATEGORÍA <span style="opacity:.7;">(puedes cambiar de categoría arriba y seguir añadiendo antes de cerrar el efecto)</span>','<div style="display:flex;flex-wrap:wrap;gap:5px;max-height:140px;overflow-y:auto;padding:6px;border:1px solid var(--pip-border);">'
           +paramsActuales.map(function(p){return '<label style="display:flex;align-items:center;gap:4px;border:1px solid var(--pip-border);padding:3px 6px;font-size:10px;color:var(--pip-bright);"><input type="checkbox" class="ex-ef-opcion" value="'+p.k+'">'+p.n+'</label>';}).join('')
-          +'</div>')
+          +'</div>'
+          +'<button class="btn btn-sm" style="margin-top:4px;" onclick="masterAcumularOpcionesEleccion()">+ AÑADIR ESTAS OPCIONES AL EFECTO</button>')
       :row1('PARÁMETRO','<select id="ex-ef-param" '+s+'>'+paramsActuales.map(function(p){return '<option value="'+p.k+'">'+p.n+'</option>';}).join('')+'</select>'))
     +row2({l:'SIGNO',h:'<select id="ex-ef-signo" '+s+'><option value="+">+ (suma)</option><option value="-">− (resta)</option></select>'},
           {l:'VALOR',h:'<input type="number" id="ex-ef-valor" value="1" min="0" '+sm+'>'})
-    +'<button class="btn btn-sm" onclick="masterAddEfectoDraftExtra()">+ AÑADIR EFECTO</button>'
+    +'<button class="btn btn-sm" onclick="masterAddEfectoDraftExtra()">+ '+(eleccionActiva?'CERRAR Y AÑADIR EFECTO DE ELECCIÓN':'AÑADIR EFECTO')+'</button>'
     +'</div>'
     +row1('TEXTO INFORMATIVO / BANNER <span style="opacity:.7;">(para extras sin efecto mecánico, o aclaraciones)</span>','<input type="text" id="ex-banner" value="'+(editExtra?(editExtra.banner||''):(APP._draftExtraBanner||''))+'" placeholder="Texto que verá el jugador en su ficha" '+s+'>')
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:4px;">'
@@ -6332,13 +6346,47 @@ function renderMExtras(){
   return formHtml+listaHtml;
 }
 
-window.masterCambiarCatEfectoExtra=function(cat){
-  APP._draftEfCatExtra=cat;
+function guardarCamposDraftExtra(){
   APP._draftExtraN=(document.getElementById('ex-n')||{}).value||'';
   APP._draftExtraD=(document.getElementById('ex-d')||{}).value||'';
   APP._draftExtraBanner=(document.getElementById('ex-banner')||{}).value||'';
   var tierSel=document.getElementById('ex-tier'); if(tierSel) APP._draftExtraTier=tierSel.value;
+}
+
+window.masterCambiarCatEfectoExtra=function(cat){
+  APP._draftEfCatExtra=cat;
+  guardarCamposDraftExtra();
   var mc=document.getElementById('main-content');
+  if(mc) mc.innerHTML=renderMExtras();
+};
+
+window.masterToggleEleccionExtra=function(checked){
+  APP._draftEfEleccionExtra=checked;
+  APP._draftOpcionesEleccion=[];
+  guardarCamposDraftExtra();
+  var mc=document.getElementById('main-content');
+  if(mc) mc.innerHTML=renderMExtras();
+};
+
+window.masterAcumularOpcionesEleccion=function(){
+  const cat=(document.getElementById('ex-ef-cat')||{}).value||'atributo';
+  const marcadas=Array.from(document.querySelectorAll('.ex-ef-opcion:checked')).map(function(c){return c.value;});
+  if(!marcadas.length) return showNotif('Marca al menos una opción para añadirla');
+  if(!APP._draftOpcionesEleccion) APP._draftOpcionesEleccion=[];
+  marcadas.forEach(function(param){
+    var yaEsta=APP._draftOpcionesEleccion.some(function(o){return o.cat===cat&&o.param===param;});
+    if(!yaEsta) APP._draftOpcionesEleccion.push({cat:cat,param:param});
+  });
+  guardarCamposDraftExtra();
+  const mc=document.getElementById('main-content');
+  if(mc) mc.innerHTML=renderMExtras();
+};
+
+window.masterQuitarOpcionEleccion=function(i){
+  if(!APP._draftOpcionesEleccion) return;
+  APP._draftOpcionesEleccion.splice(i,1);
+  guardarCamposDraftExtra();
+  const mc=document.getElementById('main-content');
   if(mc) mc.innerHTML=renderMExtras();
 };
 
@@ -6349,19 +6397,23 @@ window.masterAddEfectoDraftExtra=function(){
   if(!valor) return showNotif('El valor debe ser mayor que 0');
   if(!APP._draftEfectosExtra) APP._draftEfectosExtra=[];
   if(APP._draftEfEleccionExtra){
-    var opciones=Array.from(document.querySelectorAll('.ex-ef-opcion:checked')).map(function(c){return c.value;});
-    if(opciones.length<2) return showNotif('Marca al menos 2 opciones para que el jugador elija');
-    APP._draftEfectosExtra.push({cat:cat,eleccion:true,opciones:opciones,signo:signo,valor:valor});
+    // Añadir también lo marcado en la categoría actual que no se haya pulsado "añadir" todavía
+    const marcadas=Array.from(document.querySelectorAll('.ex-ef-opcion:checked')).map(function(c){return c.value;});
+    if(!APP._draftOpcionesEleccion) APP._draftOpcionesEleccion=[];
+    marcadas.forEach(function(param){
+      var yaEsta=APP._draftOpcionesEleccion.some(function(o){return o.cat===cat&&o.param===param;});
+      if(!yaEsta) APP._draftOpcionesEleccion.push({cat:cat,param:param});
+    });
+    if(APP._draftOpcionesEleccion.length<2) return showNotif('Añade al menos 2 opciones para que el jugador elija');
+    APP._draftEfectosExtra.push({eleccion:true,opciones:APP._draftOpcionesEleccion.slice(),signo:signo,valor:valor});
+    APP._draftOpcionesEleccion=[];
   } else {
     const param=(document.getElementById('ex-ef-param')||{}).value;
     if(!param) return showNotif('Selecciona un parámetro');
     APP._draftEfectosExtra.push({cat:cat,param:param,signo:signo,valor:valor});
   }
   APP._draftEfEleccionExtra=false;
-  APP._draftExtraN=(document.getElementById('ex-n')||{}).value||'';
-  APP._draftExtraD=(document.getElementById('ex-d')||{}).value||'';
-  APP._draftExtraBanner=(document.getElementById('ex-banner')||{}).value||'';
-  var tierSel=document.getElementById('ex-tier'); if(tierSel) APP._draftExtraTier=tierSel.value;
+  guardarCamposDraftExtra();
   const mc=document.getElementById('main-content');
   if(mc) mc.innerHTML=renderMExtras();
 };
@@ -6378,7 +6430,7 @@ window.masterDelEfectoDraftExtra=function(i){
 };
 
 function limpiarDraftExtra(){
-  APP._draftEfectosExtra=[]; APP._draftEfCatExtra=null; APP._draftEfEleccionExtra=false;
+  APP._draftEfectosExtra=[]; APP._draftEfCatExtra=null; APP._draftEfEleccionExtra=false; APP._draftOpcionesEleccion=[];
   APP._draftExtraN=''; APP._draftExtraD=''; APP._draftExtraBanner=''; APP._draftExtraTier='comun';
   APP._editExtraId=null;
 }
