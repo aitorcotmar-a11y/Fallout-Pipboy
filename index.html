@@ -1447,7 +1447,7 @@ function fichaVacia(nombre,clase){
     penMod:0, extras:[],
     levelUpPendiente:false,
     municion:{},
-    fusion_carga:100,
+    fusion_carga:0,
     fusion_total:0,
     puntossuerte:0, // se calculan al confirmar ficha (mod SUE), el jugador los gasta/recupera
     karma:0,        // el master añade, el jugador puede ver y gastar
@@ -1990,7 +1990,7 @@ function normalizarFicha(j){
   if(j.karma===undefined)     j.karma=0;
   if(j.puntossuerte===undefined) j.puntossuerte=0;
   if(j.online===undefined)    j.online=false;
-  if(j.fusion_carga===undefined) j.fusion_carga=100;
+  if(j.fusion_carga===undefined) j.fusion_carga=0;
   if(j.fusion_total===undefined) j.fusion_total=0;
   if(j.cargadorActual===undefined) j.cargadorActual=0;
   if(j.dosManos===undefined)  j.dosManos=false;
@@ -3575,7 +3575,7 @@ function renderJMunicion(){
   if(!j.municion) j.municion={};
   const catalogo=getMunicionCatalogo();
   catalogo.forEach(function(t){ if(j.municion[t.muniId]==null) j.municion[t.muniId]=0; });
-  if(j.fusion_carga==null) j.fusion_carga=100;
+  if(j.fusion_carga==null) j.fusion_carga=0;
   if(j.fusion_total==null) j.fusion_total=0;
   function muniRow(t){
     const qty=j.municion[t.muniId]||0;
@@ -3587,25 +3587,37 @@ function renderJMunicion(){
   }
   // ── Bloque especial ENERGÍA con barra de batería ──
   const fusionBlock=(function(){
-    const carga=j.fusion_carga||0;
     const total=j.fusion_total||0;
-    const pct=Math.min(100,Math.max(0,carga));
-    const col=pct<25?'var(--pip-danger)':pct<50?'var(--pip-warn)':'var(--pip-warn)';
+    if(!j.cargador) j.cargador={arma1:0,arma2:0};
+    const eqF=j.equipo||{};
+    // Armas de energía realmente equipadas (0, 1 o 2 huecos)
+    const armasEnergia=['arma1','arma2'].map(function(slot){
+      const id=eqF[slot];
+      if(!id||id==='BLOQUEADO') return null;
+      const o=getObjById(id);
+      return (o&&o.muniId==='muni_fusion')?{slot:slot,obj:o}:null;
+    }).filter(Boolean);
+    const barrasHtml=armasEnergia.length
+      ?armasEnergia.map(function(a){
+          const pct=Math.min(100,Math.max(0,j.cargador[a.slot]||0));
+          const col=pct<25?'var(--pip-danger)':pct<50?'var(--pip-warn)':'var(--pip-warn)';
+          return '<div style="margin-bottom:8px;">'
+            +'<div style="display:flex;justify-content:space-between;margin-bottom:4px;">'
+            +'<span style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;">'+a.obj.n.toUpperCase()+' ('+(a.slot==='arma1'?'IZQ.':'DER.')+')</span>'
+            +'<span style="font-family:VT323,monospace;font-size:18px;color:'+col+';">'+pct+'%</span>'
+            +'</div>'
+            +'<div style="height:10px;background:var(--pip-mid);border:1px solid var(--pip-border);border-radius:2px;overflow:hidden;">'
+            +'<div style="height:100%;width:'+pct+'%;background:'+col+';transition:width .3s;"></div>'
+            +'</div>'
+            +'</div>';
+        }).join('')
+      :'<div style="font-size:10px;color:var(--pip-dim);margin-bottom:8px;">Sin armas de energía equipadas</div>';
     return '<div style="border-bottom:2px solid var(--pip-border);">'
       +'<div style="display:flex;align-items:center;padding:6px 12px;background:var(--pip-mid);">'
       +'<span style="font-family:VT323,monospace;font-size:14px;color:var(--pip-warn);letter-spacing:1px;flex:1;">ENERGÍA</span>'
       +'</div>'
       +'<div style="padding:10px 12px;">'
-      // Barra batería actual
-      +'<div style="margin-bottom:8px;">'
-      +'<div style="display:flex;justify-content:space-between;margin-bottom:4px;">'
-      +'<span style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;">BATERÍA ACTUAL</span>'
-      +'<span style="font-family:VT323,monospace;font-size:18px;color:'+col+';">'+pct+'%</span>'
-      +'</div>'
-      +'<div style="height:10px;background:var(--pip-mid);border:1px solid var(--pip-border);border-radius:2px;overflow:hidden;">'
-      +'<div style="height:100%;width:'+pct+'%;background:'+col+';transition:width .3s;"></div>'
-      +'</div>'
-      +'</div>'
+      +barrasHtml
       // Repuestos
       +'<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid rgba(245,185,66,.15);">'
       +'<div style="flex:1;">'
