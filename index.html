@@ -759,6 +759,8 @@ const CATALOGO_PARAMS={
     {k:'atk_cac',n:'Ataque Cuerpo a Cuerpo'},
     {k:'atk_explosivos',n:'Ataque con Explosivos'},
     {k:'atk_todas',n:'Ataque con cualquier arma'},
+    {k:'atk_una_mano',n:'Ataque con armas de una mano'},
+    {k:'atk_dos_manos',n:'Ataque con armas de dos manos'},
   ],
 };
 function nombreParam(cat,k){
@@ -3045,14 +3047,19 @@ function renderArmaSlotBlock(j,slot){
   var bonTalHab=0; // extra 'Talento con habilidad' borrado a petición del usuario, pendiente de recrear
   // Rasgo Mano Dominante: +2 con armas de una mano, -2 con armas de dos manos (según cómo se empuña, no por subcategoría)
   var bonManoDom=0;
+  var usandoDosManos=armaObj&&(armaObj.manos===2||(esCaCMedia&&dosManosSlot));
   if(armaObj&&(j.rasgos||[]).includes('mano')){
-    var usandoDosManos=armaObj.manos===2||(esCaCMedia&&dosManosSlot);
     bonManoDom=usandoDosManos?-2:2;
+  }
+  // Parámetros genéricos de catálogo: ataque con armas de una mano / de dos manos (según cómo se empuña la equipada)
+  var bonManosGenerico=0;
+  if(armaObj){
+    bonManosGenerico=usandoDosManos?(gEf.derivado.atk_dos_manos||0):(gEf.derivado.atk_una_mano||0);
   }
   // Regla del manual: en CaC se suma el Mod. FUE tanto al ataque como al daño
   var esCaC=armaObj&&armaObj.subcat==='cac';
   var modFueCaC=esCaC?getMod(calcAtrEf(j,'fue')):0;
-  var bonAtaqueTT=armaObj?(modAgi+habArmaVal+(j.penMod||0)+penRadAtk+bonSubcatAtk+(armaObj.calidad||0)+(gEf.derivado.ataque_tt||0)+bonLuchador+bonCazador+bonTalHab+modFueCaC+bonManoDom):0;
+  var bonAtaqueTT=armaObj?(modAgi+habArmaVal+(j.penMod||0)+penRadAtk+bonSubcatAtk+(armaObj.calidad||0)+(gEf.derivado.ataque_tt||0)+bonLuchador+bonCazador+bonTalHab+modFueCaC+bonManoDom+bonManosGenerico):0;
   var bonAtaqueRF=armaObj?(bonAtaqueTT-2+(gEf.derivado.ataque_rf||0)):0;
   var bonAtaqueFA=armaObj?(bonAtaqueTT+(gEf.derivado.ataque_fa||0)):0;
   // FA = desventaja (mostrar valor pero indicar desventaja)
