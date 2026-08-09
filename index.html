@@ -4598,7 +4598,7 @@ function renderWS_Rasgos(d){
   return`
   <div style="font-size:10px;color:var(--pip-dim);margin-bottom:10px;">Elige hasta 2 rasgos. Cada uno tiene ventajas y desventajas que se compensan.</div>
   ${[].concat(RASGOS,APP.rasgosCustom||[]).map(r=>{
-    const sel=d.rasgos.includes(r.id);
+    const sel=d.rasgos.some(function(rid){return String(rid)===String(r.id);});
     const dis=!sel&&d.rasgos.length>=2;
     const clsR=sel?'sel':''; const clsD=dis?'disabled':'';
     const clickR=dis?'showNotif(\'Máximo 2 rasgos\')':'wzRasgo(\''+r.id+'\')';
@@ -5412,7 +5412,7 @@ window.masterQuitarExtra=function(jid,en){
 window.abrirOtorgarRasgo=function(jid){
   const sala=getMockSala(APP.salaId); const j=sala.jugadores[jid]; if(!j) return;
   const todos=[].concat(RASGOS,APP.rasgosCustom||[]);
-  const disponibles=todos.filter(function(r){return !(j.rasgos||[]).includes(r.id);});
+  const disponibles=todos.filter(function(r){return !(j.rasgos||[]).some(function(rid){return String(rid)===String(r.id);});});
   const modal=document.getElementById('obj-detail-modal');
   const box=document.getElementById('obj-detail-box');
   box.innerHTML='<div style="padding:16px;">'
