@@ -1139,6 +1139,50 @@ function calcAGIbonoDEF(j){
   return mod;
 }
 
+function calcDEFDesglose(j){
+  var filas=[];
+  filas.push({l:'Base',v:10});
+  var bonoAgi=calcAGIbonoDEF(j);
+  if(bonoAgi!==0) filas.push({l:'Mod. AGI',v:bonoAgi});
+  const cls=j.clase;
+  const eq=j.equipo||{};
+  const servoCheck=eq.casco?getObjById(eq.casco):null;
+  if(servoCheck&&servoCheck.ocupaTres){
+    filas.push({l:'Servo-Armadura',v:11});
+  } else {
+    var etiquetas={casco:'Casco',pecho:'Pecho',extremidades:'Extremidades'};
+    var fueOkTodas=true;
+    ['casco','pecho','extremidades'].forEach(function(s){
+      const o=eq[s]?getObjById(eq[s]):null;
+      if(o&&o.fueMin&&calcFUEefectiva(j)<o.fueMin) fueOkTodas=false;
+    });
+    if(fueOkTodas){
+      ['casco','pecho','extremidades'].forEach(function(s){
+        const id=eq[s]; if(!id) return;
+        const o=getObjById(id); if(!o) return;
+        if(o.defBonus) filas.push({l:etiquetas[s],v:o.defBonus});
+      });
+    } else if(eq.casco||eq.pecho||eq.extremidades){
+      filas.push({l:'Blindaje',v:0,nota:'⚠ FUE insuficiente'});
+    }
+  }
+  const tiposEquip=['casco','pecho','extremidades'].map(function(s){
+    const o=eq[s]?getObjById(eq[s]):null;
+    return o?o.tipoBlinaje:'';
+  }).filter(Boolean);
+  const PERMITIDOS_HEROE=['ligera','intermedia','combate'];
+  const soloPermitidosHeroe=tiposEquip.length>0&&tiposEquip.every(function(t){return PERMITIDOS_HEROE.indexOf(t)>=0;});
+  const soloLigeraApto=tiposEquip.length>0&&tiposEquip.every(function(t){return t==='ligera';});
+  var adic=0;
+  if(cls==='heroe'&&soloPermitidosHeroe) adic+=1;
+  if(cls==='apto'&&soloLigeraApto) adic+=2;
+  var setBonus=calcSetBonus(j);
+  if(setBonus.defExtra) adic+=setBonus.defExtra;
+  adic+=(calcBonusEfectivos(j).derivado.def||0);
+  if(adic!==0) filas.push({l:'Adic.',v:adic});
+  if(j.penMod) filas.push({l:'Penaliz.',v:j.penMod});
+  return filas;
+}
 function calcDEF(j){
   let d=10;
   d+=calcAGIbonoDEF(j);
@@ -3086,11 +3130,13 @@ function renderArmaSlotBlock(j,slot){
     // extra 'Profesional' borrado a petición del usuario, pendiente de recrear
   }
   var bonDañoTotal=bonDañoCaCTotal+bonDañoDistTotal+dañoAdicExtra;
-  var bonDañoDroga=bonDañoTotal>0?'+'+bonDañoTotal:'';
+  var bonDañoDroga=bonDañoTotal>0?'+'+bonDañoTotal:(bonDañoTotal<0?String(bonDañoTotal):'');
   var dañoTT=armaObj?(armaObj.daño+(esCaCMedia&&dosManosSlot?'+1':'')+bonDañoDroga):'';
-  var rfDañoBon=(armaObj&&armaObj.rf&&(gEf.derivado.daño_rf||0)!==0)?((gEf.derivado.daño_rf>0?'+':'')+gEf.derivado.daño_rf):'';
+  var bonDañoRFTotal=bonDañoTotal+(gEf.derivado.daño_rf||0);
+  var rfDañoBon=bonDañoRFTotal>0?'+'+bonDañoRFTotal:(bonDañoRFTotal<0?String(bonDañoRFTotal):'');
   var dañoRF=armaObj?(armaObj.rf+rfDañoBon):'';
-  var dañoFA=armaObj?armaObj.fa:'';
+  var faDañoBon=bonDañoTotal>0?'+'+bonDañoTotal:(bonDañoTotal<0?String(bonDañoTotal):'');
+  var dañoFA=armaObj?(armaObj.fa+faDañoBon):'';
 
   var armaBlockHtml=armaObj
     ?'<div style="border:1px solid var(--pip-border);background:var(--pip-mid);margin-top:8px;">'
@@ -3194,14 +3240,12 @@ function renderJEstado(){
 
   const armaBlock=arma1Info.html+arma2Info.html;
 
-  // Blindaje resumen
-  const blindBlock=binfo.piezasEquip>0
+  // Blindaje: lo relativo a DEF ya se ve en el desglose de la caja DEF; aquí solo lo que no cabe ahí
+  const blindBlock=(binfo.radReduc>0||(binfo.fueOk&&fueEf>j.attrs.fue))
     ?'<div style="font-size:9px;color:var(--pip-dim);padding:4px 8px;border:1px solid var(--pip-border);margin-top:5px;background:var(--pip-mid);">'
-      +'Blindaje: <span style="color:var(--pip-bright);">'+binfo.tipoMax.toUpperCase()+'</span>'
-      +' · +'+binfo.defBonus+' DEF'
-      +(binfo.radReduc>0?' · <span style="color:var(--pip-rad);">-'+binfo.radReduc+' Rads/h</span>':'')
-      +(!binfo.fueOk?' · <span style="color:var(--pip-danger);">⚠ FUE '+binfo.fueReq+' req.</span>':'')
-      +(fueEf>j.attrs.fue?' · <span style="color:var(--pip-warn);">FUE ef. '+fueEf+'</span>':'')
+      +(binfo.radReduc>0?'<span style="color:var(--pip-rad);">-'+binfo.radReduc+' Rads/h por blindaje</span>':'')
+      +(binfo.radReduc>0&&fueEf>j.attrs.fue?' · ':'')
+      +(fueEf>j.attrs.fue?'<span style="color:var(--pip-warn);">FUE efectiva '+fueEf+'</span>':'')
       +'</div>'
     :'';
 
@@ -3246,13 +3290,23 @@ function renderJEstado(){
     +'<div style="border-top:1px solid var(--pip-border);margin:8px 0;"></div>'
 
     // ── Fila: DEF | SUERTE | KARMA en una línea ──
-    +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;">'
+    // ── Fila DEF a ancho completo: número a la izquierda, desglose a la derecha ──
+    +(function(){
+      var desglose=calcDEFDesglose(j);
+      return '<div style="display:flex;align-items:center;border:1px solid var(--pip-border);padding:6px 10px;background:var(--pip-dark);margin-bottom:6px;">'
+        +'<div style="text-align:center;flex-shrink:0;padding-right:12px;border-right:1px solid var(--pip-border);margin-right:12px;">'
+        +'<div style="font-size:8px;color:var(--pip-dim);letter-spacing:1px;margin-bottom:2px;">DEF</div>'
+        +'<div style="font-family:VT323,monospace;font-size:28px;color:var(--pip-warn);line-height:1;text-shadow:0 0 8px rgba(245,185,66,.4);">'+def+'</div>'
+        +'</div>'
+        +'<div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:2px 10px;">'
+        +desglose.map(function(f){
+          return '<div style="display:flex;justify-content:space-between;font-size:10px;"><span style="color:var(--pip-dim);">'+f.l+(f.nota?' <span style="color:var(--pip-danger);">'+f.nota+'</span>':'')+'</span><span style="color:'+(f.v<0?'var(--pip-danger)':'var(--pip-bright)')+';">'+(f.v>=0?'+':'')+f.v+'</span></div>';
+        }).join('')
+        +'</div></div>';
+    })()
 
-    // DEF
-    +'<div style="text-align:center;border:1px solid var(--pip-border);padding:6px 4px;background:var(--pip-dark);">'
-    +'<div style="font-size:8px;color:var(--pip-dim);letter-spacing:1px;margin-bottom:2px;">DEF</div>'
-    +'<div style="font-family:VT323,monospace;font-size:28px;color:var(--pip-warn);line-height:1;text-shadow:0 0 8px rgba(245,185,66,.4);">'+def+'</div>'
-    +'</div>'
+    // ── Fila: SUERTE | KARMA ──
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">'
 
     // SUERTE con -/+
     +'<div style="text-align:center;border:1px solid var(--pip-border);padding:6px 4px;background:var(--pip-dark);">'
