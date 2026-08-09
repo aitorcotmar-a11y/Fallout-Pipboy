@@ -5334,7 +5334,7 @@ function renderEditorFichaCompleta(jid){
     +'<div class="card" style="margin-bottom:8px;"><div class="card-hdr">RASGOS ('+(j.rasgos||[]).length+')</div><div style="padding:10px;">'
     +(!j.rasgos||!j.rasgos.length?'<div style="font-size:10px;color:var(--pip-dim);margin-bottom:8px;">Ninguno</div>'
       :j.rasgos.map(function(rid){
-        var r=todosRasgos.find(function(x){return x.id===rid;});
+        var r=todosRasgos.find(function(x){return String(x.id)===String(rid);});
         return '<div style="display:flex;align-items:center;padding:5px 8px;border:1px solid var(--pip-border);margin-bottom:4px;">'
           +'<span style="flex:1;font-size:12px;color:var(--pip-bright);">'+(r?r.n:rid)+'</span>'
           +'<button class="chip chip-r" data-jid="'+jid+'" data-rid="'+rid+'" onclick="masterQuitarRasgo(this.dataset.jid,this.dataset.rid)">QUITAR</button>'
