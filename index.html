@@ -3057,6 +3057,36 @@ window.confirmarCogerRecurso=async function(k){
   renderApp();
 };
 
+function renderPunosBlock(j){
+  var habCombate=j.habArmas['Combate']||0;
+  var pen=j.penMod||0;
+  var setBonus=calcSetBonus(j);
+  var sinArmas=!j.equipo||((!j.equipo.arma1||j.equipo.arma1==='BLOQUEADO')&&(!j.equipo.arma2||j.equipo.arma2==='BLOQUEADO'));
+  var bonAtaque=sinArmas?((setBonus.ataqueCaC)||0):0;
+  var bonDaño=sinArmas?((setBonus.dañoCaC)||0):0;
+  var brP=calcBonusRasgos(j);
+  var modFuePunos=getMod(calcAtrEf(j,'fue'));
+  var bonDañoDrogaP=(brP.dañoCaC||0)+bonDaño+modFuePunos;
+  var hab=habCombate+pen+bonAtaque+(brP.habCombate||0);
+  var daño='1D4'+(bonDañoDrogaP>0?'+'+bonDañoDrogaP:(bonDañoDrogaP<0?String(bonDañoDrogaP):''));
+  var radEfPun=calcEfectosRad(j); var penRadPun=radEfPun.reduce(function(s,e){return s+(e.penHab||0);},0);
+  var bonAtaqueCaC=getMod(calcAtrEf(j,'agi')+((j.rasgos||[]).includes('pequeno')?1:0))+habCombate+pen+(brP.atkCaC||0)+(brP.atkTodas||0)+penRadPun+modFuePunos;
+  return '<div style="border:1px solid var(--pip-border);background:var(--pip-mid);margin-top:8px;">'
+    +'<div style="display:flex;align-items:center;padding:6px 8px;border-bottom:1px solid var(--pip-border);">'
+    +'<div style="min-width:0;flex:1;">'
+    +'<div style="font-size:8px;color:var(--pip-dim);letter-spacing:1px;">👊 SIN ARMA EQUIPADA</div>'
+    +'<div style="font-size:12px;color:var(--pip-bright);">Ataque con Puños <span style="font-size:9px;color:var(--pip-dim);">· Combate '+hab+(pen<0?' <span style="color:var(--pip-danger);">(pen.)</span>':'')+'</span></div>'
+    +'</div>'
+    +'</div>'
+    +'<div style="display:flex;">'
+    +'<div style="flex:1;padding:8px 4px;text-align:center;font-family:VT323,monospace;">'
+    +'<div style="font-size:11px;color:var(--pip-bright);letter-spacing:1px;">ATAQUE</div>'
+    +'<div style="font-size:20px;color:var(--pip-warn);line-height:1;">'+daño+'</div>'
+    +'<div style="font-size:12px;color:var(--pip-bright);margin-top:2px;">atk '+(bonAtaqueCaC>=0?'+':'')+bonAtaqueCaC+'</div>'
+    +'</div>'
+    +'</div>'
+    +'</div>';
+}
 function renderArmaSlotBlock(j,slot){
   const eqS=j.equipo||{};
   const armaObj=(eqS[slot]&&eqS[slot]!=='BLOQUEADO')?getObjById(eqS[slot]):null;
@@ -3189,7 +3219,7 @@ function renderArmaSlotBlock(j,slot){
         :'')
       +'</div>'
       +'</div>'
-    :(slot==='arma1'?'<div style="border:1px dashed var(--pip-border);padding:7px 10px;font-size:10px;color:var(--pip-dim);margin-top:8px;text-align:center;">Sin arma equipada · Ve a EQUIPO</div>':'');
+    :renderPunosBlock(j);
 
   return {armaObj:armaObj,html:armaBlockHtml};
 }
@@ -3389,43 +3419,6 @@ function renderJEstado(){
         return '<div style="border:1px solid var(--pip-danger);background:rgba(255,60,60,.06);padding:5px 10px;margin-top:3px;font-size:10px;color:var(--pip-danger);">'+m+'</div>';
       }).join('');
     }).join('')
-    // ── Puños (siempre disponibles) ──
-    +(function(){
-      var habCombate=j.habArmas['Combate']||0;
-      var pen=j.penMod||0;
-      var setBonus=calcSetBonus(j);
-      var sinArmas=!j.equipo||((!j.equipo.arma1||j.equipo.arma1==='BLOQUEADO')&&(!j.equipo.arma2||j.equipo.arma2==='BLOQUEADO'));
-      var bonAtaque=sinArmas?((setBonus.ataqueCaC)||0):0;
-      var bonDaño=sinArmas?((setBonus.dañoCaC)||0):0;
-      var brP=calcBonusRasgos(j);
-      var modFuePunos=getMod(calcAtrEf(j,'fue'));
-      var bonDañoDrogaP=(brP.dañoCaC||0)+modFuePunos;
-      var hab=habCombate+pen+bonAtaque+(brP.habCombate||0);
-      var totalBonDaño=bonDaño+bonDañoDrogaP;
-      var daño='1D4'+(totalBonDaño>0?'+'+totalBonDaño:'');
-      // Ataque CaC: modAGI + Combate + bonos
-      var radEfPun=calcEfectosRad(j); var penRadPun=radEfPun.reduce(function(s,e){return s+(e.penHab||0);},0);
-      var bonLuchadorPun=0; // extra 'Luchador' borrado a petición del usuario, pendiente de recrear
-      var bonAtaqueCaC=getMod(calcAtrEf(j,'agi')+((j.rasgos||[]).includes('pequeno')?1:0))+habCombate+pen+(brP.atkCaC||0)+(brP.atkTodas||0)+penRadPun+modFuePunos+bonLuchadorPun;
-      return '<div style="border:1px solid rgba(74,254,130,.2);background:rgba(74,254,130,.02);margin-top:4px;display:flex;align-items:center;padding:5px 10px;gap:8px;">'
-        +'<div style="flex:1;">'
-        +'<div style="font-size:8px;color:var(--pip-dim);letter-spacing:1px;">👊 PUÑOS</div>'
-        +'<div style="font-size:10px;color:var(--pip-dim);">Combate '+hab+(pen<0?'<span style="color:var(--pip-danger);font-size:8px;"> (pen.)</span>':'')+'</div>'
-        +'<div style="font-size:12px;color:var(--pip-bright);">atk '+(bonAtaqueCaC>=0?'+':'')+bonAtaqueCaC+'</div>'
-        +'</div>'
-        +'<div style="font-family:VT323,monospace;font-size:20px;color:var(--pip-warn);">'+daño+'</div>'
-        +'</div>';
-    })()
-    // ── Explosivos (ataque) ──
-    +(function(){
-      var habExplos=j.habArmas['Explosivos']||0;
-      var pen=j.penMod||0;
-      var brEx=calcBonusRasgos(j);
-      var radEfEx=calcEfectosRad(j); var penRadEx=radEfEx.reduce(function(s,e){return s+(e.penHab||0);},0);
-      var modAgiEx=getMod(calcAtrEf(j,'agi')+((j.rasgos||[]).includes('pequeno')?1:0));
-      var bonAtaqueExplos=modAgiEx+habExplos+pen+(brEx.atkTodas||0)+penRadEx;
-      return '<div style="border:1px solid rgba(74,254,130,.2);background:rgba(74,254,130,.03);padding:7px 10px;margin-top:4px;display:flex;align-items:center;gap:10px;">'        +'<div style="flex:1;">'        +'<div style="font-size:8px;color:var(--pip-dim);letter-spacing:1px;">💣 EXPLOSIVOS</div>'        +'<div style="font-size:10px;color:var(--pip-dim);">Explosivos '+habExplos+(pen<0?'<span style="color:var(--pip-danger);font-size:8px;"> (pen.)</span>':'')+' </div>'        +'<div style="font-size:12px;color:var(--pip-bright);">atk '+(bonAtaqueExplos>=0?'+':'')+bonAtaqueExplos+'</div>'        +'</div>'        +'<div style="font-family:VT323,monospace;font-size:14px;color:var(--pip-dim);text-align:center;">Daño según<br>explosivo</div>'        +'</div>';
-    })()
     +blindBlock
     // ── Explosivos disponibles (inventario tipo 'explosivo' con qty>=1) ──
     +(function(){
