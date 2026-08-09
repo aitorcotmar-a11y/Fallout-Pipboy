@@ -3134,9 +3134,9 @@ function renderArmaSlotBlock(j,slot){
   var dañoTT=armaObj?(armaObj.daño+(esCaCMedia&&dosManosSlot?'+1':'')+bonDañoDroga):'';
   var bonDañoRFTotal=bonDañoTotal+(gEf.derivado.daño_rf||0);
   var rfDañoBon=bonDañoRFTotal>0?'+'+bonDañoRFTotal:(bonDañoRFTotal<0?String(bonDañoRFTotal):'');
-  var dañoRF=armaObj?(armaObj.rf+rfDañoBon):'';
+  var dañoRF=(armaObj&&armaObj.rf)?(armaObj.rf+rfDañoBon):'';
   var faDañoBon=bonDañoTotal>0?'+'+bonDañoTotal:(bonDañoTotal<0?String(bonDañoTotal):'');
-  var dañoFA=armaObj?(armaObj.fa+faDañoBon):'';
+  var dañoFA=(armaObj&&armaObj.fa)?(armaObj.fa+faDañoBon):'';
 
   var armaBlockHtml=armaObj
     ?'<div style="border:1px solid var(--pip-border);background:var(--pip-mid);margin-top:8px;">'
@@ -3164,7 +3164,7 @@ function renderArmaSlotBlock(j,slot){
       +'<div style="display:flex;gap:0;">'
       +(dañoTT
         ?'<button style="flex:1;padding:8px 4px;border:none;border-right:1px solid var(--pip-border);background:none;cursor:pointer;font-family:VT323,monospace;" data-modo="TT" data-coste="'+armaObj.ttCost+'" data-slot="'+slot+'" onclick="dispararArma(this.dataset.modo,parseInt(this.dataset.coste),this.dataset.slot)">'
-          +'<div style="font-size:11px;color:var(--pip-bright);letter-spacing:1px;">TT</div>'
+          +'<div style="font-size:11px;color:var(--pip-bright);letter-spacing:1px;">'+(esCaC?'ATAQUE':'TT')+'</div>'
           +'<div style="font-size:20px;color:var(--pip-warn);line-height:1;">'+dañoTT+'</div>'
           +'<div style="font-size:12px;color:var(--pip-bright);margin-top:2px;">atk '+(bonAtaqueTT>=0?'+':'')+bonAtaqueTT+'</div>'
           +(armaObj.ttCost>0?'<div style="font-size:10px;color:var(--pip-dim);">-'+armaObj.ttCost+(esFusion?'%':'b')+'</div>':'')
