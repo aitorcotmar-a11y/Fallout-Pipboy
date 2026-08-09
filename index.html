@@ -3427,8 +3427,17 @@ function renderJEstado(){
         return o&&o.tipo==='explosivo'&&item.qty>0;
       });
       if(!explos.length) return '';
+      var habExplos=j.habArmas['Explosivos']||0;
+      var pen=j.penMod||0;
+      var brEx=calcBonusRasgos(j);
+      var radEfEx=calcEfectosRad(j); var penRadEx=radEfEx.reduce(function(s,e){return s+(e.penHab||0);},0);
+      var modAgiEx=getMod(calcAtrEf(j,'agi')+((j.rasgos||[]).includes('pequeno')?1:0));
+      var bonAtaqueExplos=modAgiEx+habExplos+pen+(brEx.atkTodas||0)+penRadEx;
       return '<div style="border:1px solid #ff8844;background:rgba(255,136,68,.04);margin-top:5px;">'
-        +'<div style="padding:6px 10px;font-size:9px;color:#ff8844;letter-spacing:1px;border-bottom:1px solid rgba(255,136,68,.3);">💥 EXPLOSIVOS DISPONIBLES</div>'
+        +'<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;border-bottom:1px solid rgba(255,136,68,.3);">'
+        +'<span style="font-size:9px;color:#ff8844;letter-spacing:1px;">💥 EXPLOSIVOS DISPONIBLES</span>'
+        +'<span style="font-size:11px;color:#ff8844;">atk '+(bonAtaqueExplos>=0?'+':'')+bonAtaqueExplos+'</span>'
+        +'</div>'
         +explos.map(function(item){
           const o=getObjById(item.objId);
           const idx=j.inventario.indexOf(item);
@@ -3437,7 +3446,10 @@ function renderJEstado(){
             +'<div style="font-size:11px;color:var(--pip-bright);">'+o.n+'</div>'
             +'<div style="font-size:9px;color:var(--pip-dim);">'+o.desc+'</div>'
             +'</div>'
-            +'<div style="font-family:VT323,monospace;font-size:24px;color:#ff8844;min-width:32px;text-align:center;">'+item.qty+'</div>'
+            +'<div style="text-align:center;min-width:32px;">'
+            +'<div style="font-family:VT323,monospace;font-size:24px;color:#ff8844;line-height:1;">'+item.qty+'</div>'
+            +'<div style="font-size:7px;color:var(--pip-dim);">en inv.</div>'
+            +'</div>'
             +'<button style="padding:6px 10px;border:1px solid #ff8844;background:none;color:#ff8844;font-family:VT323,monospace;font-size:14px;cursor:pointer;" data-idx="'+idx+'" onclick="usarExplosivoinv(parseInt(this.dataset.idx))">USAR</button>'
             +'</div>';
         }).join('')
