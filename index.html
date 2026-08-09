@@ -3205,16 +3205,7 @@ function renderJEstado(){
       +'</div>'
     :'';
 
-  // Extras
-  const extrasBlock=(j.extras||[]).length
-    ?'<div class="card" style="margin-top:8px;"><div class="card-hdr">EXTRAS ACTIVOS</div><div class="card-body" style="padding:6px 10px;">'
-      +(j.extras||[]).map(function(e){
-        var exObj=[].concat(EXTRAS_INICIALES,EXTRAS_COMUNES,EXTRAS_AVANZADOS,EXTRAS_LEGENDARIOS,APP.extrasCustom||[]).find(function(x){return x.n===e;});
-        var desc=exObj?exObj.d:'';
-        return '<div style="padding:4px 0;border-bottom:1px solid rgba(74,254,130,.08);"><div style="font-size:11px;color:var(--pip-bright);">▸ '+e+'</div>'+(desc?'<div style="font-size:9px;color:var(--pip-dim);">'+desc+'</div>':'')+'</div>';
-      }).join('')
-      +'</div></div>'
-    :'';
+  // Extras: la tarjeta "EXTRAS ACTIVOS" se quitó a petición del usuario (los banners ya cubren lo que necesita ver el jugador)
 
   return lvlBanner
     // Sobrecarga justo debajo del título (si aplica)
@@ -3416,25 +3407,22 @@ function renderJEstado(){
           return '<div style="display:flex;align-items:center;padding:7px 10px;border-bottom:1px solid rgba(180,100,255,.15);gap:8px;">'            +'<div style="flex:1;">'            +'<div style="font-size:11px;color:rgba(200,150,255,.9);">'+ef.droga+'</div>'            +(bonStr?'<div style="font-size:9px;color:var(--pip-warn);">'+bonStr+'</div>':'')            +(ef.info?'<div style="font-size:9px;color:var(--pip-dim);">'+ef.info+'</div>':'')            +'</div>'            +'<button style="padding:4px 8px;border:1px solid rgba(180,100,255,.4);background:none;color:rgba(180,100,255,.7);font-family:VT323,monospace;font-size:12px;cursor:pointer;" data-i="'+i+'" onclick="acabarEfecto(parseInt(this.dataset.i))">FIN</button>'            +'</div>';
         }).join('')        +'</div></div>';
     })()
-    // ── Banner rasgos informativos ══
+    // ── Banner de rasgos y extras (texto informativo que puso el Master al crearlos/editarlos) ──
     +(function(){
-      var r=j.rasgos||[];
       var msgs=[];
-      if(r.includes('gafe'))         msgs.push('💀 GAFE · Enemigos +2 Pifias contra ti');
-      if(r.includes('madrugador'))   msgs.push('🌅 MADRUGADOR · Duermes mínimo 4h');
-      if(r.includes('metabolismo'))  msgs.push('💊 METABOLISMO RÁPIDO · Curar x2 al descansar · Rads ÷2 al descansar');
-      if(r.includes('noctambulo'))   msgs.push('🌙 NOCTÁMBULO · Noche +1 Atk · Día -1 Atk');
-      if(r.includes('quimodep'))     msgs.push('💉 QUIMIO-DEPENDIENTE');
-      if(r.includes('quimores'))     msgs.push('🛡 QUIMIO-RESISTENTE');
-      if(r.includes('sexapeal'))     msgs.push('💋 SEX APPEAL · Ventaja Conversación sexo opuesto');
-      if(r.includes('tribal'))       msgs.push('🌿 TRIBAL · Ventaja Supervivencia · Desventaja Ciencia');
-      if(r.includes('refinamiento')) msgs.push('🎯 REFINAMIENTO · +2 Crit en TT · -2 Ataque en RF y FA');
-      // Extras informativos borrados a petición del usuario junto con los extras — pendiente de recrear si hace falta
-      var ex=j.extras||[];
+      var todosRasgosB=[].concat(RASGOS,APP.rasgosCustom||[]);
+      (j.rasgos||[]).forEach(function(rid){
+        var r=todosRasgosB.find(function(x){return String(x.id)===String(rid);});
+        if(r&&r.banner) msgs.push('📋 '+r.n.toUpperCase()+' · '+r.banner);
+      });
+      var todosExtrasB=[].concat(EXTRAS_INICIALES,EXTRAS_COMUNES,EXTRAS_AVANZADOS,EXTRAS_LEGENDARIOS,APP.extrasCustom||[]);
+      (j.extras||[]).forEach(function(en){
+        var e=todosExtrasB.find(function(x){return x.n===en;});
+        if(e&&e.banner) msgs.push('⭐ '+e.n.toUpperCase()+' · '+e.banner);
+      });
       if(!msgs.length) return '';
-      return '<div class="card" style="margin-top:6px;border-color:rgba(74,254,130,.2);">'        +'<div class="card-hdr" style="font-size:10px;">📋 RASGOS PASIVOS</div>'        +'<div style="padding:6px 10px;">'        +msgs.map(function(m){return '<div style="font-size:11px;color:var(--pip-bright);padding:3px 0;border-bottom:1px solid rgba(74,254,130,.1);">'+m+'</div>';}).join('')        +'</div></div>';
-    })()
-    +extrasBlock;
+      return '<div class="card" style="margin-top:6px;border-color:rgba(74,254,130,.2);">'        +'<div class="card-hdr" style="font-size:10px;">📋 RASGOS Y EXTRAS PASIVOS</div>'        +'<div style="padding:6px 10px;">'        +msgs.map(function(m){return '<div style="font-size:11px;color:var(--pip-bright);padding:3px 0;border-bottom:1px solid rgba(74,254,130,.1);">'+m+'</div>';}).join('')        +'</div></div>';
+    })();
 }
 
 function renderJSpecial(){
