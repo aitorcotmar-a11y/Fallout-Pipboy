@@ -1229,8 +1229,68 @@ function calcCRIT(j){
 }
 function calcPIF(j){var sueEf=calcAtrEf(j,'sue');var base=sueEf<=7?3:sueEf<=8?2:1;var br=calcBonusRasgos(j);return base+(br.pifia||0);}
 function calcSPts(j){const m=getMod(calcAtrEf(j,'sue'));const base=m>0?m:0;return base+(calcBonusEfectivos(j).derivado.puntos_suerte||0);}
+function calcCuadroValorNumerico(j,optId){
+  switch(optId){
+    case 'atk':    { var brAtk=calcBonusRasgos(j); var modAgiAtk=getMod(calcAtrEf(j,'agi')+((j.rasgos||[]).includes('pequeno')?1:0)); var radEfAtk2=calcEfectosRad(j); var penRadAtk2=radEfAtk2.reduce(function(s,e){return s+(e.penHab||0);},0); return modAgiAtk+(j.penMod||0)+(brAtk.atkTodas||0)+penRadAtk2; }
+    case 'mov':    return calcMOV(j);
+    case 'ini':    return calcIniciativa(j);
+    case 'crit':   { var cv=calcCRIT(j); return cv===null?null:cv; }
+    case 'pif':    return calcPIF(j);
+    case 'sue':    return calcSPts(j);
+    case 'modagi': return getMod(calcAtrEf(j,'agi'));
+    case 'modres': return getMod(calcAtrEf(j,'res'));
+    case 'modfue': return getMod(calcAtrEf(j,'fue'));
+    case 'modint': return getMod(calcAtrEf(j,'int'));
+    case 'modper': return getMod(calcAtrEf(j,'per'));
+    case 'modcar': return getMod(calcAtrEf(j,'car'));
+    case 'modsue': return getMod(calcAtrEf(j,'sue'));
+    case 'fue':    return calcAtrEf(j,'fue');
+    case 'agi':    return calcAtrEf(j,'agi');
+    case 'res':    return calcAtrEf(j,'res');
+    case 'int':    return calcAtrEf(j,'int');
+    case 'per':    return calcAtrEf(j,'per');
+    case 'car':    return calcAtrEf(j,'car');
+    case 'sueA':   return calcAtrEf(j,'sue');
+    case 'hArmaC':  return (j.habArmas['Armas cortas']||0)+(j.penMod||0);
+    case 'hArmaM':  return (j.habArmas['Armas medias']||0)+(j.penMod||0);
+    case 'hArmaG':  return (j.habArmas['Armas grandes']||0)+(j.penMod||0);
+    case 'hArmaE':  return (j.habArmas['Armas de energía']||0)+(j.penMod||0);
+    case 'hExplos': return (j.habArmas['Explosivos']||0)+(j.penMod||0);
+    case 'hCombat': return (j.habArmas['Combate']||0)+(j.penMod||0);
+    case 'hAtlet':  return j.habHabs['Atletismo']||0;
+    case 'hCienc':  return j.habHabs['Ciencia']||0;
+    case 'hConv':   return j.habHabs['Conversación']||0;
+    case 'hGanz':   return j.habHabs['Ganzúa']||0;
+    case 'hMed':    return j.habHabs['Medicina']||0;
+    case 'hRep':    return j.habHabs['Reparación']||0;
+    case 'hSigil':  return j.habHabs['Sigilo']||0;
+    case 'hSurv':   return j.habHabs['Supervivencia']||0;
+    default: return null;
+  }
+}
+// Sufijo de presentación que ya usa cada parámetro base, para que la casilla Custom avanzada se vea igual que el original
+function sufijoCuadro(optId){
+  if(optId==='crit') return '+';
+  if(optId==='pif') return '-';
+  if(optId==='mov') return 'm';
+  if(optId==='sue') return ' pts';
+  return '';
+}
 function calcCuadroValor(j,c){
-  if(!c.auto) return c.valor||'—';
+  if(!c.auto){
+    if(c.baseParam){
+      var base=calcCuadroValorNumerico(j,c.baseParam);
+      if(base===null) return '—';
+      var esCrit=(c.baseParam==='crit');
+      var delta=(c.modSigno==='-'?-1:1)*(c.modValor||0);
+      if(esCrit) delta=-delta; // en crítico, +N mejora (baja el umbral); -N lo empeora (lo sube)
+      var total=base+delta;
+      var suf=sufijoCuadro(c.baseParam);
+      var pref=(c.baseParam==='atk'||c.baseParam.indexOf('mod')===0)?(total>=0?'+':''):'';
+      return pref+total+suf;
+    }
+    return c.valor||'—';
+  }
   switch(c.id){
     // Stats secundarios
     case 'atk':    {
@@ -3398,9 +3458,10 @@ function renderJEstado(){
       const cells=cuadros.map(function(c,i){
         const val=calcCuadroValor(j,c);
         const isNeg=String(val).startsWith('-');
-        return '<div class="stat-box" style="position:relative;cursor:pointer;" onclick="abrirEditarCuadro('+i+')">'
+        return '<div class="stat-box" style="position:relative;cursor:pointer;" onclick="abrirEditarCuadro('+i+')"'+(c.desc?' title="'+c.desc.replace(/"/g,'&quot;')+'"':'')+'>'
           +'<div class="stat-lbl">'+c.label+'</div>'
           +'<div class="stat-val" style="color:'+(isNeg?'var(--pip-danger)':'var(--pip-bright)')+';">'+val+'</div>'
+          +(c.desc?'<div style="position:absolute;bottom:1px;left:0;right:0;font-size:6px;color:var(--pip-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 3px;">'+c.desc+'</div>':'')
           +'<div style="position:absolute;top:2px;right:3px;font-size:7px;color:var(--pip-dim);">✎</div>'
           +'</div>';
       }).join('');
@@ -7364,6 +7425,8 @@ window.abrirEditarCuadro=function(idx){
   }).join('');
 
   const isCustom=(c.id==='custom'||!c.auto);
+  const modoParam=!!c.baseParam;
+  const paramOpts=CUADRO_OPCIONES.filter(function(o){return o.id!=='custom';});
   box.innerHTML='<div style="padding:14px 14px 0;">'
     +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;border-bottom:1px solid var(--pip-border);padding-bottom:8px;">'
     +'<div style="flex:1;font-family:VT323,monospace;font-size:20px;color:var(--pip-bright);">EDITAR CUADRO '+(idx+1)+'</div>'
@@ -7372,8 +7435,20 @@ window.abrirEditarCuadro=function(idx){
     +(isCustom?'<div style="margin-bottom:10px;">'
       +'<div style="font-size:10px;color:var(--pip-dim);letter-spacing:1px;margin-bottom:5px;">ETIQUETA</div>'
       +'<input type="text" id="cuadro-label-inp" value="'+c.label+'" maxlength="10" style="font-family:VT323,monospace;font-size:16px;letter-spacing:1px;width:100%;margin-bottom:8px;">'
-      +'<div style="font-size:10px;color:var(--pip-dim);letter-spacing:1px;margin-bottom:5px;">VALOR</div>'
-      +'<input type="text" id="cuadro-val-inp" value="'+(c.valor||'')+'" maxlength="8" style="font-family:VT323,monospace;font-size:16px;letter-spacing:1px;width:100%;margin-bottom:8px;">'
+      +'<div style="font-size:10px;color:var(--pip-dim);letter-spacing:1px;margin-bottom:5px;">DESCRIPCIÓN <span style="opacity:.7;">(opcional, ej. "+2 a crítico al estar oculto")</span></div>'
+      +'<input type="text" id="cuadro-desc-inp" value="'+(c.desc||'')+'" maxlength="40" style="font-family:VT323,monospace;font-size:13px;width:100%;margin-bottom:8px;">'
+      +'<label style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--pip-bright);margin-bottom:8px;"><input type="checkbox" id="cuadro-modo-chk" '+(modoParam?'checked':'')+' onchange="toggleModoCuadro('+idx+',this.checked)"> Calcular desde un dato base + modificador</label>'
+      +(modoParam
+        ?'<div style="font-size:10px;color:var(--pip-dim);letter-spacing:1px;margin-bottom:5px;">DATO BASE</div>'
+          +'<select id="cuadro-base-sel" style="font-family:VT323,monospace;font-size:14px;width:100%;margin-bottom:8px;padding:4px;">'
+          +paramOpts.map(function(o){return '<option value="'+o.id+'"'+(c.baseParam===o.id?' selected':'')+'>'+o.label+' — '+o.desc+'</option>';}).join('')
+          +'</select>'
+          +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">'
+          +'<div><div style="font-size:10px;color:var(--pip-dim);margin-bottom:4px;">SIGNO</div><select id="cuadro-signo-sel" style="font-family:VT323,monospace;font-size:14px;width:100%;padding:4px;"><option value="+"'+(c.modSigno!=='-'?' selected':'')+'>+ (suma / mejora)</option><option value="-"'+(c.modSigno==='-'?' selected':'')+'>− (resta / empeora)</option></select></div>'
+          +'<div><div style="font-size:10px;color:var(--pip-dim);margin-bottom:4px;">VALOR</div><input type="number" id="cuadro-modval-inp" value="'+(c.modValor||1)+'" min="0" style="font-family:VT323,monospace;font-size:16px;width:100%;padding:4px;"></div>'
+          +'</div>'
+        :'<div style="font-size:10px;color:var(--pip-dim);letter-spacing:1px;margin-bottom:5px;">VALOR</div>'
+          +'<input type="text" id="cuadro-val-inp" value="'+(c.valor||'')+'" maxlength="8" style="font-family:VT323,monospace;font-size:16px;letter-spacing:1px;width:100%;margin-bottom:8px;">')
       +'<button class="btn btn-block" onclick="guardarCuadroCustom('+idx+')">▸ GUARDAR</button>'
       +'</div>':'')
     +'<div style="font-size:10px;color:var(--pip-dim);letter-spacing:1px;margin-bottom:6px;">ELEGIR DATO</div>'
@@ -7383,13 +7458,23 @@ window.abrirEditarCuadro=function(idx){
   modal.style.display='flex';
 };
 
+window.toggleModoCuadro=function(idx,checked){
+  const j=myFicha();
+  if(!j.cuadros) return;
+  const c=j.cuadros[idx];
+  c.label=(document.getElementById('cuadro-label-inp')||{}).value||c.label;
+  c.desc=(document.getElementById('cuadro-desc-inp')||{}).value||'';
+  if(!checked) c.baseParam=null;
+  abrirEditarCuadro(idx);
+};
+
 window.elegirOpcionCuadro=function(idx, el){
   const j=myFicha();
   if(!j.cuadros) return;
   const opId=el.dataset.opid;
   const op=CUADRO_OPCIONES.find(function(o){return o.id===opId});
   if(!op) return;
-  j.cuadros[idx]={id:op.id, label:op.label, valor:'', auto:op.auto};
+  j.cuadros[idx]={id:op.id, label:op.label, valor:'', desc:'', baseParam:null, auto:op.auto};
   saveJ();
   if(opId==='custom'){
     // Mantener el modal abierto y mostrar ya los campos de ETIQUETA/VALOR para escribir
@@ -7405,13 +7490,32 @@ window.guardarCuadroCustom=function(idx){
   const j=myFicha();
   if(!j.cuadros) return;
   const labelInp=document.getElementById('cuadro-label-inp');
-  const valInp=document.getElementById('cuadro-val-inp');
-  j.cuadros[idx]={
-    id:'custom',
-    label:(labelInp?labelInp.value.toUpperCase().trim():j.cuadros[idx].label),
-    valor:(valInp?valInp.value.trim():j.cuadros[idx].valor),
-    auto:false
-  };
+  const descInp=document.getElementById('cuadro-desc-inp');
+  const baseSel=document.getElementById('cuadro-base-sel');
+  if(baseSel){
+    const signoSel=document.getElementById('cuadro-signo-sel');
+    const modvalInp=document.getElementById('cuadro-modval-inp');
+    j.cuadros[idx]={
+      id:'custom',
+      label:(labelInp?labelInp.value.toUpperCase().trim():j.cuadros[idx].label),
+      desc:(descInp?descInp.value.trim():''),
+      baseParam:baseSel.value,
+      modSigno:(signoSel?signoSel.value:'+'),
+      modValor:(modvalInp?parseInt(modvalInp.value)||0:0),
+      valor:'',
+      auto:false
+    };
+  } else {
+    const valInp=document.getElementById('cuadro-val-inp');
+    j.cuadros[idx]={
+      id:'custom',
+      label:(labelInp?labelInp.value.toUpperCase().trim():j.cuadros[idx].label),
+      desc:(descInp?descInp.value.trim():''),
+      valor:(valInp?valInp.value.trim():j.cuadros[idx].valor),
+      baseParam:null,
+      auto:false
+    };
+  }
   saveJ();
   cerrarDetalle();
   renderApp();
