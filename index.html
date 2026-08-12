@@ -761,6 +761,7 @@ const CATALOGO_PARAMS={
     {k:'atk_todas',n:'Ataque con cualquier arma'},
     {k:'atk_una_mano',n:'Ataque con armas de una mano'},
     {k:'atk_dos_manos',n:'Ataque con armas de dos manos'},
+    {k:'energia_mitad',n:'Consumo de energía a la mitad (redondeando arriba)'},
   ],
 };
 function nombreParam(cat,k){
@@ -2534,7 +2535,7 @@ window.dispararArma=function(modo,coste,slot){
     // Energía: coste en %
     if(armaObj.muniId==='muni_fusion'){
       var costeEfic=coste;
-      // extra 'Eficiencia energética' borrado a petición del usuario, pendiente de recrear
+      if((calcBonusEfectivos(j).derivado.energia_mitad||0)>0) costeEfic=Math.max(1,Math.ceil(coste/2));
       j.cargador[slot]=Math.max(0,cargAct-costeEfic);
     } else {
       j.cargador[slot]=cargAct-coste;
@@ -7464,7 +7465,13 @@ window.toggleModoCuadro=function(idx,checked){
   const c=j.cuadros[idx];
   c.label=(document.getElementById('cuadro-label-inp')||{}).value||c.label;
   c.desc=(document.getElementById('cuadro-desc-inp')||{}).value||'';
-  if(!checked) c.baseParam=null;
+  if(checked){
+    if(!c.baseParam) c.baseParam=CUADRO_OPCIONES.find(function(o){return o.id!=='custom';}).id;
+    if(!c.modSigno) c.modSigno='+';
+    if(!c.modValor) c.modValor=1;
+  } else {
+    c.baseParam=null;
+  }
   abrirEditarCuadro(idx);
 };
 
