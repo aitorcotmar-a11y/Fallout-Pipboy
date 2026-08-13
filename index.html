@@ -1013,7 +1013,7 @@ const MUNICION_TIPOS = [
   {id:'explo_shock',      n:'Granada shock',          calibre:'explo', val:60, pc:5, pkgSize:1, desc:'Defensiva · 1D6 · Aturde'},
   {id:'explo_flash',      n:'Granada flash',          calibre:'explo', val:55, pc:5, pkgSize:1, desc:'Cegadora · Sin daño · Ciega'},
 ];  // fin MUNICION_TIPOS (ya no se usa como fuente de verdad, ver getMunicionCatalogo)
-function getMunicionCatalogo(){ return (APP.tienda||[]).filter(function(o){return o&&o.tipo==='municion'&&o.muniId;}); }
+function getMunicionCatalogo(){ return ordenarObjetos((APP.tienda||[]).filter(function(o){return o&&o.tipo==='municion'&&o.muniId;})); }
 function getMuniById(id){ return getMunicionCatalogo().find(function(m){return m.muniId===id;})||null; }
 
 const ENEMIGOS_EJEMPLO=[
@@ -1057,6 +1057,11 @@ function getMod(v){
 }
 function calcPVMax(j){return CLASES[j.clase].dadoN+j.attrs.res}
 function getObjById(id){ var nid=typeof id==='string'?parseInt(id):id; var fuente=(APP.tienda&&APP.tienda.length)?APP.tienda:OBJETOS_EJEMPLO; return fuente.find(function(o){return o!=null&&(o.id===nid||o.id===id);})||null; }
+function ordenarObjetos(lista){
+  return (lista||[]).slice().sort(function(a,b){
+    return (a&&a.n||'').localeCompare(b&&b.n||'','es',{numeric:true});
+  });
+}
 
 function calcSetArmadura(j){
   // Devuelve el nombre del set si las 3 piezas son del mismo set, null si no
@@ -2713,7 +2718,7 @@ window.abrirCogerVariosCofre=async function(){
   mostrarEnviando('📡 COMPROBANDO COFRE...');
   await esperarConfirmacion(fetchCofreFresco(),4000);
   ocultarEnviando();
-  const items=Object.keys(APP.cofreObjetos||{}).map(function(k){return {objId:cofreKeyToObjId(k),qty:APP.cofreObjetos[k],o:getObjById(cofreKeyToObjId(k))};}).filter(function(x){return x.o&&x.qty>0;});
+  const items=Object.keys(APP.cofreObjetos||{}).map(function(k){return {objId:cofreKeyToObjId(k),qty:APP.cofreObjetos[k],o:getObjById(cofreKeyToObjId(k))};}).filter(function(x){return x.o&&x.qty>0;}).sort(function(a,b){return (a.o.n||'').localeCompare(b.o.n||'','es',{numeric:true});});
   if(!items.length){ renderApp(); return showNotif('El Cofre no tiene objetos'); }
   const modal=document.getElementById('obj-detail-modal');
   const box=document.getElementById('obj-detail-box');
@@ -3696,11 +3701,19 @@ function renderJMunicion(){
   const total=otras.reduce(function(s,t){return s+(j.municion[t.muniId]||0);},0);
   let html=fusionBlock;
   if(otras.length){
+    const categorias=['Pequeña','Media','Grande','Especiales'];
     html+='<div style="border-bottom:2px solid var(--pip-border);">'
       +'<div style="display:flex;align-items:center;padding:6px 12px;background:var(--pip-mid);">'
       +'<span style="font-family:VT323,monospace;font-size:14px;color:var(--pip-bright);letter-spacing:1px;flex:1;">MUNICIÓN</span>'
       +'<span style="font-size:9px;color:var(--pip-dim);">Total: <span style="color:'+(total>0?'var(--pip-warn)':'var(--pip-dim)')+'">'+total+'</span></span></div>'
-      +otras.map(muniRow).join('')+'</div>';
+      +categorias.map(function(cat){
+        const grupo=otras.filter(function(t){return (t.categoriaMuni||'Pequeña')===cat;});
+        if(!grupo.length) return '';
+        return '<div style="padding:4px 12px;background:rgba(74,254,130,.03);border-top:1px solid rgba(74,254,130,.1);">'
+          +'<span style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;">▸ '+cat.toUpperCase()+'</span></div>'
+          +grupo.map(muniRow).join('');
+      }).join('')
+      +'</div>';
   }
   const hayMunicion=catalogo.some(function(t){return(t.muniId==='muni_fusion'?(j.fusion_total||0):(j.municion[t.muniId]||0))>0;});
   return '<div class="card"><div class="card-hdr">MUNICIÓN</div><div style="padding:0;">'+html+(!catalogo.length?'<div class="empty">El Master todavía no ha creado ningún tipo de munición</div>':'')
@@ -3781,10 +3794,13 @@ function renderInvGrupos(j, eq){
 
   let html='';
   orden.forEach(function(tipo){
-    // Filtrar items del inventario de este tipo
+    // Filtrar items del inventario de este tipo, y ordenarlos de forma natural por nombre
     const items=j.inventario.filter(function(item){
       const o=getObjById(item.objId)||{tipo:'misc'};
       return (o&&o.tipo)===tipo;
+    }).sort(function(a,b){
+      const oa=getObjById(a.objId), ob=getObjById(b.objId);
+      return (oa&&oa.n||'').localeCompare(ob&&ob.n||'','es',{numeric:true});
     });
     const gid='grp_inv_'+tipo;
     const abierto=APP._gruposAbiertos[gid]===true;
@@ -3954,7 +3970,7 @@ function renderJCofre(){
     +'<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin:10px 0 4px;border-bottom:1px solid var(--pip-border);padding-bottom:3px;">CONSUMIBLES</div>'
     +RECURSOS_FABRICACION.filter(function(r){return r.consumible;}).map(function(r){return renderRecursoRowCofre(r);}).join('')
     +(function(){
-        const cofreItems=Object.keys(APP.cofreObjetos||{}).map(function(k){return {objId:cofreKeyToObjId(k),qty:APP.cofreObjetos[k],o:getObjById(cofreKeyToObjId(k))};}).filter(function(x){return x.o&&x.qty>0;});
+        const cofreItems=Object.keys(APP.cofreObjetos||{}).map(function(k){return {objId:cofreKeyToObjId(k),qty:APP.cofreObjetos[k],o:getObjById(cofreKeyToObjId(k))};}).filter(function(x){return x.o&&x.qty>0;}).sort(function(a,b){return (a.o.n||'').localeCompare(b.o.n||'','es',{numeric:true});});
         return '<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin:10px 0 4px;border-bottom:1px solid var(--pip-border);padding-bottom:3px;">OBJETOS EN EL COFRE ('+cofreItems.length+')</div>'
           +(!cofreItems.length?'<div class="empty" style="padding:8px;">Vacío</div>'
             :cofreItems.map(function(x){
@@ -4302,9 +4318,9 @@ function renderJTienda(){
   const sala=getMockSala(APP.salaId);
   const tiendaActiva=(sala.tiendas||[]).find(function(t){return t.activa;});
   const ofertaIds=tiendaActiva?(tiendaActiva.objIds||[]):[];
-  const oferta=ofertaIds.map(function(id){
+  const oferta=ordenarObjetos(ofertaIds.map(function(id){
     return getObjById(id)||APP.tienda.find(function(x){return x.id===id;});
-  }).filter(Boolean);
+  }).filter(Boolean));
 
   const chapasBlock='<div class="chapas-display"><div style="flex:1;">'
     +'<div style="font-size:9px;color:var(--pip-dim);letter-spacing:2px;margin-bottom:2px;">CHAPAS DISPONIBLES</div>'
@@ -5724,7 +5740,7 @@ function renderObjGrupos(objetos, renderItem, namespace, mostrarVacios){
   const subcatLabels={corta:'ARMAS CORTAS',media:'ARMAS MEDIAS',grande:'ARMAS GRANDES',energia:'ARMAS DE ENERGÍA',cac:'COMBATE CAC'};
   let html='';
   orden.forEach(function(tipo){
-    const grupo=objetos.filter(function(o){return o!=null&&o.tipo===tipo;});
+    const grupo=ordenarObjetos(objetos.filter(function(o){return o!=null&&o.tipo===tipo;}));
     if(!grupo.length && !mostrarVacios) return;
     const gid='grp_'+ns+'_'+tipo;
     const abierto=APP._gruposAbiertos[gid]===true;
@@ -5740,9 +5756,9 @@ function renderObjGrupos(objetos, renderItem, namespace, mostrarVacios){
     if(tipo==='arma'){
       // Subdividir por subcategoría
       // Siempre mostrar subcategorías
-      const sinSubcat=grupo.filter(function(o){return !o.subcat;});
+      const sinSubcat=ordenarObjetos(grupo.filter(function(o){return !o.subcat;}));
       subcatOrden.forEach(function(sc){
-        const subgrupo=grupo.filter(function(o){return o.subcat===sc;});
+        const subgrupo=ordenarObjetos(grupo.filter(function(o){return o.subcat===sc;}));
         if(!subgrupo.length&&!mostrarVacios) return;
         const sgid='grp_'+ns+'_arma_'+sc;
         const sabierto=APP._gruposAbiertos[sgid]===true;
@@ -5872,7 +5888,8 @@ function renderMObjetos(){
     +row2({l:'PRECIO (¢) por unidad',h:'<input type="number" id="no-v" value="'+fv('val',0)+'" min="0" '+sm+'>'},
           {l:'PESO (pc) por unidad', h:'<input type="number" id="no-pc" value="'+fv('pc',fv('tipo','misc')==='municion'?0:5)+'" min="0" step="0.1" '+sm+'>'})
     +(fv('tipo','misc')==='misc'?row1('USOS <span style="opacity:.7;">(veces que se puede usar antes de desaparecer del inventario)</span>','<input type="number" id="no-usos" value="'+fv('usosMax',1)+'" min="1" '+sm+'>'):'')
-    +(fv('tipo','misc')==='municion'?'<label style="display:flex;align-items:center;gap:8px;padding:8px;margin-bottom:8px;border:1px solid var(--pip-border);font-size:11px;color:var(--pip-bright);"><input type="checkbox" id="no-muni-fusion" '+(fv('muniId','')==='muni_fusion'?'checked':'')+'> ⚡ Es batería de fusión (munición de armas de energía)</label>':'')
+    +(fv('tipo','misc')==='municion'?('<label style="display:flex;align-items:center;gap:8px;padding:8px;margin-bottom:8px;border:1px solid var(--pip-border);font-size:11px;color:var(--pip-bright);"><input type="checkbox" id="no-muni-fusion" '+(fv('muniId','')==='muni_fusion'?'checked':'')+'> ⚡ Es batería de fusión (munición de armas de energía)</label>'
+      +row1('CATEGORÍA DE MUNICIÓN','<select id="no-muni-cat" '+s+'>'+['Pequeña','Media','Grande','Especiales'].map(function(c){return '<option value="'+c+'"'+(fv('categoriaMuni','Pequeña')===c?' selected':'')+'>'+c+'</option>';}).join('')+'</select>')):'')
     +'<div id="arma-extra-fields" style="display:'+(esArma?'block':'none')+';">'    +row1('SUBCATEGORÍA','<select id="no-subcat" onchange="toggleSubcatFields(this.value)" '+s+'>'+      ARMA_SUBCATS.map(function(sc){        return '<option value="'+sc.id+'"'+(fv('subcat','corta')===sc.id?' selected':'')+'>'+sc.n+'</option>';      }).join('')+'</select>')    +(function(){      var sc=fv('subcat','corta');      var esCaC=sc==='cac';      var campos='';      if(!esCaC){        campos+=row1('MUNICIÓN','<select id="no-muni" '+s+'>'          +'<option value="">— Ninguna —</option>'          +getMunicionCatalogo().map(function(m){return '<option value="'+m.muniId+'"'+(fv('muniId','')===m.muniId?' selected':'')+'>'+m.n+'</option>';}).join('')          +'</select>');        campos+=row2({l:'CARGADOR (balas)',h:'<input type="number" id="no-carg" value="'+fv('cargador',0)+'" min="0" '+sm+'>'},                     {l:'ALCANCE (m)',h:'<input type="number" id="no-alc" value="'+fv('alcance',20)+'" min="0" '+sm+'>'});      } else {        campos+='<input type="hidden" id="no-muni" value=""><input type="hidden" id="no-carg" value="0"><input type="hidden" id="no-alc" value="0">';      }      campos+='<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin-bottom:5px;">'+(esCaC?'DADO DE DAÑO':'DADOS DE DAÑO')+'</div>';      if(esCaC){        campos+=row1('Daño TT','<input type="text" id="no-daño" value="'+fv('daño','1D6')+'" placeholder="1D6" '+sm+'>');        campos+='<input type="hidden" id="no-rfdaño" value=""><input type="hidden" id="no-fadaño" value="">';        campos+='<input type="hidden" id="no-tt" value="0"><input type="hidden" id="no-rf" value="0"><input type="hidden" id="no-fa" value="0">';      } else {        campos+=row3({l:'TT',h:'<input type="text" id="no-daño" value="'+fv('daño','1D6')+'" placeholder="1D6" '+sm+'>'},                     {l:'RF',h:'<input type="text" id="no-rfdaño" value="'+fv('rf','')+'" placeholder="2D6" '+sm+'>'},                     {l:'FA',h:'<input type="text" id="no-fadaño" value="'+fv('fa','')+'" placeholder="3D6" '+sm+'>'});        campos+='<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin-bottom:5px;">BALAS CONSUMIDAS</div>';        campos+=row3({l:'Coste TT',h:'<input type="number" id="no-tt" value="'+fv('ttCost',1)+'" min="0" '+sm+'>'},                     {l:'Coste RF',h:'<input type="number" id="no-rf" value="'+fv('rfCost',0)+'" min="0" '+sm+'>'},                     {l:'Coste FA',h:'<input type="number" id="no-fa" value="'+fv('faCost',0)+'" min="0" '+sm+'>'});      }      return campos;    })()    +row2({l:'CALIDAD (suma a Ataque)',h:'<input type="number" id="no-calidad" value="'+fv('calidad',0)+'" min="0" max="6" '+sm+'>'},                  {l:'ESTADO (suma a Daño)',h:'<input type="number" id="no-estado" value="'+fv('estado',0)+'" min="0" max="6" '+sm+'>'})    +row1('MANOS','<select id="no-manos" '+s+'><option value="1"'+(String(fv('manos',1))==='1'?' selected':'')+'>Una mano (permite dos armas equipadas)</option><option value="2"'+(String(fv('manos',1))==='2'?' selected':'')+'>Dos manos (ocupa las dos)</option></select>')    +'</div>'
     // Campos extra para armadura
     +(esArmadura?(function(){
@@ -6152,6 +6169,7 @@ window.masterSaveObj=function(){
       const muniId=(existente&&existente.muniId&&existente.muniId!=='muni_fusion')?existente.muniId:('m'+Date.now());
       extraMunicion={muniId:muniId};
     }
+    extraMunicion.categoriaMuni=(document.getElementById('no-muni-cat')||{}).value||'Pequeña';
   }
   const extraMisc=tipo==='misc'?{
     usosMax:Math.max(1,parseInt((document.getElementById('no-usos')||{}).value)||1),
