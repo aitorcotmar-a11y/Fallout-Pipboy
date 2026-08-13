@@ -4642,14 +4642,19 @@ function aplicarEfectoDroga(j,o){
 }
 
 window.acabarEfecto=function(idx){
-  const j=myFicha();
-  if(!j.efectosActivos||!j.efectosActivos[idx]) return;
-  const ef=j.efectosActivos[idx];
-  // Revertir bonos automáticos
-  if(ef.bonos.pvMaxExtra){ j.pvMax-=ef.bonos.pvMaxExtra; j.pvAct=Math.min(j.pvAct,j.pvMax); }
-  j.efectosActivos.splice(idx,1);
-  saveJ(); renderApp();
-  showNotif('Efecto '+ef.droga+' terminado');
+  try{
+    const j=myFicha();
+    if(!j.efectosActivos||!j.efectosActivos[idx]) return;
+    const ef=j.efectosActivos[idx];
+    // Revertir bonos automáticos
+    if(ef.bonos&&ef.bonos.pvMaxExtra){ j.pvMax=(j.pvMax||0)-ef.bonos.pvMaxExtra; j.pvAct=Math.min(j.pvAct||0,j.pvMax); }
+    j.efectosActivos.splice(idx,1);
+    saveJ(); renderApp();
+    showNotif('Efecto '+(ef.droga||'')+' terminado');
+  }catch(e){
+    console.error('Error en acabarEfecto:',e);
+    showNotif('⚠ Error al terminar el efecto — mira la consola');
+  }
 };
 
 
