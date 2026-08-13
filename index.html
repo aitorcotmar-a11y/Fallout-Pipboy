@@ -3793,11 +3793,17 @@ function renderInvGrupos(j, eq){
   }
 
   let html='';
+  // Limpiar del inventario cualquier referencia a un objeto que ya no existe en el catálogo (p.ej. borrado por el Master)
+  const huerfanos=j.inventario.filter(function(item){return !getObjById(item.objId);});
+  if(huerfanos.length){
+    j.inventario=j.inventario.filter(function(item){return !!getObjById(item.objId);});
+    saveJ();
+  }
   orden.forEach(function(tipo){
     // Filtrar items del inventario de este tipo, y ordenarlos de forma natural por nombre
     const items=j.inventario.filter(function(item){
-      const o=getObjById(item.objId)||{tipo:'misc'};
-      return (o&&o.tipo)===tipo;
+      const o=getObjById(item.objId);
+      return o&&o.tipo===tipo;
     }).sort(function(a,b){
       const oa=getObjById(a.objId), ob=getObjById(b.objId);
       return (oa&&oa.n||'').localeCompare(ob&&ob.n||'','es',{numeric:true});
