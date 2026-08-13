@@ -790,7 +790,15 @@ function generarCandidatoRecompensa(presupuesto){
   const valores=getValoresRecursoRecompensa();
   var pool=[];
   (APP.tienda||[]).forEach(function(o){
-    if(o&&o.val>0&&o.val<=presupuesto) pool.push({tipo:'objeto',objId:o.id,nombre:o.n,coste:o.val});
+    if(!o||!(o.val>0)) return;
+    if(o.tipo==='municion'){
+      const maxQty=Math.min(20,Math.floor(presupuesto/o.val));
+      if(maxQty<1) return;
+      const qty=1+Math.floor(Math.random()*maxQty);
+      pool.push({tipo:'objeto',objId:o.id,nombre:o.n,qty:qty,coste:qty*o.val});
+    } else if(o.val<=presupuesto){
+      pool.push({tipo:'objeto',objId:o.id,nombre:o.n,qty:1,coste:o.val});
+    }
   });
   RECURSOS_FABRICACION.forEach(function(r){
     const valorUnidad=valores[r.k]||1;
@@ -7075,7 +7083,7 @@ function renderMRecompensas(){
 
   const itemsHtml=!draft.items.length?'<div style="font-size:10px;color:var(--pip-dim);padding:6px 0;">Sin objetos ni recursos esta vez — solo chapas.</div>'
     :draft.items.map(function(it,i){
-      var texto=it.tipo==='objeto'?it.nombre+' <span style="color:var(--pip-dim);font-size:9px;">('+it.coste+'¢)</span>':it.qty+'x '+it.nombre+' <span style="color:var(--pip-dim);font-size:9px;">('+it.coste+'¢)</span>';
+      var texto=(it.qty&&it.qty>1?it.qty+'x ':'')+it.nombre+' <span style="color:var(--pip-dim);font-size:9px;">('+it.coste+'¢)</span>';
       return '<div style="display:flex;align-items:center;justify-content:space-between;border:1px solid var(--pip-border);padding:6px 8px;margin-bottom:4px;">'
         +'<span style="font-size:12px;color:var(--pip-bright);">'+(it.tipo==='objeto'?'📦':'🔧')+' '+texto+'</span>'
         +'<button class="chip chip-r" data-i="'+i+'" onclick="masterQuitarItemRecompensa(parseInt(this.dataset.i))">×</button>'
@@ -7275,7 +7283,7 @@ window.masterEntregarRecompensa=async function(destino){
     if(!APP.cofreObjetos) APP.cofreObjetos={};
     if(!APP.cofre) APP.cofre={};
     draft.items.forEach(function(it){
-      if(it.tipo==='objeto') APP.cofreObjetos[cofreKey(it.objId)]=(APP.cofreObjetos[cofreKey(it.objId)]||0)+1;
+      if(it.tipo==='objeto') APP.cofreObjetos[cofreKey(it.objId)]=(APP.cofreObjetos[cofreKey(it.objId)]||0)+(it.qty||1);
       else APP.cofre[it.recursoK]=(APP.cofre[it.recursoK]||0)+it.qty;
     });
     APP.cofre.chapas=(APP.cofre.chapas||0)+draft.chapas;
@@ -7287,7 +7295,7 @@ window.masterEntregarRecompensa=async function(destino){
     const sala=getMockSala(APP.salaId); const j=sala.jugadores[destino]; if(!j) return;
     if(!j.recursos) j.recursos={};
     draft.items.forEach(function(it){
-      if(it.tipo==='objeto') addItemToJugador(j,it.objId,1);
+      if(it.tipo==='objeto') addItemToJugador(j,it.objId,it.qty||1);
       else j.recursos[it.recursoK]=(j.recursos[it.recursoK]||0)+it.qty;
     });
     j.chapas=(j.chapas||0)+draft.chapas;
