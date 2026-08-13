@@ -1057,6 +1057,47 @@ function getMod(v){
 }
 function calcPVMax(j){return CLASES[j.clase].dadoN+j.attrs.res}
 function getObjById(id){ var nid=typeof id==='string'?parseInt(id):id; var fuente=APP.tienda||[]; return fuente.find(function(o){return o!=null&&(o.id===nid||o.id===id);})||null; }
+
+// ── Enemigos: clases y estadísticas ──
+const ENEMY_CLASES={
+  '':{n:'— Ninguna —',pvPct:0,defensa:0,iniciativa:0,atkCaD:0,atkCaC:0},
+  bruto:{n:'Bruto',pvPct:10,defensa:-2,iniciativa:0,atkCaD:0,atkCaC:0,desc:'+10% PV · -2 Defensa'},
+  agil:{n:'Ágil',pvPct:-10,defensa:2,iniciativa:2,atkCaD:0,atkCaC:0,desc:'+2 Defensa · +2 Iniciativa · -10% PV'},
+  tirador:{n:'Tirador',pvPct:0,defensa:0,iniciativa:0,atkCaD:2,atkCaC:-2,desc:'+2 CaD · -2 CaC'},
+  acechador:{n:'Acechador',pvPct:0,defensa:0,iniciativa:0,atkCaD:-2,atkCaC:2,desc:'-2 CaD · +2 CaC'},
+  tanque:{n:'Tanque',pvPct:20,defensa:2,iniciativa:0,atkCaD:0,atkCaC:0,desc:'+20% PV · +2 Defensa'},
+};
+const ENEMY_STATS=[
+  {k:'pv',n:'Puntos de Vida'},
+  {k:'defensa',n:'Defensa'},
+  {k:'iniciativa',n:'Iniciativa'},
+  {k:'atkCaD',n:'Ataque a distancia (CaD)'},
+  {k:'atkCaC',n:'Ataque cuerpo a cuerpo (CaC)'},
+];
+function rollPVEnemigo(nivel){
+  var pv=10;
+  for(var i=0;i<nivel;i++) pv+=1+Math.floor(Math.random()*8); // 1D8 por nivel
+  return pv;
+}
+function calcStatsSugeridosEnemigo(nivel,claseKey){
+  var cl=ENEMY_CLASES[claseKey]||ENEMY_CLASES[''];
+  var pvTirado=rollPVEnemigo(nivel);
+  return {
+    pv:Math.round(pvTirado*(1+(cl.pvPct||0)/100)),
+    defensa:10+nivel+(cl.defensa||0),
+    iniciativa:nivel+(cl.iniciativa||0),
+    atkCaD:nivel+(cl.atkCaD||0),
+    atkCaC:nivel+(cl.atkCaC||0),
+  };
+}
+function calcStatsEfectivasEnemigo(plantilla){
+  var out={pv:plantilla.pv,defensa:plantilla.defensa,iniciativa:plantilla.iniciativa,atkCaD:plantilla.atkCaD,atkCaC:plantilla.atkCaC};
+  (plantilla.bonificadores||[]).forEach(function(b){
+    var delta=(b.signo==='-'?-1:1)*b.valor;
+    out[b.param]=(out[b.param]||0)+delta;
+  });
+  return out;
+}
 function ordenarObjetos(lista){
   return (lista||[]).slice().sort(function(a,b){
     return (a&&a.n||'').localeCompare(b&&b.n||'','es',{numeric:true});
@@ -1490,7 +1531,7 @@ function getMockSala(id){
       cofreObjetos:{}, cofreMunicion:{}, setsArmadura:[],
       recetasPendientes:[],
       enCiudad:false,
-      enVenta:[], enemigos:[...ENEMIGOS_EJEMPLO], combate:[],
+      enVenta:[], enemigos:[], combate:[],
       notificaciones:{},
       tiendas:[],
     };
@@ -1905,6 +1946,7 @@ window.switchMT=async function(t){
   APP.masterTab=t;
   APP._gruposAbiertos={};
   APP._editandoFichaId=null;
+  APP._draftEnemigo=null; APP._editEnemigoId=null;
   buildTabs();
   if(t==='objetos'){
     mostrarEnviando('📡 CARGANDO COFRE...');
@@ -7003,58 +7045,116 @@ window.eliminarTienda=function(idx){
 function renderMTienda(){ return renderMObjetos(); }
 
 function renderMCombate(){
-  return`
-  <div class="card" style="border-color:rgba(255,60,60,.4);">
-    <div class="card-hdr" style="color:#ff8888;">CREAR ENEMIGO</div>
-    <div class="card-body">
-      <div class="form-row"><span class="form-lbl">NOMBRE:</span><input type="text" id="ce-n" placeholder="Nombre"></div>
-      <div class="form-row">
-        <span class="form-lbl">NIVEL:</span><input type="number" id="ce-lvl" value="5" min="1" max="15" style="max-width:55px;" oninput="calcPVE()">
-        <span class="form-lbl" style="width:35px;">PV:</span><input type="number" id="ce-pv" value="50" min="1" max="500" style="max-width:70px;">
-      </div>
-      <div class="form-row">
-        <span class="form-lbl">ROL:</span>
-        <select id="ce-rol"><option value="bruto">BRUTO</option><option value="agil">ÁGIL</option><option value="tirador">TIRADOR</option><option value="acechador">ACECHADOR</option><option value="tanque">TANQUE</option></select>
-      </div>
-      <div class="form-row"><span class="form-lbl">DAÑO:</span><input type="text" id="ce-daño" value="1D8" style="max-width:80px;"></div>
-      <button class="btn btn-block" style="border-color:rgba(255,60,60,.6);color:#ff8888;" onclick="crearEnemigo()">▸ AÑADIR A LISTA</button>
-    </div>
-  </div>
-  <div class="card" style="border-color:rgba(255,60,60,.3);">
-    <div class="card-hdr" style="color:#ff8888;">LISTA (${APP.enemigos.length})</div>
-    <div style="padding:0;">
-      ${!APP.enemigos.length?'<div class="empty">Sin enemigos</div>':APP.enemigos.map(e=>`
-      <div style="display:flex;align-items:center;padding:7px 10px;border-bottom:1px solid rgba(255,60,60,.12);gap:7px;">
-        <div style="flex:1;"><div style="font-size:11px;">${e.n}</div><div style="font-size:9px;color:rgba(255,136,136,.6);">NIV${e.lvl} · ${e.daño} · ${e.pvMax}PV</div></div>
-        <span class="rol-badge rol-${e.rol}">${e.rol.toUpperCase()}</span>
-        <button class="chip chip-r" style="border-color:rgba(255,60,60,.5);color:#ff8888;" onclick="addAlCombate(${e.id})">+</button>
-        <button class="chip chip-r" onclick="delEnemigo(${e.id})">×</button>
-      </div>`).join('')}
-    </div>
-  </div>
-  ${APP.combate.length?`
-  <div style="font-family:VT323,monospace;font-size:16px;color:#ff8888;text-align:center;margin:8px 0 4px;letter-spacing:2px;">── COMBATE ACTIVO ──</div>
-  ${APP.combate.map((e,i)=>{
-    const pct=Math.round((e.pvAct/e.pvMax)*100);const c=pct<25?'#ff2222':pct<50?'#ff8888':'var(--pip-danger)';
-    return`<div class="enemy-card">
-      <div class="enemy-hdr">
-        <div><div class="enemy-name">${e.n}</div><span class="enemy-lvl">NIV${e.lvl}</span></div>
-        <div style="text-align:right;"><span class="rol-badge rol-${e.rol}">${e.rol.toUpperCase()}</span><div style="font-size:9px;color:rgba(255,136,136,.5);margin-top:2px;">${e.daño}</div></div>
-      </div>
-      <div style="padding:7px 10px;">
-        <div style="display:flex;justify-content:space-between;font-size:10px;"><span style="color:rgba(255,136,136,.5);">PV</span><span style="color:${c};font-family:VT323,monospace;font-size:17px;">${e.pvAct}/${e.pvMax}</span></div>
-        <div class="enemy-hp-track"><div class="enemy-hp-fill" style="width:${pct}%;background:${c};"></div></div>
-        <div class="enemy-ctrl">
-          <input type="number" class="enemy-inp" id="dmg${i}" value="0" min="0">
-          <button class="btn btn-sm btn-danger" onclick="dañarE(${i})" style="flex:1;">DAÑAR</button>
-          <button class="btn btn-sm" onclick="curarE(${i})" style="flex:1;border-color:rgba(255,60,60,.5);color:#ff8888;">CURAR</button>
-          <button class="btn btn-sm btn-danger" onclick="quitarE(${i})">×</button>
-        </div>
-      </div>
-    </div>`;
-  }).join('')}
-  <button class="btn btn-danger btn-block" onclick="limpiarCombate()" style="margin-top:4px;">◼ LIMPIAR COMBATE</button>`
-  :'<div class="empty" style="color:rgba(255,136,136,.35);">Sin combatientes activos</div>'}`;
+  const subTab=APP._combateSubTab||'crear';
+  const editId=APP._editEnemigoId||null;
+  const editEnemigo=editId!=null?APP.enemigos.find(function(e){return e.id===editId;}):null;
+  if(!APP._draftEnemigo){
+    APP._draftEnemigo=editEnemigo?JSON.parse(JSON.stringify(editEnemigo)):(function(){
+      var st=calcStatsSugeridosEnemigo(5,'');
+      return {n:'',nivel:5,clase:'',daño:'1D8',bonificadores:[],pv:st.pv,defensa:st.defensa,iniciativa:st.iniciativa,atkCaD:st.atkCaD,atkCaC:st.atkCaC};
+    })();
+  }
+  const d=APP._draftEnemigo;
+  const s='style="font-family:VT323,monospace;font-size:15px;padding:4px 6px;background:var(--pip-dark);border:1px solid rgba(255,60,60,.4);color:#ff8888;width:100%;"';
+  const sm='style="font-family:VT323,monospace;font-size:15px;padding:4px 6px;background:var(--pip-dark);border:1px solid rgba(255,60,60,.4);color:#ff8888;width:65px;"';
+  const lbl='style="font-size:9px;color:rgba(255,136,136,.6);letter-spacing:1px;display:block;margin-bottom:3px;"';
+  function row1(label,html){ return '<div style="margin-bottom:8px;"><label '+lbl+'>'+label+'</label>'+html+'</div>'; }
+  function row2(a,b){ return '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">'+'<div><label '+lbl+'>'+a.l+'</label>'+a.h+'</div>'+'<div><label '+lbl+'>'+b.l+'</label>'+b.h+'</div>'+'</div>'; }
+
+  const tabsHtml='<div style="display:flex;gap:4px;margin-bottom:8px;">'
+    +'<button class="btn btn-sm" style="flex:1;'+(subTab==='crear'?'border-color:#ff8888;color:#ff8888;':'')+'" onclick="APP._combateSubTab=\'crear\';renderApp();">CREAR ENEMIGO</button>'
+    +'<button class="btn btn-sm" style="flex:1;'+(subTab==='combate'?'border-color:#ff8888;color:#ff8888;':'')+'" onclick="APP._combateSubTab=\'combate\';renderApp();">COMBATE</button>'
+    +'</div>';
+
+  if(subTab==='crear'){
+    const bonHtml=!d.bonificadores.length?'<div style="font-size:10px;color:rgba(255,136,136,.5);padding:4px 0;">Sin bonificadores añadidos</div>'
+      :d.bonificadores.map(function(b,i){
+        var stLabel=(ENEMY_STATS.find(function(x){return x.k===b.param;})||{n:b.param}).n;
+        return '<div style="display:flex;align-items:center;justify-content:space-between;border:1px solid rgba(255,60,60,.3);padding:4px 8px;margin-bottom:4px;">'
+          +'<span style="font-size:12px;color:#ff8888;">'+(b.signo==='-'?'−':'+')+b.valor+' · '+stLabel+'</span>'
+          +'<button class="chip chip-r" data-i="'+i+'" onclick="masterDelBonifEnemigo(parseInt(this.dataset.i))">×</button>'
+          +'</div>';
+      }).join('');
+    const claseInfo=ENEMY_CLASES[d.clase||'']||ENEMY_CLASES[''];
+    return tabsHtml
+      +'<div class="card" style="border-color:rgba(255,60,60,.4);">'
+      +'<div class="card-hdr" style="color:#ff8888;">'+(editEnemigo?'✎ EDITAR: '+editEnemigo.n:'+ CREAR NUEVO ENEMIGO')+'</div>'
+      +'<div style="padding:10px 12px;">'
+      +row1('NOMBRE','<input type="text" id="ce-n" value="'+(d.n||'')+'" placeholder="Ej: Mutaracha" '+s+'>')
+      +row2({l:'NIVEL',h:'<input type="number" id="ce-lvl" value="'+d.nivel+'" min="1" max="15" onchange="masterRecalcEnemigo()" '+sm+'>'},
+            {l:'INICIATIVA (=Nivel+clase)',h:'<input type="number" id="ce-ini" value="'+d.iniciativa+'" '+sm+'>'})
+      +row1('CLASE','<select id="ce-clase" onchange="masterRecalcEnemigo()" '+s+'>'+Object.keys(ENEMY_CLASES).map(function(k){return '<option value="'+k+'"'+((d.clase||'')===k?' selected':'')+'>'+ENEMY_CLASES[k].n+'</option>';}).join('')+'</select>'
+          +(claseInfo.desc?'<div style="font-size:9px;color:rgba(255,136,136,.6);margin-top:3px;">'+claseInfo.desc+'</div>':''))
+      +'<div style="margin-bottom:8px;"><label '+lbl+'>PUNTOS DE VIDA (10 + 1D8 por nivel, según clase)</label>'
+      +'<div style="display:flex;gap:6px;"><input type="number" id="ce-pv" value="'+d.pv+'" min="1" '+s+'><button class="btn btn-sm" style="white-space:nowrap;" onclick="masterRetirarPVEnemigo()">🎲 VOLVER A TIRAR</button></div></div>'
+      +row2({l:'DEFENSA (=10+Nivel+clase)',h:'<input type="number" id="ce-def" value="'+d.defensa+'" '+sm+'>'},
+            {l:'DAÑO <span style="opacity:.7;">(ej. 1D8+3)</span>',h:'<input type="text" id="ce-daño" value="'+(d.daño||'1D8')+'" '+sm+'>'})
+      +row2({l:'ATAQUE A DISTANCIA (CaD)',h:'<input type="number" id="ce-cad" value="'+d.atkCaD+'" '+sm+'>'},
+            {l:'ATAQUE CUERPO A CUERPO (CaC)',h:'<input type="number" id="ce-cac" value="'+d.atkCaC+'" '+sm+'>'})
+      +'<div style="font-size:9px;color:rgba(255,136,136,.6);letter-spacing:1px;margin:10px 0 4px;border-bottom:1px solid rgba(255,60,60,.3);padding-bottom:3px;">BONIFICADORES</div>'
+      +bonHtml
+      +'<div style="display:grid;grid-template-columns:1fr;gap:6px;margin-top:6px;padding:8px;border:1px dashed rgba(255,60,60,.3);">'
+      +row1('ESTADÍSTICA','<select id="ce-bon-stat" '+s+'>'+ENEMY_STATS.map(function(st){return '<option value="'+st.k+'">'+st.n+'</option>';}).join('')+'</select>')
+      +row2({l:'SIGNO',h:'<select id="ce-bon-signo" '+s+'><option value="+">+ (suma)</option><option value="-">− (resta)</option></select>'},
+            {l:'VALOR',h:'<input type="number" id="ce-bon-valor" value="1" min="0" '+sm+'>'})
+      +'<button class="btn btn-sm" style="border-color:rgba(255,60,60,.6);color:#ff8888;" onclick="masterAddBonifEnemigo()">+ AÑADIR BONIFICADOR</button>'
+      +'</div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px;">'
+      +(editEnemigo?'<button class="btn btn-warn" onclick="masterCancelEnemigo()">CANCELAR</button>':'<div></div>')
+      +'<button class="btn" style="border-color:rgba(255,60,60,.6);color:#ff8888;" onclick="masterSaveEnemigo()">▸ '+(editEnemigo?'GUARDAR CAMBIOS':'CREAR ENEMIGO')+'</button>'
+      +'</div>'
+      +'</div></div>'
+      +'<div class="card" style="border-color:rgba(255,60,60,.3);margin-top:8px;">'
+      +'<div class="card-hdr" style="color:#ff8888;">LISTA ('+APP.enemigos.length+')</div>'
+      +'<div style="padding:0;">'
+      +(!APP.enemigos.length?'<div class="empty">Sin enemigos creados todavía</div>':APP.enemigos.map(function(e){
+          var ef=calcStatsEfectivasEnemigo(e);
+          return '<div style="display:flex;align-items:center;padding:8px 10px;border-bottom:1px solid rgba(255,60,60,.12);gap:8px;">'
+            +'<div style="flex:1;"><div style="font-size:12px;color:var(--pip-bright);">'+e.n+'</div>'
+            +'<div style="font-size:9px;color:rgba(255,136,136,.6);">Niv.'+e.nivel+(e.clase?' · '+ENEMY_CLASES[e.clase].n:'')+' · PV '+ef.pv+' · Def '+ef.defensa+' · Ini '+ef.iniciativa+' · CaD '+ef.atkCaD+' · CaC '+ef.atkCaC+' · '+e.daño+'</div></div>'
+            +'<button class="chip chip-g" style="border-color:rgba(255,60,60,.5);color:#ff8888;" data-id="'+e.id+'" onclick="addAlCombate('+e.id+')">+ COMBATE</button>'
+            +'<button class="chip chip-g" style="border-color:var(--pip-warn);color:var(--pip-warn);" data-id="'+e.id+'" onclick="masterEditEnemigo('+e.id+')">EDIT.</button>'
+            +'<button class="chip chip-r" data-id="'+e.id+'" onclick="delEnemigo('+e.id+')">×</button>'
+            +'</div>';
+        }).join(''))
+      +'</div></div>';
+  }
+
+  // subTab === 'combate'
+  return tabsHtml
+    +(!APP.combate.length?'<div class="empty" style="color:rgba(255,136,136,.35);">Sin combatientes activos. Ve a "Crear enemigo" para añadir alguno.</div>'
+      :APP.combate.map(function(e,i){
+        const pct=Math.round((e.pv/e.pvMax)*100);const c=pct<25?'#ff2222':pct<50?'#ff8888':'var(--pip-danger)';
+        function stat(campo,label){
+          return '<div style="text-align:center;">'
+            +'<div style="font-size:8px;color:rgba(255,136,136,.6);letter-spacing:1px;">'+label+'</div>'
+            +'<div style="display:flex;align-items:center;justify-content:center;gap:3px;">'
+            +'<button style="width:22px;height:22px;border:1px solid rgba(255,60,60,.4);background:none;color:#ff8888;font-size:14px;cursor:pointer;font-family:VT323,monospace;line-height:1;" data-i="'+i+'" data-c="'+campo+'" data-d="-1" onclick="ajustarStatEnemigo(this)">-</button>'
+            +'<span style="font-family:VT323,monospace;font-size:18px;color:var(--pip-bright);min-width:22px;">'+e[campo]+'</span>'
+            +'<button style="width:22px;height:22px;border:1px solid rgba(255,60,60,.4);background:none;color:#ff8888;font-size:14px;cursor:pointer;font-family:VT323,monospace;line-height:1;" data-i="'+i+'" data-c="'+campo+'" data-d="1" onclick="ajustarStatEnemigo(this)">+</button>'
+            +'</div></div>';
+        }
+        return '<div class="enemy-card">'
+          +'<div class="enemy-hdr">'
+          +'<div><div class="enemy-name">'+e.n+'</div><span class="enemy-lvl">NIV'+e.nivel+'</span></div>'
+          +'<div style="text-align:right;">'+(e.clase?'<span class="rol-badge rol-'+e.clase+'">'+ENEMY_CLASES[e.clase].n.toUpperCase()+'</span>':'')
+          +'<div style="font-size:9px;color:rgba(255,136,136,.5);margin-top:2px;">'+e.daño+'</div></div>'
+          +'</div>'
+          +'<div style="padding:8px 10px;">'
+          +'<div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:2px;"><span style="color:rgba(255,136,136,.5);">PV</span>'
+          +'<span style="display:flex;align-items:center;gap:6px;">'
+          +'<button style="width:22px;height:22px;border:1px solid rgba(255,60,60,.4);background:none;color:#ff8888;font-size:14px;cursor:pointer;font-family:VT323,monospace;line-height:1;" data-i="'+i+'" data-c="pv" data-d="-1" onclick="ajustarStatEnemigo(this)">-</button>'
+          +'<span style="color:'+c+';font-family:VT323,monospace;font-size:17px;">'+e.pv+'/'+e.pvMax+'</span>'
+          +'<button style="width:22px;height:22px;border:1px solid rgba(255,60,60,.4);background:none;color:#ff8888;font-size:14px;cursor:pointer;font-family:VT323,monospace;line-height:1;" data-i="'+i+'" data-c="pv" data-d="1" onclick="ajustarStatEnemigo(this)">+</button>'
+          +'</span></div>'
+          +'<div class="enemy-hp-track"><div class="enemy-hp-fill" style="width:'+pct+'%;background:'+c+';"></div></div>'
+          +'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:8px;">'
+          +stat('defensa','DEF')+stat('iniciativa','INI')+stat('atkCaD','CaD')+stat('atkCaC','CaC')
+          +'</div>'
+          +'<button class="btn btn-sm btn-danger btn-block" style="margin-top:8px;" data-i="'+i+'" onclick="quitarE(parseInt(this.dataset.i))">✕ QUITAR DEL COMBATE</button>'
+          +'</div></div>';
+      }).join('')
+      +'<button class="btn btn-danger btn-block" onclick="limpiarCombate()" style="margin-top:4px;">◼ LIMPIAR COMBATE</button>');
 }
 
 /* ═══════════════════════════════════════════
@@ -7127,7 +7227,7 @@ window.masterResetearSalaCompleta=function(){
     cofreObjetos:{}, cofreMunicion:{}, setsArmadura:[],
     recetasPendientes:[],
     enCiudad:false,
-    enVenta:[], enemigos:[...ENEMIGOS_EJEMPLO], combate:[],
+    enVenta:[], enemigos:[], combate:[],
     notificaciones:{},
     tiendas:[],
   };
@@ -7359,13 +7459,142 @@ window.masterEnviarATienda=function(tiendaIdx, oid){
   renderApp();
 };
 
-window.delEnemigo=function(id){APP.enemigos=APP.enemigos.filter(e=>e.id!==id);getMockSala(APP.salaId).enemigos=APP.enemigos;renderApp()};
-window.addAlCombate=function(id){const e=APP.enemigos.find(x=>x.id===id);if(!e)return;APP.combate.push({...e,pvAct:e.pvMax});showNotif(`${e.n} entra al combate`);renderApp()};
-window.dañarE=function(i){const inp=document.getElementById('dmg'+i);const v=parseInt(inp?.value)||0;const e=APP.combate[i];e.pvAct=Math.max(0,e.pvAct-v);if(e.pvAct===0)showNotif(`¡${e.n} eliminado!`);renderApp()};
-window.curarE=function(i){const inp=document.getElementById('dmg'+i);const v=parseInt(inp?.value)||0;const e=APP.combate[i];e.pvAct=Math.min(e.pvMax,e.pvAct+v);renderApp()};
-window.quitarE=function(i){APP.combate.splice(i,1);renderApp()};
-window.limpiarCombate=function(){APP.combate=[];renderApp()};
-window.calcPVE=function(){const lvl=parseInt(document.getElementById('ce-lvl').value)||5;const pv=document.getElementById('ce-pv');if(pv)pv.value=10+Math.round(lvl*4.5)};
+function limpiarDraftEnemigo(){ APP._draftEnemigo=null; APP._editEnemigoId=null; }
+
+window.masterRecalcEnemigo=function(){
+  const d=APP._draftEnemigo; if(!d) return;
+  d.n=(document.getElementById('ce-n')||{}).value||d.n;
+  d.daño=(document.getElementById('ce-daño')||{}).value||d.daño;
+  d.nivel=parseInt((document.getElementById('ce-lvl')||{}).value)||1;
+  d.clase=(document.getElementById('ce-clase')||{}).value||'';
+  const st=calcStatsSugeridosEnemigo(d.nivel,d.clase);
+  d.pv=st.pv; d.defensa=st.defensa; d.iniciativa=st.iniciativa; d.atkCaD=st.atkCaD; d.atkCaC=st.atkCaC;
+  renderApp();
+};
+window.masterRetirarPVEnemigo=function(){
+  const d=APP._draftEnemigo; if(!d) return;
+  d.n=(document.getElementById('ce-n')||{}).value||d.n;
+  d.daño=(document.getElementById('ce-daño')||{}).value||d.daño;
+  const st=calcStatsSugeridosEnemigo(d.nivel,d.clase);
+  d.pv=st.pv;
+  renderApp();
+};
+window.masterAddBonifEnemigo=function(){
+  const d=APP._draftEnemigo; if(!d) return;
+  const param=(document.getElementById('ce-bon-stat')||{}).value||'pv';
+  const signo=(document.getElementById('ce-bon-signo')||{}).value||'+';
+  const valor=parseInt((document.getElementById('ce-bon-valor')||{}).value)||0;
+  if(!valor) return showNotif('El valor debe ser mayor que 0');
+  if(!d.bonificadores) d.bonificadores=[];
+  d.bonificadores.push({param:param,signo:signo,valor:valor});
+  masterGuardarCamposDraftEnemigo();
+  renderApp();
+};
+window.masterDelBonifEnemigo=function(i){
+  const d=APP._draftEnemigo; if(!d) return;
+  d.bonificadores.splice(i,1);
+  masterGuardarCamposDraftEnemigo();
+  renderApp();
+};
+function masterGuardarCamposDraftEnemigo(){
+  const d=APP._draftEnemigo; if(!d) return;
+  d.n=(document.getElementById('ce-n')||{}).value||d.n;
+  d.daño=(document.getElementById('ce-daño')||{}).value||d.daño;
+  d.pv=parseInt((document.getElementById('ce-pv')||{}).value)||d.pv;
+  d.defensa=parseInt((document.getElementById('ce-def')||{}).value)||d.defensa;
+  d.iniciativa=parseInt((document.getElementById('ce-ini')||{}).value)||d.iniciativa;
+  d.atkCaD=parseInt((document.getElementById('ce-cad')||{}).value)||d.atkCaD;
+  d.atkCaC=parseInt((document.getElementById('ce-cac')||{}).value)||d.atkCaC;
+}
+
+window.masterSaveEnemigo=function(){
+  const d=APP._draftEnemigo; if(!d) return;
+  masterGuardarCamposDraftEnemigo();
+  const n=(document.getElementById('ce-n')||{}).value||'';
+  if(!n.trim()) return showNotif('Escribe un nombre');
+  const sala=getMockSala(APP.salaId);
+  const enemigo={
+    id:APP._editEnemigoId||Date.now(),
+    n:n.trim(), nivel:d.nivel, clase:d.clase, daño:d.daño,
+    pv:d.pv, defensa:d.defensa, iniciativa:d.iniciativa, atkCaD:d.atkCaD, atkCaC:d.atkCaC,
+    bonificadores:(d.bonificadores||[]).slice(),
+  };
+  if(APP._editEnemigoId){
+    const idx=APP.enemigos.findIndex(function(e){return e.id===APP._editEnemigoId;});
+    if(idx>=0) APP.enemigos[idx]=enemigo;
+    showNotif(n+' actualizado');
+  } else {
+    APP.enemigos.push(enemigo);
+    showNotif(n+' creado');
+  }
+  sala.enemigos=APP.enemigos;
+  fbSet('salas/'+APP.salaId+'/enemigos',APP.enemigos);
+  limpiarDraftEnemigo();
+  renderApp();
+};
+window.masterEditEnemigo=function(id){
+  const e=APP.enemigos.find(function(x){return x.id===id;});
+  if(!e) return;
+  APP._editEnemigoId=id;
+  APP._draftEnemigo=JSON.parse(JSON.stringify(e));
+  renderApp();
+};
+window.masterCancelEnemigo=function(){ limpiarDraftEnemigo(); renderApp(); };
+
+window.delEnemigo=function(id){
+  APP.enemigos=APP.enemigos.filter(function(e){return e.id!==id;});
+  const sala=getMockSala(APP.salaId); sala.enemigos=APP.enemigos;
+  fbSet('salas/'+APP.salaId+'/enemigos',APP.enemigos);
+  renderApp();
+};
+
+window.addAlCombate=function(id){
+  const plantilla=APP.enemigos.find(function(x){return x.id===id;});
+  if(!plantilla) return;
+  // Recalcular PV de nuevo (cada instancia tiene su propia tirada)
+  const stFrescas=calcStatsSugeridosEnemigo(plantilla.nivel,plantilla.clase);
+  const efect=calcStatsEfectivasEnemigo(Object.assign({},plantilla,{pv:stFrescas.pv}));
+  // Numerar si ya hay uno o más con el mismo nombre en el combate activo
+  const yaHay=APP.combate.filter(function(x){return x.nBase===plantilla.n;}).length;
+  const nombreFinal=yaHay>0?(plantilla.n+' '+(yaHay+1)):plantilla.n;
+  // Si es el primero repetido, renombrar también al que ya estaba puesto sin número
+  if(yaHay===1){
+    var primero=APP.combate.find(function(x){return x.nBase===plantilla.n&&x.n===plantilla.n;});
+    if(primero) primero.n=plantilla.n+' 1';
+  }
+  APP.combate.push({
+    instId:Date.now()+Math.random(),
+    plantillaId:plantilla.id, nBase:plantilla.n, n:nombreFinal, nivel:plantilla.nivel, clase:plantilla.clase, daño:plantilla.daño,
+    pv:efect.pv, pvMax:efect.pv, defensa:efect.defensa, iniciativa:efect.iniciativa, atkCaD:efect.atkCaD, atkCaC:efect.atkCaC,
+  });
+  guardarCombateFB();
+  showNotif(nombreFinal+' entra al combate');
+  renderApp();
+};
+
+window.ajustarStatEnemigo=function(btn){
+  const i=parseInt(btn.dataset.i), campo=btn.dataset.c, delta=parseInt(btn.dataset.d);
+  const e=APP.combate[i]; if(!e) return;
+  e[campo]=(e[campo]||0)+delta;
+  if(campo==='pv') e.pv=Math.max(0,Math.min(e.pvMax,e.pv));
+  if(e.pv===0) showNotif(e.n+' eliminado');
+  guardarCombateFB();
+  renderApp();
+};
+window.quitarE=function(i){
+  APP.combate.splice(i,1);
+  guardarCombateFB();
+  renderApp();
+};
+window.limpiarCombate=function(){
+  APP.combate=[];
+  guardarCombateFB();
+  renderApp();
+};
+function guardarCombateFB(){
+  const sala=getMockSala(APP.salaId); sala.combate=APP.combate;
+  fbSet('salas/'+APP.salaId+'/combate',APP.combate);
+}
 
 /* ═══════════════════════════════════════════
    NOTIF
