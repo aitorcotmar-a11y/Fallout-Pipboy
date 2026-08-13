@@ -544,7 +544,7 @@ function radZonaTick(){
   idsAfectados.forEach(function(id){
     fbSet('salas/'+APP.salaId+'/jugadores/'+id+'/rads',sala.jugadores[id].rads);
   });
-  if(APP.masterTab==='modif'){ const mc=document.getElementById('main-content'); if(mc) mc.innerHTML=renderMModif(); }
+  if(APP.masterTab==='fichas'){ const mc=document.getElementById('main-content'); if(mc) mc.innerHTML=renderMFichas(); }
 }
 setInterval(radZonaTick,15000);
 
@@ -663,7 +663,7 @@ function startRealtime(salaId){
     const focusedEl=document.activeElement;
     const inputActivo=focusedEl&&(focusedEl.tagName==='INPUT'||focusedEl.tagName==='SELECT'||focusedEl.tagName==='TEXTAREA');
     // Tampoco rerenderizar si el master está en pestañas con formularios
-    const masterEditando=APP.rol==='master'&&(APP.masterTab==='objetos'||APP.masterTab==='tiendas'||APP.masterTab==='modif');
+    const masterEditando=APP.rol==='master'&&(APP.masterTab==='forja'||APP.masterTab==='tiendas'||APP.masterTab==='fichas');
     if(APP.rol&&!wizAbierto&&!lvlAbierto&&!masterEditando&&!inputActivo) renderApp();
   });
   // Heartbeat cada 10s para mantener la sesión activa
@@ -1552,7 +1552,7 @@ function fichaVacia(nombre,clase){
     attrs:{fue:7,agi:7,res:7,int:7,per:7,car:7,sue:7},
     habArmas:{'Armas cortas':0,'Armas medias':0,'Armas grandes':0,'Armas de energía':0,'Explosivos':0,'Combate':0},
     habHabs:{'Atletismo':0,'Ciencia':0,'Conversación':0,'Ganzúa':0,'Medicina':0,'Reparación':0,'Sigilo':0,'Supervivencia':0},
-    pvMax:pv, pvAct:pv, rads:0, chapas:250,
+    pvMax:pv, pvAct:pv, rads:0, chapas:0,
     // slots de equipo: null = vacío, objId = objeto equipado
     equipo:{arma1:null, arma2:null, casco:null, pecho:null, extremidades:null},
     inventario:[],
@@ -1938,7 +1938,7 @@ function entrarJugador(id){ entrarJugadorConPin(id); }
 function buildTabs(){
   const el=document.getElementById('main-tabs');
   if(APP.rol==='master'){
-    el.innerHTML=[{k:'fichas',l:'FICHAS'},{k:'modif',l:'MODIF.'},{k:'objetos',l:'OBJETOS'},{k:'rasgos',l:'RASGOS'},{k:'extras',l:'EXTRAS'},{k:'recetas',l:'RECETAS'},{k:'tiendas',l:'TIENDAS'},{k:'combate',l:'COMBATE'}]
+    el.innerHTML=[{k:'fichas',l:'JUGADORES'},{k:'forja',l:'FORJA'},{k:'tiendas',l:'TIENDAS'},{k:'combate',l:'COMBATE'}]
       .map(function(t){return '<button class="tab '+(APP.masterTab===t.k?'active':'')+'" data-k="'+t.k+'" onclick="switchMT(this.dataset.k)">'+t.l+'</button>';}).join('');
   } else {
     const fi=APP.fichaInner;
@@ -1953,7 +1953,7 @@ window.switchMT=async function(t){
   APP._editandoFichaId=null;
   APP._draftEnemigo=null; APP._editEnemigoId=null;
   buildTabs();
-  if(t==='objetos'){
+  if(t==='forja'){
     mostrarEnviando('📡 CARGANDO COFRE...');
     await esperarConfirmacion(fetchCofreFresco(),4000);
     ocultarEnviando();
@@ -2049,13 +2049,9 @@ function renderApp(){
   if(APP.rol==='master'){
     switch(APP.masterTab){
       case 'fichas':  el.innerHTML=renderMFichas(); break;
-      case 'modif':   el.innerHTML=renderMModif(); break;
-      case 'objetos': el.innerHTML=renderMObjetos(); break;
-      case 'rasgos':  el.innerHTML=renderMRasgos(); break;
-      case 'extras':  el.innerHTML=renderMExtras(); break;
+      case 'forja':   el.innerHTML=renderMForja(); break;
       case 'tiendas': el.innerHTML=renderMTiendas(); break;
       case 'combate': el.innerHTML=renderMCombate(); break;
-      case 'recetas': el.innerHTML=renderMRecetas(); break;
     }
   } else {
     switch(APP.fichaInner){
@@ -2966,7 +2962,7 @@ window.ajustarCantEnviarRecurso=function(k,delta){
   const actual=APP._cantEnviarRecurso[k]||0;
   APP._cantEnviarRecurso[k]=Math.max(0,actual+delta);
   const mc=document.getElementById('main-content');
-  if(mc) mc.innerHTML=renderMObjetos();
+  if(mc) mc.innerHTML=renderMForja();
 };
 
 window.abrirEnviarRecursoVarios=function(k){
@@ -5437,56 +5433,77 @@ function renderMFichas(){
       return renderEditorFichaCompleta(APP._editandoFichaId);
     }catch(e){
       console.error('Error al abrir el editor de ficha:',e);
-      return '<div class="card" style="border-color:var(--pip-danger);"><div class="card-hdr" style="color:var(--pip-danger);">⚠ ERROR AL ABRIR EL EDITOR</div><div style="padding:10px;font-size:10px;color:var(--pip-dim);">'+(e&&e.message?e.message:'Error desconocido')+'</div></div><button class="btn btn-block" onclick="APP._editandoFichaId=null;renderApp();">◂ VOLVER A FICHAS</button>';
+      return '<div class="card" style="border-color:var(--pip-danger);"><div class="card-hdr" style="color:var(--pip-danger);">⚠ ERROR AL ABRIR EL EDITOR</div><div style="padding:10px;font-size:10px;color:var(--pip-dim);">'+(e&&e.message?e.message:'Error desconocido')+'</div></div><button class="btn btn-block" onclick="APP._editandoFichaId=null;renderApp();">◂ VOLVER A JUGADORES</button>';
     }
   }
   const jugs=Object.values(APP.jugadores);
-  return`
-  <div class="card"><div class="card-hdr">NUEVA FICHA</div><div class="card-body">
-    <div class="form-row"><span class="form-lbl">NOMBRE:</span><input type="text" id="nf-n" placeholder="Nombre del personaje" maxlength="20"></div>
-    <button class="btn btn-block" onclick="crearFicha()">▸ CREAR FICHA</button>
-    <div style="font-size:9px;color:var(--pip-dim);margin-top:5px;text-align:center;">El jugador elegirá clase y atributos al entrar por primera vez</div>
-  </div></div>
-  ${!jugs.length?'<div class="empty">Sin fichas creadas</div>':jugs.map(j=>{
+  function modBox(jid,titulo,inputId,valorDefecto,btns){
+    return '<div class="mod-panel" style="flex:1;min-width:130px;margin-bottom:0;">'
+      +'<div class="mod-title" style="font-size:11px;">'+titulo+'</div>'
+      +'<input type="number" id="'+inputId+'" class="mod-input" style="width:100%!important;margin-bottom:6px;" value="'+valorDefecto+'">'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">'
+      +btns.map(function(b){return '<button class="btn btn-sm '+(b.cls||'')+'" data-jid="'+jid+'" onclick="masterModJugador(this.dataset.jid,\''+b.tipo+'\',\''+inputId+'\')">'+b.l+'</button>';}).join('')
+      +'</div></div>';
+  }
+  const jugadoresHtml=!jugs.length?'<div class="empty">Sin fichas creadas</div>':jugs.map(function(j){
     const pvMaxEf=calcPVMaxEfectivo(j); const pvPct=Math.round((j.pvAct/pvMaxEf)*100);const radPct=Math.min(100,Math.round((j.rads/1000)*100));
     const pvColor=pvPct<25?'var(--pip-danger)':pvPct<50?'var(--pip-warn)':'var(--pip)';
-    return`<div class="ficha-card">
-      <div class="ficha-hdr">
-        <div>
-          <div class="ficha-name">${j.nombre}${!j.confirmada?'<span style="font-size:9px;color:var(--pip-warn);margin-left:6px;">⏳ PENDIENTE</span>':''}</div>
-          <span class="ficha-cls">${CLASES[j.clase].n}</span>
-          ${j.bloqueada?'<span style="font-size:8px;color:var(--pip-dim);border:1px solid var(--pip-border);padding:1px 4px;margin-left:4px;">BLOQUEADA</span>':''}
-        </div>
-        <div style="text-align:right;"><div class="ficha-lvl">NIV ${j.nivel}</div><div style="font-size:9px;color:var(--pip-dim);">${j.pe} PE</div></div>
-      </div>
-      ${j.confirmada?`
-      <div style="height:6px;"></div>
-      <div class="mini-bar-row">
-        <span class="mini-lbl">PV</span>
-        <div class="mini-track"><div style="height:100%;background:${pvColor};width:${pvPct}%;transition:width .3s;"></div></div>
-        <span class="mini-val" style="color:${pvColor};">${j.pvAct}/${calcPVMaxEfectivo(j)}</span>
-      </div>
-      <div class="mini-bar-row">
-        <span class="mini-lbl" style="color:var(--pip-rad);">RAD</span>
-        <div class="mini-track"><div style="height:100%;background:var(--pip-rad);width:${radPct}%;"></div></div>
-        <span class="mini-val" style="color:var(--pip-rad);">${Math.ceil(j.rads||0)}</span>
-      </div>
-      ${(j.fatiga||0)>0?`<div style="padding:3px 10px;font-size:9px;color:${calcEstadoFatiga(j)?calcEstadoFatiga(j).color:'var(--pip-warn)'};">😴 Fatiga: ${calcFatigaEfectiva(j)} ${calcEstadoFatiga(j)?'· '+calcEstadoFatiga(j).label:''}</div>`:''}
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:3px;padding:6px 10px;">
-        ${ATTRS.map(a=>`<div style="text-align:center;font-size:9px;">
-          <div style="color:var(--pip-dim);">${a.k.toUpperCase()}</div>
-          <div style="font-family:VT323,monospace;font-size:16px;color:var(--pip-bright);">${j.attrs[a.k]}</div>
-        </div>`).join('')}
-      </div>`:'<div style="padding:10px;font-size:10px;color:var(--pip-dim);">Esperando a que el jugador complete la ficha...</div>'}
-      <div style="display:flex;gap:4px;padding:0 10px 8px;flex-wrap:wrap;">
-        <button class="btn btn-sm" onclick="abrirEditorFichaCompleta('${j.id}')">✎ EDITAR TODO</button>
-        <button class="btn btn-sm btn-warn" onclick="masterBloquear('${j.id}')">${j.bloqueada?'DESBLOQUEAR':'BLOQUEAR'}</button>
-        <button class="btn btn-sm" onclick="masterDarPE('${j.id}',1)">+1 PE</button>
-        <button class="btn btn-sm" onclick="masterDarPE('${j.id}',3)">+3 PE</button>
-        <button class="btn btn-sm btn-danger" onclick="masterDelFicha('${j.id}')">× BORRAR</button>
-      </div>
-    </div>`;
-  }).join('')}`;
+    return '<div class="ficha-card">'
+      +'<div class="ficha-hdr">'
+      +'<div>'
+      +'<div class="ficha-name">'+j.nombre+(!j.confirmada?'<span style="font-size:9px;color:var(--pip-warn);margin-left:6px;">⏳ PENDIENTE</span>':'')+'</div>'
+      +(j.confirmada?'<span class="ficha-cls">'+CLASES[j.clase].n+'</span>':'')
+      +(j.bloqueada?'<span style="font-size:8px;color:var(--pip-dim);border:1px solid var(--pip-border);padding:1px 4px;margin-left:4px;">BLOQUEADA</span>':'')
+      +'</div>'
+      +(j.confirmada?'<div style="text-align:center;"><div class="ficha-lvl">NIV '+j.nivel+'</div><div style="font-size:9px;color:var(--pip-dim);">'+j.pe+' PE</div></div>':'<div></div>')
+      +'<div style="display:flex;gap:4px;">'
+      +'<button class="btn btn-sm btn-warn" data-jid="'+j.id+'" onclick="masterBloquear(this.dataset.jid)">'+(j.bloqueada?'DESBLOQUEAR':'BLOQUEAR')+'</button>'
+      +'<button class="btn btn-sm btn-danger" data-jid="'+j.id+'" onclick="masterDelFicha(this.dataset.jid)">✕ BORRAR</button>'
+      +'</div></div>'
+      +(j.confirmada?(''
+        +'<div style="height:6px;"></div>'
+        +'<div class="mini-bar-row"><span class="mini-lbl">PV</span>'
+        +'<div class="mini-track"><div style="height:100%;background:'+pvColor+';width:'+pvPct+'%;transition:width .3s;"></div></div>'
+        +'<span class="mini-val" style="color:'+pvColor+';">'+j.pvAct+'/'+pvMaxEf+'</span></div>'
+        +'<div class="mini-bar-row"><span class="mini-lbl" style="color:var(--pip-rad);">RAD</span>'
+        +'<div class="mini-track"><div style="height:100%;background:var(--pip-rad);width:'+radPct+'%;"></div></div>'
+        +'<span class="mini-val" style="color:var(--pip-rad);">'+Math.ceil(j.rads||0)+'</span></div>'
+        +((j.fatiga||0)>0?'<div style="padding:3px 10px;font-size:9px;color:'+(calcEstadoFatiga(j)?calcEstadoFatiga(j).color:'var(--pip-warn)')+';">😴 Fatiga: '+calcFatigaEfectiva(j)+(calcEstadoFatiga(j)?' · '+calcEstadoFatiga(j).label:'')+'</div>':'')
+        +'<div style="display:flex;flex-wrap:wrap;gap:6px;padding:8px 10px;">'
+        +modBox(j.id,'PV','mpv-'+j.id,5,[{tipo:'cura',l:'CURAR'},{tipo:'daño',l:'DAÑAR',cls:'btn-danger'}])
+        +modBox(j.id,'RAD','mrad-'+j.id,5,[{tipo:'rad-',l:'CURAR'},{tipo:'rad+',l:'DAÑAR',cls:'btn-danger'}])
+        +modBox(j.id,'PENALIZ. COMBATE','mpen-'+j.id,j.penMod||-2,[{tipo:'pen',l:'APLICAR',cls:'btn-danger'},{tipo:'pen0',l:'LIMPIAR'}])
+        +modBox(j.id,'FATIGA','mfat-'+j.id,1,[{tipo:'fatiga+',l:'+ FATIGA',cls:'btn-warn'},{tipo:'fatiga-',l:'- FATIGA'}])
+        +modBox(j.id,'EXPERIENCIA','mpe-'+j.id,1,[{tipo:'pe-',l:'-PE',cls:'btn-warn'},{tipo:'pe',l:'+PE'}])
+        +modBox(j.id,'CHAPAS','mchapas-'+j.id,50,[{tipo:'chapas+',l:'+ CHAPAS'},{tipo:'chapas-',l:'- CHAPAS',cls:'btn-warn'}])
+        +'</div>'
+        +'<div style="padding:0 10px 10px;"><button class="btn btn-sm btn-block" data-jid="'+j.id+'" onclick="abrirEditorFichaCompleta(this.dataset.jid)">✎ EDITAR TODO</button></div>'
+      ):'<div style="padding:10px;font-size:10px;color:var(--pip-dim);">Esperando a que el jugador complete la ficha...</div>')
+      +'</div>';
+  }).join('');
+
+  const radZonaHtml='<div class="mod-panel" style="border-color:rgba(255,140,0,.5);margin-top:4px;">'
+    +'<div class="mod-title" style="color:#ff8c00;">☢ APLICADOR AUTOMÁTICO (RADS/HORA)</div>'
+    +'<div style="font-size:9px;color:var(--pip-dim);margin-bottom:6px;">Aplica la tasa cada minuto a los jugadores marcados mientras esté ACTIVO. Sigue corriendo mientras esta pestaña del navegador esté abierta, aunque cambies de pestaña dentro de la app.</div>'
+    +'<div class="form-row"><span class="form-lbl">RADS/HORA:</span><input type="number" id="m-radzona-rate" class="mod-input" value="'+((APP.radZona&&APP.radZona.radsHora)||60)+'" min="0" onchange="masterAplicarRateRadZona()"></div>'
+    +'<div style="margin:8px 0;max-height:180px;overflow-y:auto;">'
+    +jugs.map(function(j){
+      const enZona=((APP.radZona&&APP.radZona.jugadoresIds)||[]).includes(j.id);
+      return '<label class="plyr-chk"><input type="checkbox" class="chk-radzona" '+(enZona?'checked':'')+' onchange="toggleRadZonaJugador(\''+j.id+'\',this.checked)">'
+        +'<span class="plyr-chk-name">'+j.nombre+' <span style="font-size:9px;color:var(--pip-dim);">('+(j.rads||0).toFixed(1)+' rads)</span></span></label>';
+    }).join('')
+    +'</div>'
+    +'<button class="btn btn-block '+((APP.radZona&&APP.radZona.activo)?'btn-danger':'btn-warn')+'" onclick="toggleRadZonaActiva()">'+((APP.radZona&&APP.radZona.activo)?'⏸ DESACTIVAR ZONA':'▶ ACTIVAR ZONA')+'</button>'
+    +((APP.radZona&&APP.radZona.activo)?'<div style="font-size:9px;color:#ff8c00;margin-top:6px;">☢ ACTIVO · +'+(((APP.radZona.radsHora||0)/60).toFixed(2))+' rads/min a '+((APP.radZona.jugadoresIds||[]).length)+' jugador(es)</div>':'')
+    +'</div>';
+
+  const nuevaFichaHtml='<div class="card" style="margin-top:8px;"><div class="card-hdr">NUEVA FICHA</div><div class="card-body">'
+    +'<div class="form-row"><span class="form-lbl">NOMBRE:</span><input type="text" id="nf-n" placeholder="Nombre del personaje" maxlength="20"></div>'
+    +'<button class="btn btn-block" onclick="crearFicha()">▸ CREAR FICHA</button>'
+    +'<div style="font-size:9px;color:var(--pip-dim);margin-top:5px;text-align:center;">El jugador elegirá clase y atributos al entrar por primera vez</div>'
+    +'</div></div>';
+
+  return jugadoresHtml+radZonaHtml+nuevaFichaHtml;
 }
 
 function renderEditorFichaCompleta(jid){
@@ -5715,83 +5732,6 @@ window.confirmarEleccionExtraMaster=function(jid,en,i){
   renderApp();
 };
 
-function renderMModif(){
-  const jugs=Object.values(APP.jugadores);
-  return`
-  <div class="mod-panel">
-    <div class="mod-title">▸ SELECCIONAR OBJETIVOS</div>
-    <label class="plyr-chk"><input type="checkbox" id="chk-todos" onchange="toggleTodos(this)"><span class="plyr-chk-name">TODOS LOS JUGADORES</span></label>
-    ${jugs.map(j=>`<label class="plyr-chk">
-      <input type="checkbox" class="chk-j" data-id="${j.id}">
-      <span class="plyr-chk-name">${j.nombre} <span style="font-size:9px;color:var(--pip-dim);">(${j.pvAct}/${calcPVMaxEfectivo(j)}PV · ${j.rads}Rads)</span></span>
-    </label>`).join('')}
-  </div>
-  <div class="mod-panel">
-    <div class="mod-title">▸ PUNTOS DE VIDA</div>
-    <div class="form-row"><span class="form-lbl">CANTIDAD:</span><input type="number" id="m-pv" class="mod-input" value="5" min="0"></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;">
-      <button class="btn btn-danger" onclick="masterMod('daño')">INFLIGIR DAÑO</button>
-      <button class="btn" onclick="masterMod('cura')">CURAR</button>
-    </div>
-  </div>
-  <div class="mod-panel">
-    <div class="mod-title">▸ RADIACIÓN</div>
-    <div class="form-row"><span class="form-lbl">CANTIDAD:</span><input type="number" id="m-rad" class="mod-input" value="10" min="0"></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;">
-      <button class="btn btn-warn" onclick="masterMod('rad+')">+ RADIACIÓN</button>
-      <button class="btn btn-rad" onclick="masterMod('rad-')">− RADIACIÓN</button>
-    </div>
-  </div>
-  <div class="mod-panel" style="border-color:rgba(255,140,0,.5);">
-    <div class="mod-title" style="color:#ff8c00;">☢ APLICADOR AUTOMÁTICO (RADS/HORA)</div>
-    <div style="font-size:9px;color:var(--pip-dim);margin-bottom:6px;">Aplica la tasa cada minuto a los jugadores marcados mientras esté ACTIVO. Sigue corriendo aunque cambies de pestaña de Master.</div>
-    <div class="form-row"><span class="form-lbl">RADS/HORA:</span><input type="number" id="m-radzona-rate" class="mod-input" value="${(APP.radZona&&APP.radZona.radsHora)||60}" min="0" onchange="masterAplicarRateRadZona()"></div>
-    <div style="margin:8px 0;max-height:180px;overflow-y:auto;">
-      ${jugs.map(j=>{
-        const enZona=((APP.radZona&&APP.radZona.jugadoresIds)||[]).includes(j.id);
-        return `<label class="plyr-chk">
-          <input type="checkbox" class="chk-radzona" ${enZona?'checked':''} onchange="toggleRadZonaJugador('${j.id}',this.checked)">
-          <span class="plyr-chk-name">${j.nombre} <span style="font-size:9px;color:var(--pip-dim);">(${(j.rads||0).toFixed(1)} rads)</span></span>
-        </label>`;
-      }).join('')}
-    </div>
-    <button class="btn btn-block ${(APP.radZona&&APP.radZona.activo)?'btn-danger':'btn-warn'}" onclick="toggleRadZonaActiva()">${(APP.radZona&&APP.radZona.activo)?'⏸ DESACTIVAR ZONA':'▶ ACTIVAR ZONA'}</button>
-    ${(APP.radZona&&APP.radZona.activo)?`<div style="font-size:9px;color:#ff8c00;margin-top:6px;">☢ ACTIVO · +${((APP.radZona.radsHora||0)/60).toFixed(2)} rads/min a ${(APP.radZona.jugadoresIds||[]).length} jugador(es)</div>`:''}
-  </div>
-  <div class="mod-panel">
-    <div class="mod-title">▸ PENALIZADOR DE COMBATE</div>
-    <div style="font-size:9px;color:var(--pip-dim);margin-bottom:6px;">Resta a todas las habilidades de arma del jugador. Se muestra como banner rojo en su ficha.</div>
-    <div class="form-row"><span class="form-lbl">VALOR:</span><input type="number" id="m-pen" class="mod-input" value="-2" min="-10" max="0"></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;">
-      <button class="btn btn-danger" onclick="masterMod('pen')">APLICAR</button>
-      <button class="btn" onclick="masterMod('pen0')">LIMPIAR</button>
-    </div>
-  </div>
-  <div class="mod-panel">
-    <div class="mod-title">▸ EXPERIENCIA</div>
-    <div class="form-row"><span class="form-lbl">PE:</span><input type="number" id="m-pe" class="mod-input" value="2" min="0" max="10"></div>
-    <button class="btn btn-block" onclick="masterMod('pe')">▸ OTORGAR PE</button>
-    <div style="font-size:9px;color:var(--pip-dim);margin-top:5px;text-align:center;">Si el jugador alcanza los PE para subir de nivel, verá una notificación</div>
-  </div>
-  <div class="mod-panel">
-    <div class="mod-title">▸ CHAPAS</div>
-    <div class="form-row"><span class="form-lbl">CANTIDAD:</span><input type="number" id="m-chapas" class="mod-input" value="50" min="0"></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;">
-      <button class="btn" onclick="masterMod('chapas+')">+ CHAPAS</button>
-      <button class="btn btn-warn" onclick="masterMod('chapas-')">− CHAPAS</button>
-    </div>
-  </div>
-  <div class="mod-panel">
-    <div class="mod-title">▸ FATIGA</div>
-    <div style="font-size:9px;color:var(--pip-dim);margin-bottom:6px;">Sin comer/beber/dormir: +1 fatiga/día. 3-6=cansado (-2), 7-RES=exhausto (desventaja), >RES=inconsciente.</div>
-    <div class="form-row"><span class="form-lbl">CANTIDAD:</span><input type="number" id="m-fatiga" class="mod-input" value="1" min="0" max="10"></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;">
-      <button class="btn btn-warn" onclick="masterMod('fatiga+')">+ FATIGA</button>
-      <button class="btn" onclick="masterMod('fatiga-')">− FATIGA</button>
-    </div>
-  </div>
-  `;  // fin renderMModif
-}
 
 
 
@@ -5899,6 +5839,25 @@ window.tiendaDraftDesc=function(v){
    FUNCIONES MAESTRO — OBJETOS Y TIENDAS
    ────────────────────────────────────────── */
 
+function renderMForja(){
+  const sub=APP._forjaSubTab||'objetos';
+  const subs=[{k:'objetos',l:'OBJETOS'},{k:'rasgos',l:'RASGOS'},{k:'extras',l:'EXTRAS'},{k:'recetas',l:'RECETAS'}];
+  const tabsHtml='<div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap;">'
+    +subs.map(function(t){return '<button class="btn btn-sm" style="flex:1;min-width:80px;'+(sub===t.k?'border-color:var(--pip);color:var(--pip-bright);':'')+'" data-k="'+t.k+'" onclick="switchForjaSub(this.dataset.k)">'+t.l+'</button>';}).join('')
+    +'</div>';
+  var contenido='';
+  if(sub==='objetos') contenido=renderMObjetos();
+  else if(sub==='rasgos') contenido=renderMRasgos();
+  else if(sub==='extras') contenido=renderMExtras();
+  else if(sub==='recetas') contenido=renderMRecetas();
+  return tabsHtml+contenido;
+}
+window.switchForjaSub=function(k){
+  APP._forjaSubTab=k;
+  APP._editObjId=null; APP._currentFormTipo=null; APP._objTipoSelected=null; APP._objSubcatSelected=null; APP._objSlotArmaduraSelected=null; APP._draftObjEfectos=null; APP._draftObjEfCat=null; APP._draftObjAdicCat=null;
+  limpiarDraftRasgo(); limpiarDraftExtra();
+  renderApp();
+};
 function renderMObjetos(){
   const editId=APP._editObjId||null;
   const editObj=editId!=null?APP.tienda.find(function(o){return o.id===editId;}):null;
@@ -6115,19 +6074,19 @@ window.toggleArmaFields=function(tipo){
   if(tipo!=='droga'){ APP._draftObjEfectos=null; APP._draftObjAdicCat=null; } // limpiar draft si sales de droga
   // Rerenderizar para mostrar/ocultar campos de armadura/arma
   var mc=document.getElementById('main-content');
-  if(mc) mc.innerHTML=renderMObjetos();
+  if(mc) mc.innerHTML=renderMForja();
 };
 
 window.masterCambiarCatEfectoObj=function(cat){
   APP._draftObjEfCat=cat;
   var mc=document.getElementById('main-content');
-  if(mc) mc.innerHTML=renderMObjetos();
+  if(mc) mc.innerHTML=renderMForja();
 };
 
 window.masterCambiarCatAdiccion=function(cat){
   APP._draftObjAdicCat=cat;
   var mc=document.getElementById('main-content');
-  if(mc) mc.innerHTML=renderMObjetos();
+  if(mc) mc.innerHTML=renderMForja();
 };
 
 window.masterAddEfectoObjDraft=function(){
@@ -6140,14 +6099,14 @@ window.masterAddEfectoObjDraft=function(){
   if(!APP._draftObjEfectos) APP._draftObjEfectos=[];
   APP._draftObjEfectos.push({cat:cat,param:param,signo:signo,valor:valor});
   const mc=document.getElementById('main-content');
-  if(mc) mc.innerHTML=renderMObjetos();
+  if(mc) mc.innerHTML=renderMForja();
 };
 
 window.masterDelEfectoObjDraft=function(i){
   if(!APP._draftObjEfectos) return;
   APP._draftObjEfectos.splice(i,1);
   const mc=document.getElementById('main-content');
-  if(mc) mc.innerHTML=renderMObjetos();
+  if(mc) mc.innerHTML=renderMForja();
 };
 
 
@@ -6164,7 +6123,7 @@ window.toggleSubcatFields=function(sc){
   });
   // Rerenderizar solo la pestaña objetos para actualizar los campos
   var mc=document.getElementById('main-content');
-  if(mc) mc.innerHTML=renderMObjetos();
+  if(mc) mc.innerHTML=renderMForja();
 };
 
 // Labels de subcategoría
@@ -6339,7 +6298,7 @@ window.masterCambiarCatEfecto=function(cat){
   APP._draftRasgoD=(document.getElementById('rs-d')||{}).value||'';
   APP._draftRasgoBanner=(document.getElementById('rs-banner')||{}).value||'';
   var mc=document.getElementById('main-content');
-  if(mc) mc.innerHTML=renderMRasgos();
+  if(mc) mc.innerHTML=renderMForja();
 };
 
 window.masterAddEfectoDraft=function(){
@@ -6356,7 +6315,7 @@ window.masterAddEfectoDraft=function(){
   APP._draftRasgoD=(document.getElementById('rs-d')||{}).value||'';
   APP._draftRasgoBanner=(document.getElementById('rs-banner')||{}).value||'';
   const mc=document.getElementById('main-content');
-  if(mc) mc.innerHTML=renderMRasgos();
+  if(mc) mc.innerHTML=renderMForja();
 };
 
 window.masterDelEfectoDraft=function(i){
@@ -6366,7 +6325,7 @@ window.masterDelEfectoDraft=function(i){
   APP._draftRasgoD=(document.getElementById('rs-d')||{}).value||'';
   APP._draftRasgoBanner=(document.getElementById('rs-banner')||{}).value||'';
   const mc=document.getElementById('main-content');
-  if(mc) mc.innerHTML=renderMRasgos();
+  if(mc) mc.innerHTML=renderMForja();
 };
 
 function limpiarDraftRasgo(){
@@ -6566,7 +6525,7 @@ window.masterCambiarCatEfectoExtra=function(cat){
   APP._draftEfCatExtra=cat;
   guardarCamposDraftExtra();
   var mc=document.getElementById('main-content');
-  if(mc) mc.innerHTML=renderMExtras();
+  if(mc) mc.innerHTML=renderMForja();
 };
 
 window.masterToggleEleccionExtra=function(checked){
@@ -6574,7 +6533,7 @@ window.masterToggleEleccionExtra=function(checked){
   APP._draftOpcionesEleccion=[];
   guardarCamposDraftExtra();
   var mc=document.getElementById('main-content');
-  if(mc) mc.innerHTML=renderMExtras();
+  if(mc) mc.innerHTML=renderMForja();
 };
 
 window.masterAcumularOpcionesEleccion=function(){
@@ -6588,7 +6547,7 @@ window.masterAcumularOpcionesEleccion=function(){
   });
   guardarCamposDraftExtra();
   const mc=document.getElementById('main-content');
-  if(mc) mc.innerHTML=renderMExtras();
+  if(mc) mc.innerHTML=renderMForja();
 };
 
 window.masterQuitarOpcionEleccion=function(i){
@@ -6596,7 +6555,7 @@ window.masterQuitarOpcionEleccion=function(i){
   APP._draftOpcionesEleccion.splice(i,1);
   guardarCamposDraftExtra();
   const mc=document.getElementById('main-content');
-  if(mc) mc.innerHTML=renderMExtras();
+  if(mc) mc.innerHTML=renderMForja();
 };
 
 window.masterAddEfectoDraftExtra=function(){
@@ -6624,7 +6583,7 @@ window.masterAddEfectoDraftExtra=function(){
   APP._draftEfEleccionExtra=false;
   guardarCamposDraftExtra();
   const mc=document.getElementById('main-content');
-  if(mc) mc.innerHTML=renderMExtras();
+  if(mc) mc.innerHTML=renderMForja();
 };
 
 window.masterDelEfectoDraftExtra=function(i){
@@ -6635,7 +6594,7 @@ window.masterDelEfectoDraftExtra=function(i){
   APP._draftExtraBanner=(document.getElementById('ex-banner')||{}).value||'';
   var tierSel=document.getElementById('ex-tier'); if(tierSel) APP._draftExtraTier=tierSel.value;
   const mc=document.getElementById('main-content');
-  if(mc) mc.innerHTML=renderMExtras();
+  if(mc) mc.innerHTML=renderMForja();
 };
 
 function limpiarDraftExtra(){
@@ -7178,43 +7137,32 @@ function renderMCombate(){
 /* ═══════════════════════════════════════════
    ACCIONES MASTER
    ═══════════════════════════════════════════ */
-function getSel(){return[...document.querySelectorAll('.chk-j:checked')].map(c=>c.dataset.id)}
-window.toggleTodos=function(c){document.querySelectorAll('.chk-j').forEach(x=>x.checked=c.checked)};
-
-
-window.masterMod=function(tipo){
-  const s=getMockSala(APP.salaId);const sel=getSel();
-  if(!sel.length)return showNotif('Selecciona jugadores primero');
-  sel.forEach(id=>{
-    const j=s.jugadores[id];if(!j)return;
-    if(tipo==='daño'){
-      const v=parseInt(document.getElementById('m-pv').value)||0;
-      var vM=v+((j.rasgos||[]).includes('masacre')&&v>0?1:0);
-      // extra 'Esqueleto de Adamantio' borrado a petición del usuario, pendiente de recrear
-      j.pvAct=Math.max(0,j.pvAct-vM);
-      if(j.pvAct===0)showNotif(j.nombre+': INCAPACITADO');
-      if((j.rasgos||[]).includes('masacre')&&v>0&&vM>v)showNotif(j.nombre+': Masacre · -'+vM+' PV');
-    }
-    else if(tipo==='cura'){const v=parseInt(document.getElementById('m-pv').value)||0;j.pvAct=Math.min(calcPVMaxEfectivo(j),j.pvAct+v);}
-    else if(tipo==='rad+'){
-      const v=parseInt(document.getElementById('m-rad').value)||0;
-      // extra 'Uranium Fever' borrado a petición del usuario, pendiente de recrear
-      const vR=(j.rasgos||[]).includes('iridiscente')?Math.floor(v/2):v;
-      j.rads=Math.min(1000,j.rads+vR);
-      if(vR<v)showNotif(j.nombre+': Iridiscente · +'+vR+' rads (÷2)');
-    }
-    else if(tipo==='rad-'){const v=parseInt(document.getElementById('m-rad').value)||0;j.rads=Math.max(0,j.rads-v);}
-    else if(tipo==='pen'){j.penMod=parseInt(document.getElementById('m-pen').value)||0;}
-    else if(tipo==='pen0'){j.penMod=0;}
-    else if(tipo==='pe'){const v=parseInt(document.getElementById('m-pe').value)||0;j.pe+=v;if(puedeSubirNivel(j))showNotif(`${j.nombre}: ¡PUEDE SUBIR DE NIVEL!`);}
-    else if(tipo==='chapas+'){const v=parseInt(document.getElementById('m-chapas').value)||0;j.chapas+=v;}
-    else if(tipo==='chapas-'){const v=parseInt(document.getElementById('m-chapas').value)||0;j.chapas=Math.max(0,j.chapas-v);}
-    else if(tipo==='fatiga+'){const v=parseInt(document.getElementById('m-fatiga').value)||0;j.fatiga=Math.max(0,(j.fatiga||0)+v);}
-    else if(tipo==='fatiga-'){const v=parseInt(document.getElementById('m-fatiga').value)||0;j.fatiga=Math.max(0,(j.fatiga||0)-v);}
-    fbSet(`salas/${APP.salaId}/jugadores/${id}`,j);
-  });
+window.masterModJugador=function(jid,tipo,inputId){
+  const s=getMockSala(APP.salaId);const j=s.jugadores[jid];if(!j)return;
+  const v=parseInt((document.getElementById(inputId)||{}).value)||0;
+  if(tipo==='daño'){
+    var vM=v+((j.rasgos||[]).includes('masacre')&&v>0?1:0);
+    j.pvAct=Math.max(0,j.pvAct-vM);
+    if(j.pvAct===0)showNotif(j.nombre+': INCAPACITADO');
+    if((j.rasgos||[]).includes('masacre')&&v>0&&vM>v)showNotif(j.nombre+': Masacre · -'+vM+' PV');
+  }
+  else if(tipo==='cura'){j.pvAct=Math.min(calcPVMaxEfectivo(j),j.pvAct+v);}
+  else if(tipo==='rad+'){
+    const vR=(j.rasgos||[]).includes('iridiscente')?Math.floor(v/2):v;
+    j.rads=Math.min(1000,j.rads+vR);
+    if(vR<v)showNotif(j.nombre+': Iridiscente · +'+vR+' rads (÷2)');
+  }
+  else if(tipo==='rad-'){j.rads=Math.max(0,j.rads-v);}
+  else if(tipo==='pen'){j.penMod=v;}
+  else if(tipo==='pen0'){j.penMod=0;}
+  else if(tipo==='pe'){j.pe=Math.max(0,j.pe+v);if(puedeSubirNivel(j))showNotif(j.nombre+': ¡PUEDE SUBIR DE NIVEL!');}
+  else if(tipo==='pe-'){j.pe=Math.max(0,j.pe-v);}
+  else if(tipo==='chapas+'){j.chapas=(j.chapas||0)+v;}
+  else if(tipo==='chapas-'){j.chapas=Math.max(0,(j.chapas||0)-v);}
+  else if(tipo==='fatiga+'){j.fatiga=Math.max(0,(j.fatiga||0)+v);}
+  else if(tipo==='fatiga-'){j.fatiga=Math.max(0,(j.fatiga||0)-v);}
+  fbSet('salas/'+APP.salaId+'/jugadores/'+jid,j);
   APP.jugadores=s.jugadores;
-  showNotif(`Aplicado a ${sel.length} jugador(es)`);
   renderApp();
 };
 window.masterBloquear=function(id){
@@ -7228,7 +7176,9 @@ window.masterDarPE=function(id,pe){
   fbSet(`salas/${APP.salaId}/jugadores/${id}/pe`,j.pe);renderApp();
 };
 window.masterDelFicha=function(id){
-  const s=getMockSala(APP.salaId);delete s.jugadores[id];APP.jugadores=s.jugadores;
+  const s=getMockSala(APP.salaId);const j=s.jugadores[id];
+  if(!confirm('¿Borrar la ficha de '+(j?j.nombre:'este jugador')+'? Se perderá todo su progreso (atributos, inventario, rasgos, extras...). Esta acción NO se puede deshacer.')) return;
+  delete s.jugadores[id];APP.jugadores=s.jugadores;
   fbSet(`salas/${APP.salaId}/jugadores/${id}`,null);showNotif('Ficha eliminada');renderApp();
 };
 
