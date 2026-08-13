@@ -3183,7 +3183,7 @@ function renderPunosBlock(j){
   var hab=habCombate+pen+bonAtaque+(brP.habCombate||0);
   var daño='1D4'+(bonDañoDrogaP>0?'+'+bonDañoDrogaP:(bonDañoDrogaP<0?String(bonDañoDrogaP):''));
   var radEfPun=calcEfectosRad(j); var penRadPun=radEfPun.reduce(function(s,e){return s+(e.penHab||0);},0);
-  var bonAtaqueCaC=getMod(calcAtrEf(j,'agi')+((j.rasgos||[]).includes('pequeno')?1:0))+habCombate+pen+(brP.atkCaC||0)+(brP.atkTodas||0)+penRadPun+modFuePunos;
+  var bonAtaqueCaC=modFuePunos+habCombate+pen+(brP.atkCaC||0)+(brP.atkTodas||0)+penRadPun;
   return '<div style="border:1px solid var(--pip-border);background:var(--pip-mid);margin-top:8px;">'
     +'<div style="display:flex;align-items:center;padding:6px 8px;border-bottom:1px solid var(--pip-border);">'
     +'<div style="min-width:0;flex:1;">'
@@ -3229,7 +3229,6 @@ function renderArmaSlotBlock(j,slot){
   var habArmaVal=armaObj?(j.habArmas[habArmaKey]||0)+(gEf.hab_arma[habArmaKey]||0):0;
   var modAgi=getMod(calcAtrEf(j,'agi')+((j.rasgos||[]).includes('pequeno')?1:0));
   var radEfAtk=calcEfectosRad(j); var penRadAtk=radEfAtk.reduce(function(s,e){return s+(e.penHab||0);},0);
-  // Bono de ataque por subcat del arma (rasgos/extras con efecto "Ataque con Armas X" + "Ataque con cualquier arma")
   var bonSubcatAtk=0;
   if(armaObj){
     var subcatDerKey={corta:'atk_cortas',media:'atk_medias',grande:'atk_grandes',energia:'atk_energia',cac:'atk_cac'}[armaObj.subcat];
@@ -3252,10 +3251,11 @@ function renderArmaSlotBlock(j,slot){
   if(armaObj){
     bonManosGenerico=usandoDosManos?(gEf.derivado.atk_dos_manos||0):(gEf.derivado.atk_una_mano||0);
   }
-  // Regla del manual: en CaC se suma el Mod. FUE tanto al ataque como al daño
+  // Regla del manual: en CaC se usa el Mod. FUE en el ataque (no el de AGI) y también se suma al daño; en el resto de armas se usa Mod. AGI
   var esCaC=armaObj&&armaObj.subcat==='cac';
+  var modAtaquePrincipal=esCaC?getMod(calcAtrEf(j,'fue')):modAgi;
   var modFueCaC=esCaC?getMod(calcAtrEf(j,'fue')):0;
-  var bonAtaqueTT=armaObj?(modAgi+habArmaVal+(j.penMod||0)+penRadAtk+bonSubcatAtk+(armaObj.calidad||0)+(gEf.derivado.ataque_tt||0)+bonLuchador+bonCazador+bonTalHab+modFueCaC+bonManoDom+bonManosGenerico):0;
+  var bonAtaqueTT=armaObj?(modAtaquePrincipal+habArmaVal+(j.penMod||0)+penRadAtk+bonSubcatAtk+(armaObj.calidad||0)+(gEf.derivado.ataque_tt||0)+bonLuchador+bonCazador+bonTalHab+bonManoDom+bonManosGenerico):0;
   var bonAtaqueRF=armaObj?(bonAtaqueTT-2+(gEf.derivado.ataque_rf||0)):0;
   var bonAtaqueFA=armaObj?(bonAtaqueTT+(gEf.derivado.ataque_fa||0)):0;
   // FA = desventaja (mostrar valor pero indicar desventaja)
@@ -7142,11 +7142,20 @@ function renderMCombate(){
             +'<button style="width:22px;height:22px;border:1px solid rgba(255,60,60,.4);background:none;color:#ff8888;font-size:14px;cursor:pointer;font-family:VT323,monospace;line-height:1;" data-i="'+i+'" data-c="'+campo+'" data-d="1" onclick="ajustarStatEnemigo(this)">+</button>'
             +'</div></div>';
         }
+        function statDaño(){
+          return '<div style="text-align:center;">'
+            +'<div style="font-size:8px;color:rgba(255,136,136,.6);letter-spacing:1px;">DAÑO</div>'
+            +'<div style="font-family:VT323,monospace;font-size:13px;color:var(--pip-bright);margin-bottom:2px;">'+textoDaño(e.dañoDado,e.dañoBonus)+'</div>'
+            +'<div style="display:flex;align-items:center;justify-content:center;gap:3px;">'
+            +'<button style="width:22px;height:22px;border:1px solid rgba(255,60,60,.4);background:none;color:#ff8888;font-size:14px;cursor:pointer;font-family:VT323,monospace;line-height:1;" data-i="'+i+'" data-c="dañoBonus" data-d="-1" onclick="ajustarStatEnemigo(this)">-</button>'
+            +'<span style="font-family:VT323,monospace;font-size:14px;color:var(--pip-dim);min-width:16px;">'+(e.dañoBonus>=0?'+':'')+e.dañoBonus+'</span>'
+            +'<button style="width:22px;height:22px;border:1px solid rgba(255,60,60,.4);background:none;color:#ff8888;font-size:14px;cursor:pointer;font-family:VT323,monospace;line-height:1;" data-i="'+i+'" data-c="dañoBonus" data-d="1" onclick="ajustarStatEnemigo(this)">+</button>'
+            +'</div></div>';
+        }
         return '<div class="enemy-card">'
           +'<div class="enemy-hdr">'
-          +'<div><div class="enemy-name">'+e.n+'</div><span class="enemy-lvl">NIV'+e.nivel+'</span></div>'
-          +'<div style="text-align:right;">'+(e.clase?'<span class="rol-badge rol-'+e.clase+'">'+ENEMY_CLASES[e.clase].n.toUpperCase()+'</span>':'')
-          +'<div style="font-size:9px;color:rgba(255,136,136,.5);margin-top:2px;">'+textoDaño(e.dañoDado,e.dañoBonus)+'</div></div>'
+          +'<div style="flex:1;"><div class="enemy-name">'+e.n+'</div><span class="enemy-lvl">NIV'+e.nivel+'</span></div>'
+          +(e.clase?'<span class="rol-badge rol-'+e.clase+'">'+ENEMY_CLASES[e.clase].n.toUpperCase()+'</span>':'')
           +'</div>'
           +'<div style="padding:8px 10px;">'
           +'<div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:2px;"><span style="color:rgba(255,136,136,.5);">PV</span>'
@@ -7158,7 +7167,7 @@ function renderMCombate(){
           +'<div class="enemy-hp-track"><div class="enemy-hp-fill" style="width:'+pct+'%;background:'+c+';"></div></div>'
           +'<input type="range" min="0" max="'+e.pvMax+'" value="'+e.pv+'" data-i="'+i+'" onchange="deslizarPVEnemigo(this)" style="width:100%;margin-top:4px;accent-color:'+c+';">'
           +'<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-top:8px;">'
-          +stat('defensa','DEF')+stat('iniciativa','INI')+stat('atkCaD','CaD')+stat('atkCaC','CaC')+stat('dañoBonus','DAÑO')
+          +stat('defensa','DEF')+stat('iniciativa','INI')+stat('atkCaD','CaD')+stat('atkCaC','CaC')+statDaño()
           +'</div>'
           +'<button class="btn btn-sm btn-danger btn-block" style="margin-top:8px;" data-i="'+i+'" onclick="quitarE(parseInt(this.dataset.i))">✕ QUITAR DEL COMBATE</button>'
           +'</div></div>';
