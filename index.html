@@ -646,7 +646,7 @@ function startRealtime(salaId){
     var jugsRaw=s.jugadores||{};
     Object.keys(jugsRaw).forEach(function(k){ normalizarFicha(jugsRaw[k]); });
     APP.jugadores=jugsRaw;
-    APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[]; APP.extrasCustom=s.extrasCustom||[]; APP.rasgosOverride=s.rasgosOverride||{}; APP.extrasOverride=s.extrasOverride||{}; APP.setsArmadura=s.setsArmadura||[]; APP.radZona=s.radZona||{activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0};
+    APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[]; APP.extrasCustom=s.extrasCustom||[]; APP.rasgosOverride=s.rasgosOverride||{}; APP.extrasOverride=s.extrasOverride||{}; APP.setsArmadura=s.setsArmadura||[]; APP.recompensaValores=s.recompensaValores||{}; APP.radZona=s.radZona||{activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0};
     // Cofre y cofreObjetos YA NO se gestionan aquí: se leen bajo demanda con fetchCofreFresco() justo antes de mostrarlos o modificarlos, para evitar cualquier desincronización con el listener pasivo.
     APP.recetasPendientes=s.recetasPendientes||[]; APP.enCiudad=s.enCiudad||false; aplicarOverridesContenido();
     APP.enemigos=s.enemigos||[];
@@ -663,7 +663,7 @@ function startRealtime(salaId){
     const focusedEl=document.activeElement;
     const inputActivo=focusedEl&&(focusedEl.tagName==='INPUT'||focusedEl.tagName==='SELECT'||focusedEl.tagName==='TEXTAREA');
     // Tampoco rerenderizar si el master está en pestañas con formularios
-    const masterEditando=APP.rol==='master'&&(APP.masterTab==='forja'||APP.masterTab==='tiendas'||APP.masterTab==='fichas');
+    const masterEditando=APP.rol==='master'&&(APP.masterTab==='forja'||APP.masterTab==='tiendas'||APP.masterTab==='fichas'||APP.masterTab==='recompensas');
     if(APP.rol&&!wizAbierto&&!lvlAbierto&&!masterEditando&&!inputActivo) renderApp();
   });
   // Heartbeat cada 10s para mantener la sesión activa
@@ -780,6 +780,43 @@ const RECURSOS_FABRICACION=[
   {k:'raciones',n:'Raciones',icono:'🍖',consumible:true,rads:0},
   {k:'agua',n:'Agua',icono:'💧',consumible:true,rads:0},
 ];
+const RECOMPENSA_VALORES_DEFECTO={chatarra:2,medicinas:8,quimicos:5,electronica:5,comida_irr:1,agua_irr:1,raciones:2,agua:1};
+
+// ── Motor de generación de recompensas ──
+function getValoresRecursoRecompensa(){
+  return Object.assign({},RECOMPENSA_VALORES_DEFECTO,APP.recompensaValores||{});
+}
+function generarCandidatoRecompensa(presupuesto){
+  const valores=getValoresRecursoRecompensa();
+  var pool=[];
+  (APP.tienda||[]).forEach(function(o){
+    if(o&&o.val>0&&o.val<=presupuesto) pool.push({tipo:'objeto',objId:o.id,nombre:o.n,coste:o.val});
+  });
+  RECURSOS_FABRICACION.forEach(function(r){
+    const valorUnidad=valores[r.k]||1;
+    const maxQty=Math.min(10,Math.floor(presupuesto/valorUnidad));
+    if(maxQty<1) return;
+    const qty=1+Math.floor(Math.random()*maxQty);
+    pool.push({tipo:'recurso',recursoK:r.k,nombre:r.n,qty:qty,coste:qty*valorUnidad});
+  });
+  if(!pool.length) return null;
+  return pool[Math.floor(Math.random()*pool.length)];
+}
+function generarRecompensa(valorTotal){
+  var chapas=Math.floor(Math.random()*(Math.round(valorTotal*0.10)+1));
+  var presupuesto=valorTotal-chapas;
+  const numPremios=Math.floor(Math.random()*6); // 0 a 5
+  var items=[];
+  for(var i=0;i<numPremios;i++){
+    var cand=generarCandidatoRecompensa(presupuesto);
+    if(!cand) break;
+    items.push(cand);
+    presupuesto-=cand.coste;
+  }
+  chapas+=Math.max(0,presupuesto); // lo que sobra sin encajar se convierte en chapas extra
+  return {valorTotal:valorTotal,chapas:chapas,items:items};
+}
+
 function aplicarOverridesContenido(){
   // Ediciones guardadas sobre rasgos/extras YA EXISTENTES (id fijo, nombre bloqueado).
   // Se mutan los objetos de los arrays estáticos: cualquier ficha que ya tenga
@@ -1731,7 +1768,7 @@ function entrarMaster(){
         fbSaveSala(APP.salaId);
       }
       const s=getMockSala(APP.salaId);
-      APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[]; APP.extrasCustom=s.extrasCustom||[]; APP.rasgosOverride=s.rasgosOverride||{}; APP.extrasOverride=s.extrasOverride||{}; APP.setsArmadura=s.setsArmadura||[]; APP.radZona=s.radZona||{activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0}; APP.cofre=s.cofre||{chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0}; APP.cofreObjetos=normalizarCofreObjetos(s.cofreObjetos); APP.cofreMunicion=normalizarCofreObjetos(s.cofreMunicion); APP.recetasPendientes=s.recetasPendientes||[]; APP.enCiudad=s.enCiudad||false; aplicarOverridesContenido();
+      APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[]; APP.extrasCustom=s.extrasCustom||[]; APP.rasgosOverride=s.rasgosOverride||{}; APP.extrasOverride=s.extrasOverride||{}; APP.setsArmadura=s.setsArmadura||[]; APP.recompensaValores=s.recompensaValores||{}; APP.radZona=s.radZona||{activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0}; APP.cofre=s.cofre||{chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0}; APP.cofreObjetos=normalizarCofreObjetos(s.cofreObjetos); APP.cofreMunicion=normalizarCofreObjetos(s.cofreMunicion); APP.recetasPendientes=s.recetasPendientes||[]; APP.enCiudad=s.enCiudad||false; aplicarOverridesContenido();
       APP.enemigos=s.enemigos||[]; APP.combate=s.combate||[];
       APP.tiendas=s.tiendas||[]; APP.notificaciones=s.notificaciones||{};
       // Comprobar si master ya está conectado (con tolerancia de 15s)
@@ -1763,7 +1800,7 @@ function entrarMaster(){
 
 function entrarMasterLocal(){
   const s=getMockSala(APP.salaId);
-  APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[]; APP.extrasCustom=s.extrasCustom||[]; APP.rasgosOverride=s.rasgosOverride||{}; APP.extrasOverride=s.extrasOverride||{}; APP.setsArmadura=s.setsArmadura||[]; APP.radZona=s.radZona||{activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0}; APP.cofre=s.cofre||{chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0}; APP.cofreObjetos=normalizarCofreObjetos(s.cofreObjetos); APP.cofreMunicion=normalizarCofreObjetos(s.cofreMunicion); APP.recetasPendientes=s.recetasPendientes||[]; APP.enCiudad=s.enCiudad||false; aplicarOverridesContenido();
+  APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[]; APP.extrasCustom=s.extrasCustom||[]; APP.rasgosOverride=s.rasgosOverride||{}; APP.extrasOverride=s.extrasOverride||{}; APP.setsArmadura=s.setsArmadura||[]; APP.recompensaValores=s.recompensaValores||{}; APP.radZona=s.radZona||{activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0}; APP.cofre=s.cofre||{chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0}; APP.cofreObjetos=normalizarCofreObjetos(s.cofreObjetos); APP.cofreMunicion=normalizarCofreObjetos(s.cofreMunicion); APP.recetasPendientes=s.recetasPendientes||[]; APP.enCiudad=s.enCiudad||false; aplicarOverridesContenido();
   APP.enemigos=s.enemigos||[]; APP.combate=s.combate||[];
   APP.tiendas=s.tiendas||[]; APP.notificaciones=s.notificaciones||{};
   renderApp();
@@ -1883,7 +1920,7 @@ function completarEntradaJugador(id){
       const data=snap.val();
       if(data) MOCK.salas[APP.salaId]=Object.assign(getMockSala(APP.salaId), data);
       const s=getMockSala(APP.salaId);
-      APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[]; APP.extrasCustom=s.extrasCustom||[]; APP.rasgosOverride=s.rasgosOverride||{}; APP.extrasOverride=s.extrasOverride||{}; APP.setsArmadura=s.setsArmadura||[]; APP.radZona=s.radZona||{activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0}; APP.cofre=s.cofre||{chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0}; APP.cofreObjetos=normalizarCofreObjetos(s.cofreObjetos); APP.cofreMunicion=normalizarCofreObjetos(s.cofreMunicion); APP.recetasPendientes=s.recetasPendientes||[]; APP.enCiudad=s.enCiudad||false; aplicarOverridesContenido();
+      APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[]; APP.extrasCustom=s.extrasCustom||[]; APP.rasgosOverride=s.rasgosOverride||{}; APP.extrasOverride=s.extrasOverride||{}; APP.setsArmadura=s.setsArmadura||[]; APP.recompensaValores=s.recompensaValores||{}; APP.radZona=s.radZona||{activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0}; APP.cofre=s.cofre||{chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0}; APP.cofreObjetos=normalizarCofreObjetos(s.cofreObjetos); APP.cofreMunicion=normalizarCofreObjetos(s.cofreMunicion); APP.recetasPendientes=s.recetasPendientes||[]; APP.enCiudad=s.enCiudad||false; aplicarOverridesContenido();
       APP.tiendas=s.tiendas||[]; APP.notificaciones=s.notificaciones||{};
       const j=APP.jugadores[id];
       if(!j){ showNotif('Error: jugador no encontrado'); return; }
@@ -1918,7 +1955,7 @@ function completarEntradaJugador(id){
 
 function entrarJugadorLocal(id){
   const s=getMockSala(APP.salaId);
-  APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[]; APP.extrasCustom=s.extrasCustom||[]; APP.rasgosOverride=s.rasgosOverride||{}; APP.extrasOverride=s.extrasOverride||{}; APP.setsArmadura=s.setsArmadura||[]; APP.radZona=s.radZona||{activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0}; APP.cofre=s.cofre||{chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0}; APP.cofreObjetos=normalizarCofreObjetos(s.cofreObjetos); APP.cofreMunicion=normalizarCofreObjetos(s.cofreMunicion); APP.recetasPendientes=s.recetasPendientes||[]; APP.enCiudad=s.enCiudad||false; aplicarOverridesContenido();
+  APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[]; APP.extrasCustom=s.extrasCustom||[]; APP.rasgosOverride=s.rasgosOverride||{}; APP.extrasOverride=s.extrasOverride||{}; APP.setsArmadura=s.setsArmadura||[]; APP.recompensaValores=s.recompensaValores||{}; APP.radZona=s.radZona||{activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0}; APP.cofre=s.cofre||{chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0}; APP.cofreObjetos=normalizarCofreObjetos(s.cofreObjetos); APP.cofreMunicion=normalizarCofreObjetos(s.cofreMunicion); APP.recetasPendientes=s.recetasPendientes||[]; APP.enCiudad=s.enCiudad||false; aplicarOverridesContenido();
   APP.tiendas=s.tiendas||[]; APP.notificaciones=s.notificaciones||{};
   const j=APP.jugadores[id];
   if(!j){ showNotif('Error: jugador no encontrado'); showScreen('selector-screen'); return; }
@@ -1938,7 +1975,7 @@ function entrarJugador(id){ entrarJugadorConPin(id); }
 function buildTabs(){
   const el=document.getElementById('main-tabs');
   if(APP.rol==='master'){
-    el.innerHTML=[{k:'fichas',l:'JUGADORES'},{k:'forja',l:'FORJA'},{k:'tiendas',l:'TIENDAS'},{k:'combate',l:'COMBATE'}]
+    el.innerHTML=[{k:'fichas',l:'JUGADORES'},{k:'forja',l:'FORJA'},{k:'tiendas',l:'TIENDAS'},{k:'combate',l:'COMBATE'},{k:'recompensas',l:'RECOMPENSAS'}]
       .map(function(t){return '<button class="tab '+(APP.masterTab===t.k?'active':'')+'" data-k="'+t.k+'" onclick="switchMT(this.dataset.k)">'+t.l+'</button>';}).join('');
   } else {
     const fi=APP.fichaInner;
@@ -2052,6 +2089,7 @@ function renderApp(){
       case 'forja':   el.innerHTML=renderMForja(); break;
       case 'tiendas': el.innerHTML=renderMTiendas(); break;
       case 'combate': el.innerHTML=renderMCombate(); break;
+      case 'recompensas': el.innerHTML=renderMRecompensas(); break;
     }
   } else {
     switch(APP.fichaInner){
@@ -7008,6 +7046,65 @@ window.eliminarTienda=function(idx){
 /* ── renderMTienda (alias para compatibilidad con tab vieja) ── */
 function renderMTienda(){ return renderMObjetos(); }
 
+function renderMRecompensas(){
+  const valores=getValoresRecursoRecompensa();
+  const jugs=Object.values(APP.jugadores);
+  const s='style="font-family:VT323,monospace;font-size:15px;padding:4px 6px;background:var(--pip-dark);border:1px solid var(--pip-border);color:var(--pip-bright);width:100%;text-align:center;"';
+
+  const ajustesHtml='<div class="card"><div class="card-hdr">⚙ VALOR POR UNIDAD DE CADA RECURSO</div>'
+    +'<div style="padding:10px 12px;">'
+    +'<div style="font-size:9px;color:var(--pip-dim);margin-bottom:8px;">En chapas. Se usa para calcular cuánto "cuesta" cada paquete de recursos al generar una recompensa.</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">'
+    +RECURSOS_FABRICACION.map(function(r){
+      return '<div><label style="font-size:9px;color:var(--pip-dim);display:block;margin-bottom:2px;">'+r.icono+' '+r.n+'</label>'
+        +'<input type="number" class="rv-input" data-k="'+r.k+'" value="'+(valores[r.k]||1)+'" min="1" '+s+'></div>';
+    }).join('')
+    +'</div>'
+    +'<button class="btn btn-block" style="margin-top:8px;" onclick="masterGuardarValoresRecompensa()">▸ GUARDAR VALORES</button>'
+    +'</div></div>';
+
+  const draft=APP._draftRecompensa;
+  const generadorHtml='<div class="card"><div class="card-hdr">🎲 GENERAR RECOMPENSA</div>'
+    +'<div style="padding:10px 12px;">'
+    +'<div style="font-size:9px;color:var(--pip-dim);margin-bottom:6px;">Valor total. Un 10% al azar se convierte en chapas directas; el resto puede tocar entre 0 y 5 objetos/recursos al azar, ajustados a lo que quede de presupuesto.</div>'
+    +'<div class="form-row"><span class="form-lbl">VALOR TOTAL:</span><input type="number" id="rc-valor-total" value="'+(APP._recompensaValorTotal||100)+'" min="1" class="mod-input" style="width:80px!important;"></div>'
+    +'<button class="btn btn-block" onclick="masterGenerarRecompensa()">🎲 GENERAR RECOMPENSA</button>'
+    +'</div></div>';
+
+  if(!draft) return ajustesHtml+generadorHtml;
+
+  const itemsHtml=!draft.items.length?'<div style="font-size:10px;color:var(--pip-dim);padding:6px 0;">Sin objetos ni recursos esta vez — solo chapas.</div>'
+    :draft.items.map(function(it,i){
+      var texto=it.tipo==='objeto'?it.nombre+' <span style="color:var(--pip-dim);font-size:9px;">('+it.coste+'¢)</span>':it.qty+'x '+it.nombre+' <span style="color:var(--pip-dim);font-size:9px;">('+it.coste+'¢)</span>';
+      return '<div style="display:flex;align-items:center;justify-content:space-between;border:1px solid var(--pip-border);padding:6px 8px;margin-bottom:4px;">'
+        +'<span style="font-size:12px;color:var(--pip-bright);">'+(it.tipo==='objeto'?'📦':'🔧')+' '+texto+'</span>'
+        +'<button class="chip chip-r" data-i="'+i+'" onclick="masterQuitarItemRecompensa(parseInt(this.dataset.i))">×</button>'
+        +'</div>';
+    }).join('');
+
+  const destinoHtml=APP._recompensaMostrarDestino
+    ?'<div style="margin-top:8px;padding:8px;border:1px dashed var(--pip-border);">'
+      +'<div style="font-size:9px;color:var(--pip-dim);margin-bottom:6px;">¿A quién se la entregamos?</div>'
+      +jugs.map(function(j){return '<button class="btn btn-sm btn-block" style="margin-bottom:4px;" data-jid="'+j.id+'" onclick="masterEntregarRecompensa(this.dataset.jid)">'+j.nombre+'</button>';}).join('')
+      +'<button class="btn btn-sm btn-block btn-warn" onclick="masterEntregarRecompensa(\'cofre\')">📦 AL COFRE COMÚN</button>'
+      +'</div>'
+    :'';
+
+  const resultadoHtml='<div class="card" style="border-color:var(--pip-warn);"><div class="card-hdr" style="color:var(--pip-warn);">RESULTADO</div>'
+    +'<div style="padding:10px 12px;">'
+    +'<div style="margin-bottom:8px;"><label style="font-size:9px;color:var(--pip-dim);display:block;margin-bottom:3px;">CHAPAS (editable)</label>'
+    +'<input type="number" id="rc-chapas-edit" value="'+draft.chapas+'" min="0" onchange="masterEditarChapasRecompensa(this.value)" '+s+'></div>'
+    +itemsHtml
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px;">'
+    +'<button class="btn" onclick="masterRegenerarRecompensa()">🎲 VOLVER A GENERAR</button>'
+    +'<button class="btn" style="border-color:var(--pip-warn);color:var(--pip-warn);" onclick="APP._recompensaMostrarDestino=true;renderApp();">✔ CONFIRMAR Y ENTREGAR</button>'
+    +'</div>'
+    +destinoHtml
+    +'</div></div>';
+
+  return ajustesHtml+generadorHtml+resultadoHtml;
+}
+
 function renderMCombate(){
   const subTab=APP._combateSubTab||'crear';
   const editId=APP._editEnemigoId||null;
@@ -7133,6 +7230,76 @@ function renderMCombate(){
       }).join('')
       +'<button class="btn btn-danger btn-block" onclick="limpiarCombate()" style="margin-top:4px;">◼ LIMPIAR COMBATE</button>');
 }
+
+/* ═══════════════════════════════════════════
+   RECOMPENSAS
+   ═══════════════════════════════════════════ */
+window.masterGuardarValoresRecompensa=function(){
+  const nuevos={};
+  document.querySelectorAll('.rv-input').forEach(function(inp){
+    nuevos[inp.dataset.k]=Math.max(1,parseInt(inp.value)||1);
+  });
+  APP.recompensaValores=nuevos;
+  const sala=getMockSala(APP.salaId); sala.recompensaValores=nuevos;
+  fbSet('salas/'+APP.salaId+'/recompensaValores',nuevos);
+  showNotif('Valores guardados');
+};
+window.masterGenerarRecompensa=function(){
+  const v=Math.max(1,parseInt((document.getElementById('rc-valor-total')||{}).value)||100);
+  APP._recompensaValorTotal=v;
+  APP._draftRecompensa=generarRecompensa(v);
+  APP._recompensaMostrarDestino=false;
+  renderApp();
+};
+window.masterRegenerarRecompensa=function(){
+  APP._draftRecompensa=generarRecompensa(APP._recompensaValorTotal||100);
+  APP._recompensaMostrarDestino=false;
+  renderApp();
+};
+window.masterQuitarItemRecompensa=function(i){
+  if(!APP._draftRecompensa) return;
+  APP._draftRecompensa.items.splice(i,1);
+  renderApp();
+};
+window.masterEditarChapasRecompensa=function(v){
+  if(!APP._draftRecompensa) return;
+  APP._draftRecompensa.chapas=Math.max(0,parseInt(v)||0);
+};
+window.masterEntregarRecompensa=async function(destino){
+  const draft=APP._draftRecompensa; if(!draft) return;
+  const chapasInp=document.getElementById('rc-chapas-edit');
+  if(chapasInp) draft.chapas=Math.max(0,parseInt(chapasInp.value)||0);
+  if(destino==='cofre'){
+    mostrarEnviando('📡 ENVIANDO AL COFRE...');
+    await esperarConfirmacion(fetchCofreFresco(),4000);
+    if(!APP.cofreObjetos) APP.cofreObjetos={};
+    if(!APP.cofre) APP.cofre={};
+    draft.items.forEach(function(it){
+      if(it.tipo==='objeto') APP.cofreObjetos[cofreKey(it.objId)]=(APP.cofreObjetos[cofreKey(it.objId)]||0)+1;
+      else APP.cofre[it.recursoK]=(APP.cofre[it.recursoK]||0)+it.qty;
+    });
+    APP.cofre.chapas=(APP.cofre.chapas||0)+draft.chapas;
+    await esperarConfirmacion(saveCofreObjetos(),5000);
+    await esperarConfirmacion(saveCofre(),5000);
+    ocultarEnviando();
+    showNotif('Recompensa enviada al Cofre');
+  } else {
+    const sala=getMockSala(APP.salaId); const j=sala.jugadores[destino]; if(!j) return;
+    if(!j.recursos) j.recursos={};
+    draft.items.forEach(function(it){
+      if(it.tipo==='objeto') addItemToJugador(j,it.objId,1);
+      else j.recursos[it.recursoK]=(j.recursos[it.recursoK]||0)+it.qty;
+    });
+    j.chapas=(j.chapas||0)+draft.chapas;
+    fbSet('salas/'+APP.salaId+'/jugadores/'+destino,j);
+    APP.jugadores=sala.jugadores;
+    showNotif('Recompensa entregada a '+j.nombre);
+  }
+  APP._draftRecompensa=null;
+  APP._recompensaMostrarDestino=false;
+  renderApp();
+};
+
 
 /* ═══════════════════════════════════════════
    ACCIONES MASTER
