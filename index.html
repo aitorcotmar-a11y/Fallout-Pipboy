@@ -1056,7 +1056,7 @@ function getMod(v){
   return -2-(7-v); // por debajo de 7 (p.ej. penalizaciones temporales), sigue el mismo patrón de -1 por punto
 }
 function calcPVMax(j){return CLASES[j.clase].dadoN+j.attrs.res}
-function getObjById(id){ var nid=typeof id==='string'?parseInt(id):id; var fuente=(APP.tienda&&APP.tienda.length)?APP.tienda:OBJETOS_EJEMPLO; return fuente.find(function(o){return o!=null&&(o.id===nid||o.id===id);})||null; }
+function getObjById(id){ var nid=typeof id==='string'?parseInt(id):id; var fuente=APP.tienda||[]; return fuente.find(function(o){return o!=null&&(o.id===nid||o.id===id);})||null; }
 function ordenarObjetos(lista){
   return (lista||[]).slice().sort(function(a,b){
     return (a&&a.n||'').localeCompare(b&&b.n||'','es',{numeric:true});
