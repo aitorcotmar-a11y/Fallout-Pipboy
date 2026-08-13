@@ -3764,11 +3764,15 @@ function renderInvGrupos(j, eq){
       } else {
         quickBtn='<button style="min-width:52px;padding:8px 6px;border:1px solid var(--pip);background:none;color:var(--pip-bright);font-family:VT323,monospace;font-size:14px;cursor:pointer;" data-slot="'+o.slotTipo+'" data-obj="'+o.id+'" onclick="event.stopPropagation();equipar(this.dataset.slot,parseInt(this.dataset.obj))">EQUIP.</button>';
       }
+    } else if((o.tipo==='med'||o.tipo==='droga'||o.tipo==='misc')&&!o.equipable){
+      quickBtn='<button style="min-width:52px;padding:8px 6px;border:1px solid var(--pip-danger);background:none;color:var(--pip-danger);font-family:VT323,monospace;font-size:14px;cursor:pointer;" data-idx="'+itemIdx+'" onclick="event.stopPropagation();usarObj(parseInt(this.dataset.idx))">USAR</button>';
     }
+    const tieneUsos=o.tipo==='misc'&&(o.usosMax||1)>1;
+    const usosRest=tieneUsos?(item.usosRestantes==null?o.usosMax:item.usosRestantes):null;
     return '<div style="display:flex;align-items:center;padding:10px;border-bottom:1px solid rgba(74,254,130,.08);gap:8px;'+eqStyle+'cursor:pointer;min-height:52px;" onclick="abrirDetalle('+item.objId+')">'
       +'<span style="font-family:VT323,monospace;font-size:20px;color:var(--pip-dim);width:28px;flex-shrink:0;">'+item.qty+'x</span>'
       +'<div style="flex:1;min-width:0;">'
-      +'<div style="font-size:12px;color:var(--pip-bright);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+o.n+(equipado&&equipadoSlot?'<span style="font-size:8px;color:var(--pip);margin-left:4px;">'+equipadoSlot.toUpperCase()+'</span>':'')+'</div>'
+      +'<div style="font-size:12px;color:var(--pip-bright);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+o.n+(equipado&&equipadoSlot?'<span style="font-size:8px;color:var(--pip);margin-left:4px;">'+equipadoSlot.toUpperCase()+'</span>':'')+(tieneUsos?'<span style="font-size:8px;color:var(--pip-warn);margin-left:4px;">'+usosRest+'/'+o.usosMax+' usos</span>':'')+'</div>'
       +'<div style="font-size:9px;color:var(--pip-dim);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+o.desc+'</div>'
       +'</div>'
       +(quickBtn?quickBtn:'<span style="font-size:9px;color:var(--pip-dim);padding:8px 4px;">▸</span>')
@@ -4513,6 +4517,18 @@ window.usarObj=function(idx){
   const j=myFicha();
   const item=j.inventario[idx]; if(!item) return;
   const o=getObjById(item.objId)||{n:'Objeto',tipo:'misc'};
+  // Objetos misc con más de 1 uso: llevar cuenta de usos aparte de la cantidad del stack
+  if(o.tipo==='misc'&&(o.usosMax||1)>1){
+    if(item.usosRestantes==null||item.usosRestantes>o.usosMax) item.usosRestantes=o.usosMax;
+    item.usosRestantes--;
+    if(item.usosRestantes<=0){
+      item.qty--;
+      if(item.qty>0) item.usosRestantes=o.usosMax; else j.inventario.splice(idx,1);
+    }
+    saveJ(); renderApp();
+    showNotif(o.n+' usado'+(item.qty>0?' · '+item.usosRestantes+'/'+o.usosMax+' usos restantes':' · agotado'));
+    return;
+  }
   item.qty--; if(item.qty<=0) j.inventario.splice(idx,1);
   // Aplicar efecto si es droga
   if(o.tipo==='droga'||o.tipo==='med'){
@@ -5855,6 +5871,7 @@ function renderMObjetos(){
       }).join('')+'</select>')
     +row2({l:'PRECIO (¢) por unidad',h:'<input type="number" id="no-v" value="'+fv('val',0)+'" min="0" '+sm+'>'},
           {l:'PESO (pc) por unidad', h:'<input type="number" id="no-pc" value="'+fv('pc',fv('tipo','misc')==='municion'?0:5)+'" min="0" step="0.1" '+sm+'>'})
+    +(fv('tipo','misc')==='misc'?row1('USOS <span style="opacity:.7;">(veces que se puede usar antes de desaparecer del inventario)</span>','<input type="number" id="no-usos" value="'+fv('usosMax',1)+'" min="1" '+sm+'>'):'')
     +(fv('tipo','misc')==='municion'?'<label style="display:flex;align-items:center;gap:8px;padding:8px;margin-bottom:8px;border:1px solid var(--pip-border);font-size:11px;color:var(--pip-bright);"><input type="checkbox" id="no-muni-fusion" '+(fv('muniId','')==='muni_fusion'?'checked':'')+'> ⚡ Es batería de fusión (munición de armas de energía)</label>':'')
     +'<div id="arma-extra-fields" style="display:'+(esArma?'block':'none')+';">'    +row1('SUBCATEGORÍA','<select id="no-subcat" onchange="toggleSubcatFields(this.value)" '+s+'>'+      ARMA_SUBCATS.map(function(sc){        return '<option value="'+sc.id+'"'+(fv('subcat','corta')===sc.id?' selected':'')+'>'+sc.n+'</option>';      }).join('')+'</select>')    +(function(){      var sc=fv('subcat','corta');      var esCaC=sc==='cac';      var campos='';      if(!esCaC){        campos+=row1('MUNICIÓN','<select id="no-muni" '+s+'>'          +'<option value="">— Ninguna —</option>'          +getMunicionCatalogo().map(function(m){return '<option value="'+m.muniId+'"'+(fv('muniId','')===m.muniId?' selected':'')+'>'+m.n+'</option>';}).join('')          +'</select>');        campos+=row2({l:'CARGADOR (balas)',h:'<input type="number" id="no-carg" value="'+fv('cargador',0)+'" min="0" '+sm+'>'},                     {l:'ALCANCE (m)',h:'<input type="number" id="no-alc" value="'+fv('alcance',20)+'" min="0" '+sm+'>'});      } else {        campos+='<input type="hidden" id="no-muni" value=""><input type="hidden" id="no-carg" value="0"><input type="hidden" id="no-alc" value="0">';      }      campos+='<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin-bottom:5px;">'+(esCaC?'DADO DE DAÑO':'DADOS DE DAÑO')+'</div>';      if(esCaC){        campos+=row1('Daño TT','<input type="text" id="no-daño" value="'+fv('daño','1D6')+'" placeholder="1D6" '+sm+'>');        campos+='<input type="hidden" id="no-rfdaño" value=""><input type="hidden" id="no-fadaño" value="">';        campos+='<input type="hidden" id="no-tt" value="0"><input type="hidden" id="no-rf" value="0"><input type="hidden" id="no-fa" value="0">';      } else {        campos+=row3({l:'TT',h:'<input type="text" id="no-daño" value="'+fv('daño','1D6')+'" placeholder="1D6" '+sm+'>'},                     {l:'RF',h:'<input type="text" id="no-rfdaño" value="'+fv('rf','')+'" placeholder="2D6" '+sm+'>'},                     {l:'FA',h:'<input type="text" id="no-fadaño" value="'+fv('fa','')+'" placeholder="3D6" '+sm+'>'});        campos+='<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin-bottom:5px;">BALAS CONSUMIDAS</div>';        campos+=row3({l:'Coste TT',h:'<input type="number" id="no-tt" value="'+fv('ttCost',1)+'" min="0" '+sm+'>'},                     {l:'Coste RF',h:'<input type="number" id="no-rf" value="'+fv('rfCost',0)+'" min="0" '+sm+'>'},                     {l:'Coste FA',h:'<input type="number" id="no-fa" value="'+fv('faCost',0)+'" min="0" '+sm+'>'});      }      return campos;    })()    +row2({l:'CALIDAD (suma a Ataque)',h:'<input type="number" id="no-calidad" value="'+fv('calidad',0)+'" min="0" max="6" '+sm+'>'},                  {l:'ESTADO (suma a Daño)',h:'<input type="number" id="no-estado" value="'+fv('estado',0)+'" min="0" max="6" '+sm+'>'})    +row1('MANOS','<select id="no-manos" '+s+'><option value="1"'+(String(fv('manos',1))==='1'?' selected':'')+'>Una mano (permite dos armas equipadas)</option><option value="2"'+(String(fv('manos',1))==='2'?' selected':'')+'>Dos manos (ocupa las dos)</option></select>')    +'</div>'
     // Campos extra para armadura
@@ -6136,14 +6153,17 @@ window.masterSaveObj=function(){
       extraMunicion={muniId:muniId};
     }
   }
+  const extraMisc=tipo==='misc'?{
+    usosMax:Math.max(1,parseInt((document.getElementById('no-usos')||{}).value)||1),
+  }:{};
   const sala=getMockSala(APP.salaId);
   const editId=APP._editObjId;
   if(editId!=null){
     const idx=APP.tienda.findIndex(function(o){return o.id===editId;});
-    if(idx>=0){ APP.tienda[idx]=Object.assign({},APP.tienda[idx],{n:n.trim(),tipo,val,pc,desc},extraArma,extraArmadura,extraDroga,extraMunicion); sala.tienda=APP.tienda; showNotif(n+' actualizado'); }
+    if(idx>=0){ APP.tienda[idx]=Object.assign({},APP.tienda[idx],{n:n.trim(),tipo,val,pc,desc},extraArma,extraArmadura,extraDroga,extraMunicion,extraMisc); sala.tienda=APP.tienda; showNotif(n+' actualizado'); }
     APP._editObjId=null;
   } else {
-    const o=Object.assign({id:Date.now(),n:n.trim(),tipo,val,pc,desc},extraArma,extraArmadura,extraDroga,extraMunicion);
+    const o=Object.assign({id:Date.now(),n:n.trim(),tipo,val,pc,desc},extraArma,extraArmadura,extraDroga,extraMunicion,extraMisc);
     APP.tienda.push(o); sala.tienda=APP.tienda; showNotif(n+' añadido');
   }
   APP._currentFormTipo=null; APP._objTipoSelected=null; APP._objSubcatSelected=null; APP._objSlotArmaduraSelected=null; APP._draftObjEfectos=null; APP._draftObjEfCat=null; APP._draftObjAdicCat=null;
