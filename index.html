@@ -2816,6 +2816,12 @@ window.confirmarEnvioVariosCofre=async function(){
   renderApp();
 };
 
+window.cogerTodoCofreItem=function(objId,max){
+  const chk=document.querySelector('.chk-coger-cofre[data-objid="'+objId+'"]');
+  const cantEl=document.querySelector('.cant-coger-cofre[data-objid="'+objId+'"]');
+  if(chk) chk.checked=true;
+  if(cantEl) cantEl.value=max;
+};
 window.abrirCogerVariosCofre=async function(){
   if(!APP.enCiudad) return showNotif('El Cofre solo está disponible en ciudad/refugio');
   mostrarEnviando('📡 COMPROBANDO COFRE...');
@@ -2833,6 +2839,7 @@ window.abrirCogerVariosCofre=async function(){
         +'<input type="checkbox" class="chk-coger-cofre" data-objid="'+x.objId+'" data-max="'+x.qty+'">'
         +'<span style="flex:1;font-size:12px;color:var(--pip-bright);">'+x.o.n+' <span style="color:var(--pip-dim);">(hay '+x.qty+')</span></span>'
         +'<input type="number" class="cant-coger-cofre" data-objid="'+x.objId+'" value="1" min="1" max="'+x.qty+'" style="width:44px;font-family:VT323,monospace;font-size:14px;padding:3px;background:var(--pip-dark);border:1px solid var(--pip-border);color:var(--pip-bright);text-align:center;">'
+        +'<button type="button" class="chip chip-g" data-objid="'+x.objId+'" data-max="'+x.qty+'" onclick="cogerTodoCofreItem(this.dataset.objid,this.dataset.max)">TODO</button>'
         +'</div>';
     }).join('')
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px;">'
@@ -4076,7 +4083,14 @@ function renderJCofre(){
     +(APP.enCiudad
       ?'<div style="font-size:9px;color:#64c8ff;margin-bottom:6px;">🏙 EN CIUDAD/REFUGIO · puedes coger recursos y objetos del Cofre. Para guardar objetos tuyos, ve a Inventario y pulsa "Enviar al Cofre".</div>'
       :'<div style="font-size:9px;color:var(--pip-dim);margin-bottom:6px;">Fuera de ciudad: el Cofre no está disponible ahora mismo</div>')
-    +'<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin-bottom:4px;">RECURSOS (los entrega el Master)</div>'
+    +'<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin-bottom:4px;">CHAPAS</div>'
+    +'<div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid rgba(74,254,130,.08);">'
+    +'<span style="flex:1;min-width:110px;font-size:12px;color:var(--pip-bright);">¢ Chapas en el Cofre</span>'
+    +'<span style="font-family:VT323,monospace;font-size:18px;color:var(--pip-warn);min-width:40px;text-align:right;">'+((APP.cofre&&APP.cofre.chapas)||0)+'</span>'
+    +(APP.enCiudad?'<button class="chip chip-g" onclick="abrirCogerChapasCofre()" '+(((APP.cofre&&APP.cofre.chapas)||0)<1?'disabled':'')+'>COGER</button>':'')
+    +(APP.enCiudad?'<button class="chip chip-g" onclick="abrirDejarChapasCofre()" '+((j.chapas||0)<1?'disabled':'')+'>DEJAR</button>':'')
+    +'</div>'
+    +'<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin:10px 0 4px;">RECURSOS (los entrega el Master)</div>'
     +RECURSOS_FABRICACION.filter(function(r){return !r.consumible;}).map(function(r){return renderRecursoRowCofre(r);}).join('')
     +'<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin:10px 0 4px;border-bottom:1px solid var(--pip-border);padding-bottom:3px;">CONSUMIBLES</div>'
     +RECURSOS_FABRICACION.filter(function(r){return r.consumible;}).map(function(r){return renderRecursoRowCofre(r);}).join('')
@@ -4109,6 +4123,81 @@ function renderJCofre(){
       })()
     +'</div></div>';
 }
+
+window.abrirCogerChapasCofre=async function(){
+  if(!APP.enCiudad) return showNotif('El Cofre solo está disponible en ciudad/refugio');
+  mostrarEnviando('📡 COMPROBANDO COFRE...');
+  await esperarConfirmacion(fetchCofreFresco(),4000);
+  ocultarEnviando();
+  const disponible=(APP.cofre&&APP.cofre.chapas)||0;
+  if(disponible<1){ renderApp(); return showNotif('El Cofre no tiene chapas'); }
+  const modal=document.getElementById('obj-detail-modal');
+  const box=document.getElementById('obj-detail-box');
+  box.innerHTML='<div style="padding:20px;">'
+    +'<div style="font-family:VT323,monospace;font-size:18px;color:var(--pip-bright);margin-bottom:10px;">🗃→ COGER CHAPAS DEL COFRE</div>'
+    +'<div style="font-size:11px;color:var(--pip-dim);margin-bottom:10px;">Disponibles: '+disponible+'¢</div>'
+    +'<input type="number" id="coger-chapas-cant" value="'+disponible+'" min="1" max="'+disponible+'" style="width:100%;font-family:VT323,monospace;font-size:22px;padding:8px;background:var(--pip-dark);border:1px solid var(--pip-border);color:var(--pip-bright);text-align:center;margin-bottom:14px;">'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">'
+    +'<button class="btn btn-warn" onclick="cerrarDetalle()">CANCELAR</button>'
+    +'<button class="btn" onclick="confirmarCogerChapasCofre()">▸ COGER</button>'
+    +'</div></div>';
+  modal.style.display='flex';
+};
+window.confirmarCogerChapasCofre=async function(){
+  const cantEl=document.getElementById('coger-chapas-cant');
+  const cantPedida=Math.max(1,parseInt(cantEl?cantEl.value:1)||1);
+  cerrarDetalle();
+  mostrarEnviando('📡 RECIBIENDO DEL COFRE...');
+  await esperarConfirmacion(fetchCofreFresco(),4000);
+  const disponible=(APP.cofre&&APP.cofre.chapas)||0;
+  const cant=Math.min(cantPedida,disponible);
+  if(cant<1){ ocultarEnviando(); showNotif('El Cofre ya no tiene chapas'); renderApp(); return; }
+  if(!APP.cofre) APP.cofre={};
+  APP.cofre.chapas=disponible-cant;
+  const j=myFicha();
+  j.chapas=(j.chapas||0)+cant;
+  saveJ();
+  await esperarConfirmacion(saveCofre(),5000);
+  await esperarConfirmacion(fetchCofreFresco(),4000);
+  ocultarEnviando();
+  showNotif('Cogido del Cofre: '+cant+'¢');
+  renderApp();
+};
+window.abrirDejarChapasCofre=function(){
+  if(!APP.enCiudad) return showNotif('El Cofre solo está disponible en ciudad/refugio');
+  const j=myFicha();
+  const disponible=j.chapas||0;
+  if(disponible<1) return showNotif('No tienes chapas');
+  const modal=document.getElementById('obj-detail-modal');
+  const box=document.getElementById('obj-detail-box');
+  box.innerHTML='<div style="padding:20px;">'
+    +'<div style="font-family:VT323,monospace;font-size:18px;color:var(--pip-bright);margin-bottom:10px;">📤 DEJAR CHAPAS EN EL COFRE</div>'
+    +'<div style="font-size:11px;color:var(--pip-dim);margin-bottom:10px;">Tienes: '+disponible+'¢</div>'
+    +'<input type="number" id="dejar-chapas-cant" value="'+disponible+'" min="1" max="'+disponible+'" style="width:100%;font-family:VT323,monospace;font-size:22px;padding:8px;background:var(--pip-dark);border:1px solid var(--pip-border);color:var(--pip-bright);text-align:center;margin-bottom:14px;">'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">'
+    +'<button class="btn btn-warn" onclick="cerrarDetalle()">CANCELAR</button>'
+    +'<button class="btn" onclick="confirmarDejarChapasCofre()">▸ DEJAR</button>'
+    +'</div></div>';
+  modal.style.display='flex';
+};
+window.confirmarDejarChapasCofre=async function(){
+  const cantEl=document.getElementById('dejar-chapas-cant');
+  const j=myFicha();
+  const cant=Math.max(1,Math.min(j.chapas||0,parseInt(cantEl?cantEl.value:1)||1));
+  if(cant<1||cant>(j.chapas||0)) return showNotif('No tienes tantas chapas');
+  cerrarDetalle();
+  mostrarEnviando('📡 ENVIANDO AL COFRE...');
+  await esperarConfirmacion(fetchCofreFresco(),4000);
+  j.chapas=(j.chapas||0)-cant;
+  if(!APP.cofre) APP.cofre={};
+  APP.cofre.chapas=(APP.cofre.chapas||0)+cant;
+  saveJ();
+  await esperarConfirmacion(saveCofre(),5000);
+  await esperarConfirmacion(fetchCofreFresco(),4000);
+  ocultarEnviando();
+  showNotif('Enviado al Cofre: '+cant+'¢');
+  renderApp();
+};
 
 function renderRecursoRowCofre(r){
   const cant=(APP.cofre&&APP.cofre[r.k])||0;
