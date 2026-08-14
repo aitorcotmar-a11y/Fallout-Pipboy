@@ -783,6 +783,10 @@ const RECURSOS_FABRICACION=[
 const RECOMPENSA_VALORES_DEFECTO={chatarra:2,medicinas:8,quimicos:5,electronica:5,comida_irr:1,agua_irr:1,raciones:2,agua:1};
 
 // ── Motor de generación de recompensas ──
+function calcPrecioConDescuento(precioBase,descuento){
+  // Descuento/inflación de tienda: -100 (gratis) a +200 (triple precio), 0 = precio normal. Siempre entero, nunca negativo.
+  return Math.max(0,Math.round(precioBase*(1+(descuento||0)/100)));
+}
 function getValoresRecursoRecompensa(){
   return Object.assign({},RECOMPENSA_VALORES_DEFECTO,APP.recompensaValores||{});
 }
@@ -2197,7 +2201,7 @@ window.abrirComprarTienda=function(objId){
   if(!tienda) return;
   const o=getObjById(objId); if(!o) return;
   const descuentoT=tienda.descuento||0;
-  const precioUnit=descuentoT>0?Math.round(o.val*(1-descuentoT/100)):o.val;
+  const precioUnit=calcPrecioConDescuento(o.val,descuentoT);
   const stockInfo=tienda.stock&&tienda.stock[objId];
   const stockDisponible=stockInfo?stockInfo.actual:null; // null = infinito
   if(stockInfo&&stockDisponible<=0) return showNotif('Sin stock disponible');
@@ -4440,7 +4444,7 @@ function renderJTienda(){
   const descuentoT=tiendaActiva.descuento||0;
   const items=oferta.map(function(o){
     const tl=o.tipo==='arma'?'ARMA':o.tipo==='med'?'MED':o.tipo==='droga'?'DROGA':o.tipo==='armadura'?'ARM':'MISC';
-    const precioFinal=descuentoT>0?Math.round(o.val*(1-descuentoT/100)):o.val;
+    const precioFinal=calcPrecioConDescuento(o.val,descuentoT);
     const stockInfo=tiendaActiva.stock&&tiendaActiva.stock[o.id];
     const sinStock=stockInfo&&stockInfo.actual<=0;
     const puedo=j.chapas>=precioFinal&&!sinStock;
@@ -4450,7 +4454,7 @@ function renderJTienda(){
       +'<div class="shop-desc">'+o.desc+' · '+redondearPeso(o.pc)+'pc'+(stockInfo?' · <span style="color:'+(sinStock?'var(--pip-danger)':'var(--pip-warn)')+';">Stock: '+stockInfo.actual+'</span>':'')+'</div>'
       +'</div>'
       +'<div style="text-align:right;flex-shrink:0;">'
-      +(descuentoT>0?'<div style="font-size:9px;color:var(--pip-dim);text-decoration:line-through;">'+o.val+'¢</div>':'')
+      +(descuentoT!==0?'<div style="font-size:9px;color:var(--pip-dim);text-decoration:line-through;">'+o.val+'¢</div>':'')
       +'<div class="shop-price">'+precioFinal+'¢</div>'
       +'<button class="btn btn-sm '+(puedo?'':'btn-danger')+'" style="margin-top:4px;" data-oid="'+o.id+'" '+(puedo?'':'disabled')+' onclick="event.stopPropagation();abrirComprarTienda(parseInt(this.dataset.oid))">'+(sinStock?'SIN STOCK':puedo?'COMPRAR':'SIN CHAPAS')+'</button>'
       +'</div>'
@@ -4462,7 +4466,7 @@ function renderJTienda(){
   const itemsRec=recursosSel.map(function(k){
     const r=RECURSOS_FABRICACION.find(function(x){return x.k===k;}); if(!r) return '';
     const precioUnit=valoresRec[k]||1;
-    const precioFinal=descuentoT>0?Math.round(precioUnit*(1-descuentoT/100)):precioUnit;
+    const precioFinal=calcPrecioConDescuento(precioUnit,descuentoT);
     const stockInfo=tiendaActiva.recursosStock&&tiendaActiva.recursosStock[k];
     const sinStock=stockInfo&&stockInfo.actual<=0;
     const puedo=j.chapas>=precioFinal&&!sinStock;
@@ -4472,7 +4476,7 @@ function renderJTienda(){
       +'<div class="shop-desc">'+(stockInfo?'<span style="color:'+(sinStock?'var(--pip-danger)':'var(--pip-warn)')+';">Stock: '+stockInfo.actual+'</span>':'Sin límite de stock')+'</div>'
       +'</div>'
       +'<div style="text-align:right;flex-shrink:0;">'
-      +(descuentoT>0?'<div style="font-size:9px;color:var(--pip-dim);text-decoration:line-through;">'+precioUnit+'¢</div>':'')
+      +(descuentoT!==0?'<div style="font-size:9px;color:var(--pip-dim);text-decoration:line-through;">'+precioUnit+'¢</div>':'')
       +'<div class="shop-price">'+precioFinal+'¢/u</div>'
       +'<button class="btn btn-sm '+(puedo?'':'btn-danger')+'" style="margin-top:4px;" data-rk="'+k+'" '+(puedo?'':'disabled')+' onclick="abrirComprarRecursoTienda(this.dataset.rk)">'+(sinStock?'SIN STOCK':puedo?'COMPRAR':'SIN CHAPAS')+'</button>'
       +'</div>'
@@ -4496,7 +4500,7 @@ window.abrirComprarRecursoTienda=function(k){
   const valoresRec=getValoresRecursoRecompensa();
   const descuentoT=tienda.descuento||0;
   const precioBase=valoresRec[k]||1;
-  const precioUnit=descuentoT>0?Math.round(precioBase*(1-descuentoT/100)):precioBase;
+  const precioUnit=calcPrecioConDescuento(precioBase,descuentoT);
   const stockInfo=tienda.recursosStock&&tienda.recursosStock[k];
   const stockDisponible=stockInfo?stockInfo.actual:null;
   if(stockInfo&&stockDisponible<=0) return showNotif('Sin stock disponible');
@@ -5981,7 +5985,7 @@ window.toggleGrupo=function(gid){
 ;
 window.tiendaDraftDesc=function(v){
   tiendaDraft('descuento',v);
-  var dv=document.getElementById('desc-val'); if(dv) dv.textContent=v+'%';
+  var dv=document.getElementById('desc-val'); if(dv){ dv.textContent=(v>0?'+':'')+v+'%'; dv.style.color=v>0?'var(--pip-danger)':v<0?'var(--pip-warn)':'var(--pip-bright)'; }
 }; // compat
 ;
 
@@ -7086,10 +7090,10 @@ function renderMCrearTienda(){
     +'<button class="btn" onclick="guardarTienda()">'+(esEd?'▸ GUARDAR':'▸ CREAR')+'</button></div>';
   const header='<div class="card" style="margin-bottom:8px;"><div class="card-hdr">'+(esEd?'EDITAR TIENDA':'NUEVA TIENDA')+'</div><div class="card-body">'
     +'<div class="form-row"><span class="form-lbl">NOMBRE:</span><input type="text" id="tienda-nombre" value="'+draft.nombre+'" placeholder="Nombre" oninput="tiendaDraftNombre(this.value)"></div>'
-    +'<div class="form-row"><span class="form-lbl">DESCUENTO:</span>'
-    +'<div style="display:flex;align-items:center;gap:8px;flex:1;"><input type="range" id="tienda-desc" min="0" max="50" step="5" value="'+desc+'" oninput="tiendaDraftDesc(parseInt(this.value))" style="flex:1;">'
-    +'<span id="desc-val" style="font-family:VT323,monospace;font-size:18px;color:var(--pip-warn);min-width:40px;">'+desc+'%</span></div></div>'
-    +(desc>0?'<div style="font-size:9px;color:var(--pip-warn);">Los jugadores verán los precios con -'+desc+'%</div>':'')
+    +'<div class="form-row"><span class="form-lbl">DESCUENTO/INFLACIÓN:</span>'
+    +'<div style="display:flex;align-items:center;gap:8px;flex:1;"><input type="range" id="tienda-desc" min="-100" max="200" step="1" value="'+desc+'" oninput="tiendaDraftDesc(parseInt(this.value))" style="flex:1;">'
+    +'<span id="desc-val" style="font-family:VT323,monospace;font-size:18px;color:'+(desc>0?'var(--pip-danger)':desc<0?'var(--pip-warn)':'var(--pip-bright)')+';min-width:48px;">'+(desc>0?'+':'')+desc+'%</span></div></div>'
+    +(desc!==0?'<div style="font-size:9px;color:'+(desc>0?'var(--pip-danger)':'var(--pip-warn)')+';">Los jugadores verán los precios con '+(desc>0?'+':'')+desc+'%'+(desc<=-100?' · GRATIS':'')+'</div>':'')
     +'<div style="font-size:9px;color:var(--pip-dim);margin-top:6px;">Al marcar un objeto o recurso puedes ponerle un stock. Vacío = infinito.</div>'
     +'</div></div>';
   const objBlock='<div class="card"><div class="card-hdr">OBJETOS ('+selIds.length+' seleccionados)</div>'
@@ -7097,12 +7101,12 @@ function renderMCrearTienda(){
     +renderObjGrupos(APP.tienda, function(o){
       if(!o||!o.id) return '';
       const sel=selIds.indexOf(o.id)>=0;
-      const pF=desc>0?Math.round(o.val*(1-desc/100)):o.val;
+      const pF=calcPrecioConDescuento(o.val,desc);
       return '<div style="display:flex;align-items:center;padding:7px 10px;border-bottom:1px solid rgba(74,254,130,.08);gap:8px;background:'+(sel?'rgba(74,254,130,.05)':'none')+'" data-oid="'+o.id+'">'
         +'<div style="width:16px;height:16px;border:1px solid '+(sel?'var(--pip)':'var(--pip-border)')+';background:'+(sel?'var(--pip)':'none')+';flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--pip-dark);cursor:pointer;" data-oid="'+o.id+'" onclick="toggleObjTienda(parseInt(this.dataset.oid))">'+(sel?'✓':'')+'</div>'
         +'<div style="flex:1;cursor:pointer;" data-oid="'+o.id+'" onclick="toggleObjTienda(parseInt(this.dataset.oid))"><div style="font-size:11px;">'+o.n+'</div><div style="font-size:9px;color:var(--pip-dim);">'+o.desc+'</div></div>'
         +(sel?'<input type="number" class="tienda-stock-inp" data-oid="'+o.id+'" value="'+(draft.stock&&draft.stock[o.id]?draft.stock[o.id]:'')+'" placeholder="∞" min="1" style="width:44px;font-family:VT323,monospace;font-size:13px;padding:3px;background:var(--pip-dark);border:1px solid var(--pip-border);color:var(--pip-bright);text-align:center;" oninput="tiendaDraftStock('+o.id+',this.value)">':'')
-        +'<div style="text-align:right;flex-shrink:0;">'+(desc>0?'<div style="font-size:9px;color:var(--pip-dim);text-decoration:line-through;">'+o.val+'¢</div>':'')
+        +'<div style="text-align:right;flex-shrink:0;">'+(desc!==0?'<div style="font-size:9px;color:var(--pip-dim);text-decoration:line-through;">'+o.val+'¢</div>':'')
         +'<div style="font-family:VT323,monospace;font-size:16px;color:var(--pip-warn);">'+pF+'¢</div></div>'
         +'</div>';
     }, 'tienda')
@@ -7112,12 +7116,12 @@ function renderMCrearTienda(){
     +RECURSOS_FABRICACION.map(function(r){
       const sel=draft.recursosSel.indexOf(r.k)>=0;
       const precioUnit=valoresRec[r.k]||1;
-      const pF=desc>0?Math.round(precioUnit*(1-desc/100)):precioUnit;
+      const pF=calcPrecioConDescuento(precioUnit,desc);
       return '<div style="display:flex;align-items:center;padding:7px 10px;border-bottom:1px solid rgba(74,254,130,.08);gap:8px;background:'+(sel?'rgba(74,254,130,.05)':'none')+'">'
         +'<div style="width:16px;height:16px;border:1px solid '+(sel?'var(--pip)':'var(--pip-border)')+';background:'+(sel?'var(--pip)':'none')+';flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--pip-dark);cursor:pointer;" data-rk="'+r.k+'" onclick="toggleRecursoTienda(this.dataset.rk)">'+(sel?'✓':'')+'</div>'
         +'<div style="flex:1;cursor:pointer;" data-rk="'+r.k+'" onclick="toggleRecursoTienda(this.dataset.rk)"><div style="font-size:11px;">'+r.icono+' '+r.n+'</div></div>'
         +(sel?'<input type="number" class="tienda-recstock-inp" data-rk="'+r.k+'" value="'+(draft.recursosStock&&draft.recursosStock[r.k]?draft.recursosStock[r.k]:'')+'" placeholder="∞" min="1" style="width:44px;font-family:VT323,monospace;font-size:13px;padding:3px;background:var(--pip-dark);border:1px solid var(--pip-border);color:var(--pip-bright);text-align:center;" oninput="tiendaDraftStockRecurso(\''+r.k+'\',this.value)">':'')
-        +'<div style="text-align:right;flex-shrink:0;">'+(desc>0?'<div style="font-size:9px;color:var(--pip-dim);text-decoration:line-through;">'+precioUnit+'¢</div>':'')
+        +'<div style="text-align:right;flex-shrink:0;">'+(desc!==0?'<div style="font-size:9px;color:var(--pip-dim);text-decoration:line-through;">'+precioUnit+'¢</div>':'')
         +'<div style="font-family:VT323,monospace;font-size:16px;color:var(--pip-warn);">'+pF+'¢/u</div></div>'
         +'</div>';
     }).join('')
