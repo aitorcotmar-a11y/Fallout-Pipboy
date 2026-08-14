@@ -7393,7 +7393,8 @@ window.crearFicha=function(){
 };
 window.masterEditObj=function(oid){
   APP._editObjId=oid;
-  APP.masterTab='objetos';
+  APP.masterTab='forja';
+  APP._forjaSubTab='objetos';
   const o=APP.tienda.find(function(x){return x.id===oid;});
   APP._draftObjEfectos=o?JSON.parse(JSON.stringify(o.efectos||[])):[];
   APP._draftObjEfCat=null;
