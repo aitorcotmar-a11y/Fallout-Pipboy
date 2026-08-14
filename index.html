@@ -516,40 +516,8 @@ function initFB(){
 var _heartbeatInterval=null;
 
 /* ── Aplicador automático de radiación por zona (Rads/hora → por minuto) ── */
-function radZonaTick(){
-  if(!APP.salaId) return;
-  const rz=APP.radZona;
-  if(!rz||!rz.activo) return;
-  const msPerMin=60000;
-  const ahora=Date.now();
-  const ultimo=rz.ultimoTick||ahora;
-  const minutos=Math.floor((ahora-ultimo)/msPerMin);
-  if(minutos<1) return;
-  const sala=getMockSala(APP.salaId);
-  const idsAfectados=[];
-  (rz.jugadoresIds||[]).forEach(function(id){
-    const j=sala.jugadores[id]; if(!j) return;
-    // extra 'Uranium Fever' borrado a petición del usuario, pendiente de recrear
-    const reduccionExtra=-(calcBonusEfectivos(j).derivado.rads||0); // efecto 'rads' negativo = reducción (p.ej. Resistente a la radiación)
-    const tasaEfectivaHora=Math.max(0,(rz.radsHora||0)-reduccionExtra);
-    const factorIridiscente=(j.rasgos||[]).includes('iridiscente')?0.5:1;
-    const perMin=(tasaEfectivaHora/60)*factorIridiscente;
-    j.rads=Math.max(0,Math.min(1000,(j.rads||0)+perMin*minutos));
-    idsAfectados.push(id);
-  });
-  rz.ultimoTick=ultimo+minutos*msPerMin;
-  APP.radZona=rz;
-  sala.radZona=rz;
-  fbSet('salas/'+APP.salaId+'/radZona',rz);
-  idsAfectados.forEach(function(id){
-    fbSet('salas/'+APP.salaId+'/jugadores/'+id+'/rads',sala.jugadores[id].rads);
-  });
-  if(APP.masterTab==='fichas'){ const mc=document.getElementById('main-content'); if(mc) mc.innerHTML=renderMFichas(); }
-}
-setInterval(radZonaTick,15000);
-
 window.toggleRadZonaJugador=function(id,checked){
-  if(!APP.radZona) APP.radZona={activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0};
+  if(!APP.radZona) APP.radZona={cantidad:20,jugadoresIds:[]};
   if(!APP.radZona.jugadoresIds) APP.radZona.jugadoresIds=[];
   if(checked){ if(!APP.radZona.jugadoresIds.includes(id)) APP.radZona.jugadoresIds.push(id); }
   else { APP.radZona.jugadoresIds=APP.radZona.jugadoresIds.filter(function(x){return x!==id;}); }
@@ -558,26 +526,33 @@ window.toggleRadZonaJugador=function(id,checked){
   fbSet('salas/'+APP.salaId+'/radZona',APP.radZona);
 };
 
-window.masterAplicarRateRadZona=function(){
-  const v=parseFloat((document.getElementById('m-radzona-rate')||{}).value)||0;
-  if(!APP.radZona) APP.radZona={activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0};
-  APP.radZona.radsHora=v;
+window.masterGuardarCantidadRadZona=function(){
+  const v=parseFloat((document.getElementById('m-radzona-cant')||{}).value)||0;
+  if(!APP.radZona) APP.radZona={cantidad:20,jugadoresIds:[]};
+  APP.radZona.cantidad=v;
   const sala=getMockSala(APP.salaId);
   sala.radZona=APP.radZona;
   fbSet('salas/'+APP.salaId+'/radZona',APP.radZona);
-  showNotif('Tasa actualizada: '+v+' rads/hora');
 };
 
-window.toggleRadZonaActiva=function(){
-  if(!APP.radZona) APP.radZona={activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0};
-  const rateEl=document.getElementById('m-radzona-rate');
-  if(rateEl) APP.radZona.radsHora=parseFloat(rateEl.value)||0;
-  APP.radZona.activo=!APP.radZona.activo;
-  if(APP.radZona.activo) APP.radZona.ultimoTick=Date.now(); // empieza a contar desde ahora, no desde un valor antiguo
+window.masterAplicarRadsDirecto=function(){
+  // Guardar la cantidad tal como está en el campo justo antes de aplicar, por si se cambió y no ha disparado el onchange todavía
+  masterGuardarCantidadRadZona();
+  const cantidad=APP.radZona.cantidad||0;
+  const ids=(APP.radZona.jugadoresIds||[]);
+  if(!ids.length) return showNotif('Marca al menos un jugador');
+  if(!cantidad) return showNotif('Pon una cantidad distinta de 0');
   const sala=getMockSala(APP.salaId);
-  sala.radZona=APP.radZona;
-  fbSet('salas/'+APP.salaId+'/radZona',APP.radZona);
-  showNotif(APP.radZona.activo?'☢ Zona de radiación ACTIVADA':'Zona de radiación desactivada');
+  ids.forEach(function(id){
+    const j=sala.jugadores[id]; if(!j) return;
+    const reduccionExtra=-(calcBonusEfectivos(j).derivado.rads||0); // efecto 'rads' negativo = reducción (p.ej. Resistente a la radiación)
+    const factorIridiscente=(j.rasgos||[]).includes('iridiscente')?0.5:1;
+    const aplicado=Math.max(0,cantidad-reduccionExtra)*factorIridiscente;
+    j.rads=Math.max(0,Math.min(1000,(j.rads||0)+aplicado));
+    fbSet('salas/'+APP.salaId+'/jugadores/'+id+'/rads',j.rads);
+  });
+  APP.jugadores=sala.jugadores;
+  showNotif('+'+cantidad+' rads aplicado a '+ids.length+' jugador(es)');
   renderApp();
 };
 
@@ -1590,7 +1565,7 @@ function getMockSala(id){
       config:{pwHash:simplehash('master123')},
       jugadores:{}, tienda:[],
       rasgosCustom:[], extrasCustom:[], rasgosOverride:{}, extrasOverride:{},
-      radZona:{activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0},
+      radZona:{cantidad:20,jugadoresIds:[]},
       cofre:{chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0},
       cofreObjetos:{}, cofreMunicion:{}, setsArmadura:[],
       recetasPendientes:[],
@@ -5743,9 +5718,9 @@ function renderMFichas(){
   }).join('');
 
   const radZonaHtml='<div class="mod-panel" style="border-color:rgba(255,140,0,.5);margin-top:4px;">'
-    +'<div class="mod-title" style="color:#ff8c00;">☢ APLICADOR AUTOMÁTICO (RADS/HORA)</div>'
-    +'<div style="font-size:9px;color:var(--pip-dim);margin-bottom:6px;">Aplica la tasa cada minuto a los jugadores marcados mientras esté ACTIVO. Sigue corriendo mientras esta pestaña del navegador esté abierta, aunque cambies de pestaña dentro de la app.</div>'
-    +'<div class="form-row"><span class="form-lbl">RADS/HORA:</span><input type="number" id="m-radzona-rate" class="mod-input" value="'+((APP.radZona&&APP.radZona.radsHora)||60)+'" min="0" onchange="masterAplicarRateRadZona()"></div>'
+    +'<div class="mod-title" style="color:#ff8c00;">☢ APLICADOR DE RADIACIÓN</div>'
+    +'<div style="font-size:9px;color:var(--pip-dim);margin-bottom:6px;">Marca cantidad y jugadores, y pulsa APLICAR cada vez que quieras sumarles esa radiación de golpe. La cantidad y la selección se quedan guardadas para la próxima vez.</div>'
+    +'<div class="form-row"><span class="form-lbl">CANTIDAD:</span><input type="number" id="m-radzona-cant" class="mod-input" value="'+((APP.radZona&&APP.radZona.cantidad!=null)?APP.radZona.cantidad:20)+'" onchange="masterGuardarCantidadRadZona()"></div>'
     +'<div style="margin:8px 0;max-height:180px;overflow-y:auto;">'
     +jugs.map(function(j){
       const enZona=((APP.radZona&&APP.radZona.jugadoresIds)||[]).includes(j.id);
@@ -5753,8 +5728,7 @@ function renderMFichas(){
         +'<span class="plyr-chk-name">'+j.nombre+' <span style="font-size:9px;color:var(--pip-dim);">('+(j.rads||0).toFixed(1)+' rads)</span></span></label>';
     }).join('')
     +'</div>'
-    +'<button class="btn btn-block '+((APP.radZona&&APP.radZona.activo)?'btn-danger':'btn-warn')+'" onclick="toggleRadZonaActiva()">'+((APP.radZona&&APP.radZona.activo)?'⏸ DESACTIVAR ZONA':'▶ ACTIVAR ZONA')+'</button>'
-    +((APP.radZona&&APP.radZona.activo)?'<div style="font-size:9px;color:#ff8c00;margin-top:6px;">☢ ACTIVO · +'+(((APP.radZona.radsHora||0)/60).toFixed(2))+' rads/min a '+((APP.radZona.jugadoresIds||[]).length)+' jugador(es)</div>':'')
+    +'<button class="btn btn-block btn-warn" onclick="masterAplicarRadsDirecto()">☢ APLICAR</button>'
     +'</div>';
 
   const nuevaFichaHtml='<div class="card" style="margin-top:8px;"><div class="card-hdr">NUEVA FICHA</div><div class="card-body">'
@@ -7653,7 +7627,7 @@ window.masterResetearSalaCompleta=function(){
     config:configActual,
     jugadores:{}, tienda:[],
     rasgosCustom:[], extrasCustom:[], rasgosOverride:{}, extrasOverride:{},
-    radZona:{activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0},
+    radZona:{cantidad:20,jugadoresIds:[]},
     cofre:{chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0},
     cofreObjetos:{}, cofreMunicion:{}, setsArmadura:[],
     recetasPendientes:[],
