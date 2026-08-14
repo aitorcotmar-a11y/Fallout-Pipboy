@@ -517,7 +517,7 @@ var _heartbeatInterval=null;
 
 /* ── Aplicador automático de radiación por zona (Rads/hora → por minuto) ── */
 function radZonaTick(){
-  if(APP.rol!=='master'||!APP.salaId) return;
+  if(!APP.salaId) return;
   const rz=APP.radZona;
   if(!rz||!rz.activo) return;
   const msPerMin=60000;
