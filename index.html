@@ -5900,16 +5900,26 @@ function renderMForja(){
 }
 window.switchForjaSub=function(k){
   APP._forjaSubTab=k;
-  APP._editObjId=null; APP._currentFormTipo=null; APP._objTipoSelected=null; APP._objSubcatSelected=null; APP._objSlotArmaduraSelected=null; APP._draftObjEfectos=null; APP._draftObjEfCat=null; APP._draftObjAdicCat=null;
+  APP._editObjId=null; APP._currentFormTipo=null; APP._objTipoSelected=null; APP._objSubcatSelected=null; APP._objSlotArmaduraSelected=null; APP._draftObjEfectos=null; APP._draftObjEfCat=null; APP._draftObjAdicCat=null; APP._draftObjGeneral=null;
   limpiarDraftRasgo(); limpiarDraftExtra();
   renderApp();
 };
+function guardarCamposGeneralesObj(){
+  if(!APP._draftObjGeneral) APP._draftObjGeneral={};
+  var g=APP._draftObjGeneral;
+  var el;
+  el=document.getElementById('no-n'); if(el) g.n=el.value;
+  el=document.getElementById('no-v'); if(el) g.val=parseFloat(el.value)||0;
+  el=document.getElementById('no-pc'); if(el) g.pc=parseFloat(el.value)||0;
+  el=document.getElementById('no-d'); if(el) g.desc=el.value;
+}
 function renderMObjetos(){
   const editId=APP._editObjId||null;
   const editObj=editId!=null?APP.tienda.find(function(o){return o.id===editId;}):null;
   function fv(f,d){ 
     if(f==='tipo') return tipoActual;
     if(f==='subcat'&&APP._objSubcatSelected&&!editObj) return APP._objSubcatSelected;
+    if(APP._draftObjGeneral&&APP._draftObjGeneral[f]!==undefined) return APP._draftObjGeneral[f];
     return editObj?(editObj[f]!=null?editObj[f]:d):d; 
   }
   // Preservar tipo seleccionado entre renders
@@ -6113,6 +6123,7 @@ function renderMObjetos(){
 }
 
 window.toggleArmaFields=function(tipo){
+  guardarCamposGeneralesObj();
   APP._objTipoSelected=tipo;
   APP._currentFormTipo=tipo;
   APP._objSubcatSelected=null; // reset subcat al cambiar tipo
@@ -6124,6 +6135,7 @@ window.toggleArmaFields=function(tipo){
 };
 
 window.masterCambiarCatEfectoObj=function(cat){
+  guardarCamposGeneralesObj();
   APP._draftObjEfCat=cat;
   var mc=document.getElementById('main-content');
   if(mc) mc.innerHTML=renderMForja();
@@ -6136,6 +6148,7 @@ window.masterCambiarCatAdiccion=function(cat){
 };
 
 window.masterAddEfectoObjDraft=function(){
+  guardarCamposGeneralesObj();
   const cat=(document.getElementById('do-ef-cat')||{}).value||'atributo';
   const param=(document.getElementById('do-ef-param')||{}).value;
   const signo=(document.getElementById('do-ef-signo')||{}).value||'+';
@@ -6149,6 +6162,7 @@ window.masterAddEfectoObjDraft=function(){
 };
 
 window.masterDelEfectoObjDraft=function(i){
+  guardarCamposGeneralesObj();
   if(!APP._draftObjEfectos) return;
   APP._draftObjEfectos.splice(i,1);
   const mc=document.getElementById('main-content');
@@ -6157,6 +6171,7 @@ window.masterDelEfectoObjDraft=function(i){
 
 
 window.toggleSubcatFields=function(sc){
+  guardarCamposGeneralesObj();
   APP._objSubcatSelected=sc;
   // Rerender solo el bloque interior sin perder foco
   var esCaC=sc==='cac';
@@ -6253,7 +6268,7 @@ window.masterSaveObj=function(){
     const o=Object.assign({id:Date.now(),n:n.trim(),tipo,val,pc,desc},extraArma,extraArmadura,extraDroga,extraMunicion,extraMisc);
     APP.tienda.push(o); sala.tienda=APP.tienda; showNotif(n+' añadido');
   }
-  APP._currentFormTipo=null; APP._objTipoSelected=null; APP._objSubcatSelected=null; APP._objSlotArmaduraSelected=null; APP._draftObjEfectos=null; APP._draftObjEfCat=null; APP._draftObjAdicCat=null;
+  APP._currentFormTipo=null; APP._objTipoSelected=null; APP._objSubcatSelected=null; APP._objSlotArmaduraSelected=null; APP._draftObjEfectos=null; APP._draftObjEfCat=null; APP._draftObjAdicCat=null; APP._draftObjGeneral=null;
   fbSet('salas/'+APP.salaId+'/tienda',APP.tienda); renderApp();
 };
 ;
@@ -7395,6 +7410,7 @@ window.masterEditObj=function(oid){
   APP._editObjId=oid;
   APP.masterTab='forja';
   APP._forjaSubTab='objetos';
+  APP._draftObjGeneral=null;
   const o=APP.tienda.find(function(x){return x.id===oid;});
   APP._draftObjEfectos=o?JSON.parse(JSON.stringify(o.efectos||[])):[];
   APP._draftObjEfCat=null;
@@ -7416,6 +7432,7 @@ window.cancelarEditObj=function(){
   APP._draftObjEfectos=null;
   APP._draftObjEfCat=null;
   APP._draftObjAdicCat=null;
+  APP._draftObjGeneral=null;
   renderApp();
 };
 window.masterDelObj=function(id){APP.tienda=APP.tienda.filter(o=>o.id!==id);APP.enVenta=APP.enVenta.filter(i=>i!==id);getMockSala(APP.salaId).tienda=APP.tienda;fbSet('salas/'+APP.salaId+'/tienda',APP.tienda);renderApp()};
