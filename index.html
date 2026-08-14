@@ -804,7 +804,7 @@ function generarRecompensa(valorTotal){
     items.push(cand);
     presupuesto-=cand.coste;
   }
-  chapas+=Math.max(0,presupuesto); // lo que sobra sin encajar se convierte en chapas extra
+  // Las chapas se quedan siempre fieles al 10% inicial tirado al azar — el sobrante sin encajar en ningún objeto/recurso simplemente no se reparte
   return {valorTotal:valorTotal,chapas:chapas,items:items};
 }
 
