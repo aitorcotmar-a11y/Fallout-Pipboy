@@ -787,6 +787,10 @@ function calcPrecioConDescuento(precioBase,descuento){
   // Descuento/inflación de tienda: -100 (gratis) a +200 (triple precio), 0 = precio normal. Siempre entero, nunca negativo.
   return Math.max(0,Math.round(precioBase*(1+(descuento||0)/100)));
 }
+function calcPrecioVenta(precioBase,compraPct){
+  // Compra de objetos por la tienda: directamente el % del valor que paga, -100 a 200. Siempre entero, nunca negativo.
+  return Math.max(0,Math.round(precioBase*((compraPct==null?40:compraPct)/100)));
+}
 function getValoresRecursoRecompensa(){
   return Object.assign({},RECOMPENSA_VALORES_DEFECTO,APP.recompensaValores||{});
 }
@@ -5987,6 +5991,11 @@ window.tiendaDraftDesc=function(v){
   tiendaDraft('descuento',v);
   var dv=document.getElementById('desc-val'); if(dv){ dv.textContent=(v>0?'+':'')+v+'%'; dv.style.color=v>0?'var(--pip-danger)':v<0?'var(--pip-warn)':'var(--pip-bright)'; }
 }; // compat
+window.tiendaDraftCompra=function(v){
+  if(!APP._tiendaDraft){var src=APP.tiendaEditando!=null?(APP.tiendas[APP.tiendaEditando]||{}):{};APP._tiendaDraft={nombre:src.nombre||'',objIds:[...(src.objIds||[])],descuento:src.descuento||0,compraPct:src.compraPct!=null?src.compraPct:40,stock:Object.assign({},src.stock||{}),recursosSel:[...(src.recursosSel||[])],recursosStock:Object.assign({},src.recursosStock||{})};}
+  APP._tiendaDraft.compraPct=v;
+  var cv=document.getElementById('compra-val'); if(cv) cv.textContent=v+'%';
+};
 ;
 
 ;
@@ -7082,8 +7091,8 @@ function renderMCrearTienda(){
   const editIdx=APP.tiendaEditando;
   const esEd=editIdx!=null;
   const src=esEd?(APP.tiendas[editIdx]||{}):{};
-  const draft=APP._tiendaDraft||{nombre:src.nombre||'',objIds:[...(src.objIds||[])],descuento:src.descuento||0,stock:Object.assign({},src.stock||{}),recursosSel:[...(src.recursosSel||[])],recursosStock:Object.assign({},src.recursosStock||{})};
-  const selIds=draft.objIds, desc=draft.descuento||0;
+  const draft=APP._tiendaDraft||{nombre:src.nombre||'',objIds:[...(src.objIds||[])],descuento:src.descuento||0,compraPct:src.compraPct!=null?src.compraPct:40,stock:Object.assign({},src.stock||{}),recursosSel:[...(src.recursosSel||[])],recursosStock:Object.assign({},src.recursosStock||{})};
+  const selIds=draft.objIds, desc=draft.descuento||0, compra=draft.compraPct!=null?draft.compraPct:40;
   const valoresRec=getValoresRecursoRecompensa();
   const btnRow='<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px;">'
     +'<button class="btn btn-warn" onclick="cancelarCrearTienda()">✕ CANCELAR</button>'
@@ -7094,6 +7103,10 @@ function renderMCrearTienda(){
     +'<div style="display:flex;align-items:center;gap:8px;flex:1;"><input type="range" id="tienda-desc" min="-100" max="200" step="1" value="'+desc+'" oninput="tiendaDraftDesc(parseInt(this.value))" style="flex:1;">'
     +'<span id="desc-val" style="font-family:VT323,monospace;font-size:18px;color:'+(desc>0?'var(--pip-danger)':desc<0?'var(--pip-warn)':'var(--pip-bright)')+';min-width:48px;">'+(desc>0?'+':'')+desc+'%</span></div></div>'
     +(desc!==0?'<div style="font-size:9px;color:'+(desc>0?'var(--pip-danger)':'var(--pip-warn)')+';">Los jugadores verán los precios con '+(desc>0?'+':'')+desc+'%'+(desc<=-100?' · GRATIS':'')+'</div>':'')
+    +'<div class="form-row" style="margin-top:8px;"><span class="form-lbl">COMPRA A JUGADORES:</span>'
+    +'<div style="display:flex;align-items:center;gap:8px;flex:1;"><input type="range" id="tienda-compra" min="-100" max="200" step="1" value="'+compra+'" oninput="tiendaDraftCompra(parseInt(this.value))" style="flex:1;">'
+    +'<span id="compra-val" style="font-family:VT323,monospace;font-size:18px;color:var(--pip-warn);min-width:48px;">'+compra+'%</span></div></div>'
+    +'<div style="font-size:9px;color:var(--pip-dim);">La tienda paga a los jugadores el '+compra+'% del valor de cada objeto que le vendan.</div>'
     +'<div style="font-size:9px;color:var(--pip-dim);margin-top:6px;">Al marcar un objeto o recurso puedes ponerle un stock. Vacío = infinito.</div>'
     +'</div></div>';
   const objBlock='<div class="card"><div class="card-hdr">OBJETOS ('+selIds.length+' seleccionados)</div>'
@@ -7170,6 +7183,7 @@ window.guardarTienda=function(){
   var stockDraft=APP._tiendaDraft?(APP._tiendaDraft.stock||{}):{};
   var recursosSel=APP._tiendaDraft?(APP._tiendaDraft.recursosSel||[]):[];
   var recStockDraft=APP._tiendaDraft?(APP._tiendaDraft.recursosStock||{}):{};
+  var compraPct=APP._tiendaDraft&&APP._tiendaDraft.compraPct!=null?APP._tiendaDraft.compraPct:40;
   var sala=getMockSala(APP.salaId); if(!sala.tiendas) sala.tiendas=[];
   // Construir el stock final: {objId:{actual,original}} — conserva el 'actual' ya consumido si el objeto ya tenía stock definido
   var tiendaPrevia=APP.tiendaEditando!=null?sala.tiendas[APP.tiendaEditando]:null;
@@ -7197,13 +7211,13 @@ window.guardarTienda=function(){
       }
     }
   });
-  if(APP.tiendaEditando!=null){sala.tiendas[APP.tiendaEditando].nombre=nombre;sala.tiendas[APP.tiendaEditando].objIds=objIds;sala.tiendas[APP.tiendaEditando].descuento=descuento;sala.tiendas[APP.tiendaEditando].stock=stockFinal;sala.tiendas[APP.tiendaEditando].recursosSel=recursosSel;sala.tiendas[APP.tiendaEditando].recursosStock=recStockFinal;}
-  else sala.tiendas.push({id:'t_'+Date.now(),nombre:nombre,objIds:objIds,activa:false,descuento:descuento,stock:stockFinal,recursosSel:recursosSel,recursosStock:recStockFinal});
+  if(APP.tiendaEditando!=null){sala.tiendas[APP.tiendaEditando].nombre=nombre;sala.tiendas[APP.tiendaEditando].objIds=objIds;sala.tiendas[APP.tiendaEditando].descuento=descuento;sala.tiendas[APP.tiendaEditando].compraPct=compraPct;sala.tiendas[APP.tiendaEditando].stock=stockFinal;sala.tiendas[APP.tiendaEditando].recursosSel=recursosSel;sala.tiendas[APP.tiendaEditando].recursosStock=recStockFinal;}
+  else sala.tiendas.push({id:'t_'+Date.now(),nombre:nombre,objIds:objIds,activa:false,descuento:descuento,compraPct:compraPct,stock:stockFinal,recursosSel:recursosSel,recursosStock:recStockFinal});
   APP.tiendas=sala.tiendas; APP.tiendaEditando=null; APP._tiendaDraft=null; APP.masterSubTab='lista';
   fbSet('salas/'+APP.salaId+'/tiendas',sala.tiendas); showNotif('Tienda guardada'); renderApp();
 };
 window.cancelarCrearTienda=function(){ APP.tiendaEditando=null;APP._tiendaDraft=null;APP.masterSubTab='lista';renderApp(); };
-window.editarTienda=function(idx){ APP.tiendaEditando=idx;var t=APP.tiendas[idx];APP._tiendaDraft={nombre:t.nombre,objIds:[...t.objIds],descuento:t.descuento||0,stock:Object.assign({},t.stock||{}),recursosSel:[...(t.recursosSel||[])],recursosStock:Object.assign({},t.recursosStock||{})};APP.masterSubTab='crear';APP._gruposAbiertos={};renderApp(); };
+window.editarTienda=function(idx){ APP.tiendaEditando=idx;var t=APP.tiendas[idx];APP._tiendaDraft={nombre:t.nombre,objIds:[...t.objIds],descuento:t.descuento||0,compraPct:t.compraPct!=null?t.compraPct:40,stock:Object.assign({},t.stock||{}),recursosSel:[...(t.recursosSel||[])],recursosStock:Object.assign({},t.recursosStock||{})};APP.masterSubTab='crear';APP._gruposAbiertos={};renderApp(); };
 
 window.masterReabastecerTienda=function(idx){
   const sala=getMockSala(APP.salaId);
@@ -7966,7 +7980,7 @@ window.venderObjeto=function(itemIdx){
   if(!item) return;
   const o=getObjById(item.objId);
   if(!o||!o.val){showNotif('Este objeto no tiene valor');return;}
-  const precio=Math.floor(o.val/2);
+  const precio=calcPrecioVenta(o.val,tiendaActV.compraPct);
   if(item.qty>1) item.qty--;
   else j.inventario.splice(itemIdx,1);
   j.chapas+=precio;
@@ -8249,7 +8263,7 @@ window.abrirDetalle=function(objId,origen){
     if(idxT>=0){
       const sala2=getMockSala(APP.salaId);
       const tiendaAct=(sala2.tiendas||[]).find(function(t){return t.activa;});
-      const precioVenta=o.val?Math.floor(o.val/2):0;
+      const precioVenta=o.val?calcPrecioVenta(o.val,tiendaAct?tiendaAct.compraPct:40):0;
       acciones+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:4px;">'
         +(tiendaAct&&precioVenta>0
           ?'<button class="obj-equip-btn" style="border-color:var(--pip-warn);color:var(--pip-warn);" data-idx="'+idxT+'" onclick="venderObjeto(parseInt(this.dataset.idx));cerrarDetalle()">💰 VENDER ('+precioVenta+'¢)</button>'
