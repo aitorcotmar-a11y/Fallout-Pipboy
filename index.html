@@ -1101,7 +1101,13 @@ function getMod(v){
   return -2-(7-v); // por debajo de 7 (p.ej. penalizaciones temporales), sigue el mismo patrón de -1 por punto
 }
 function calcPVMax(j){return CLASES[j.clase].dadoN+j.attrs.res}
-function getObjById(id){ var nid=typeof id==='string'?parseInt(id):id; var fuente=APP.tienda||[]; return fuente.find(function(o){return o!=null&&(o.id===nid||o.id===id);})||null; }
+function getObjById(id){
+  var nid=typeof id==='string'?parseInt(id):id;
+  var fuente=APP.tienda||[];
+  var o=fuente.find(function(x){return x!=null&&(x.id===nid||x.id===id);})||null;
+  if(o&&o.tipo==='arma'&&(!o.equipable||o.slotTipo!=='arma')){ o.equipable=true; o.slotTipo='arma'; }
+  return o;
+}
 
 // ── Enemigos: clases y estadísticas ──
 const ENEMY_CLASES={
@@ -3599,7 +3605,7 @@ function renderJEstado(){
           const idx=j.inventario.indexOf(item);
           return '<div style="display:flex;align-items:center;padding:7px 10px;border-bottom:1px solid rgba(255,136,68,.1);gap:8px;">'
             +'<div style="flex:1;">'
-            +'<div style="font-size:11px;color:var(--pip-bright);">'+o.n+'</div>'
+            +'<div style="font-size:11px;color:var(--pip-bright);">'+o.n+(o.daño?' <span style="color:#ff8844;">'+o.daño+'</span>':'')+'</div>'
             +'<div style="font-size:9px;color:var(--pip-dim);">'+o.desc+'</div>'
             +'</div>'
             +'<div style="text-align:center;min-width:32px;">'
@@ -3853,7 +3859,8 @@ function renderInvGrupos(j, eq){
     const equipadoSlot=Object.keys(eq).find(function(s){return eq[s]===_eid||eq[s]===item.objId;})||null;
     const eqStyle=equipado?'background:rgba(74,254,130,.06);border-left:3px solid var(--pip);':'border-left:3px solid transparent;';
     let quickBtn='';
-    if(o.equipable&&o.slotTipo==='arma'){
+    const esArmaEquipable=(o.equipable&&o.slotTipo==='arma')||o.tipo==='arma';
+    if(esArmaEquipable){
       // Armas: pueden llevarse dos (incluso iguales) — mostrar QUITAR si hay una puesta, y EQUIPAR si queda hueco libre, los dos a la vez si aplica
       const hayHuecoLibre=(!eq.arma1)||(!eq.arma2&&eq.arma2!=='BLOQUEADO');
       let btns='';
@@ -4450,13 +4457,123 @@ function renderJTienda(){
       +'</div>';
   }).join('');
 
+  const recursosSel=tiendaActiva.recursosSel||[];
+  const valoresRec=getValoresRecursoRecompensa();
+  const itemsRec=recursosSel.map(function(k){
+    const r=RECURSOS_FABRICACION.find(function(x){return x.k===k;}); if(!r) return '';
+    const precioUnit=valoresRec[k]||1;
+    const precioFinal=descuentoT>0?Math.round(precioUnit*(1-descuentoT/100)):precioUnit;
+    const stockInfo=tiendaActiva.recursosStock&&tiendaActiva.recursosStock[k];
+    const sinStock=stockInfo&&stockInfo.actual<=0;
+    const puedo=j.chapas>=precioFinal&&!sinStock;
+    return '<div class="shop-item">'
+      +'<div class="shop-info">'
+      +'<div class="shop-name">'+r.icono+' '+r.n+'</div>'
+      +'<div class="shop-desc">'+(stockInfo?'<span style="color:'+(sinStock?'var(--pip-danger)':'var(--pip-warn)')+';">Stock: '+stockInfo.actual+'</span>':'Sin límite de stock')+'</div>'
+      +'</div>'
+      +'<div style="text-align:right;flex-shrink:0;">'
+      +(descuentoT>0?'<div style="font-size:9px;color:var(--pip-dim);text-decoration:line-through;">'+precioUnit+'¢</div>':'')
+      +'<div class="shop-price">'+precioFinal+'¢/u</div>'
+      +'<button class="btn btn-sm '+(puedo?'':'btn-danger')+'" style="margin-top:4px;" data-rk="'+k+'" '+(puedo?'':'disabled')+' onclick="abrirComprarRecursoTienda(this.dataset.rk)">'+(sinStock?'SIN STOCK':puedo?'COMPRAR':'SIN CHAPAS')+'</button>'
+      +'</div>'
+      +'</div>';
+  }).join('');
+
   return chapasBlock
     +'<div class="card">'
     +'<div class="card-hdr">'+tiendaActiva.nombre+'</div>'
     +'<div style="padding:0;">'
-    +(!oferta.length?'<div class="empty">Esta tienda no tiene objetos</div>':items)
+    +(!oferta.length&&!recursosSel.length?'<div class="empty">Esta tienda no tiene objetos</div>':items+itemsRec)
     +'</div></div>';
 }
+
+window.abrirComprarRecursoTienda=function(k){
+  const j=myFicha();
+  const sala=getMockSala(APP.salaId);
+  const tienda=(sala.tiendas||[]).find(function(t){return t.activa;});
+  if(!tienda) return;
+  const r=RECURSOS_FABRICACION.find(function(x){return x.k===k;}); if(!r) return;
+  const valoresRec=getValoresRecursoRecompensa();
+  const descuentoT=tienda.descuento||0;
+  const precioBase=valoresRec[k]||1;
+  const precioUnit=descuentoT>0?Math.round(precioBase*(1-descuentoT/100)):precioBase;
+  const stockInfo=tienda.recursosStock&&tienda.recursosStock[k];
+  const stockDisponible=stockInfo?stockInfo.actual:null;
+  if(stockInfo&&stockDisponible<=0) return showNotif('Sin stock disponible');
+  const maxPorChapas=precioUnit>0?Math.floor(j.chapas/precioUnit):99;
+  const maxFinal=stockDisponible!=null?Math.min(stockDisponible,maxPorChapas):maxPorChapas;
+  if(maxFinal<1) return showNotif('Sin chapas suficientes');
+  const modal=document.getElementById('obj-detail-modal');
+  const box=document.getElementById('obj-detail-box');
+  box.innerHTML='<div style="padding:20px;">'
+    +'<div style="font-family:VT323,monospace;font-size:18px;color:var(--pip-bright);margin-bottom:6px;">🛒 COMPRAR: '+r.icono+' '+r.n+'</div>'
+    +'<div style="font-size:11px;color:var(--pip-dim);margin-bottom:10px;">Precio unidad: '+precioUnit+'¢'+(stockDisponible!=null?' · Stock disponible: '+stockDisponible:'')+'</div>'
+    +'<input type="number" id="compra-rec-cant" value="1" min="1" max="'+maxFinal+'" oninput="actualizarTotalCompraRecurso('+precioUnit+')" style="width:100%;font-family:VT323,monospace;font-size:22px;padding:8px;background:var(--pip-dark);border:1px solid var(--pip-border);color:var(--pip-bright);text-align:center;margin-bottom:8px;">'
+    +'<div id="compra-rec-total" style="font-size:12px;color:var(--pip-warn);text-align:center;margin-bottom:14px;">Total: '+precioUnit+'¢</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">'
+    +'<button class="btn btn-warn" onclick="cerrarDetalle()">CANCELAR</button>'
+    +'<button class="btn" data-rk="'+k+'" data-precio="'+precioUnit+'" onclick="confirmarComprarRecursoTienda(this.dataset.rk,parseInt(this.dataset.precio))">▸ COMPRAR</button>'
+    +'</div></div>';
+  modal.style.display='flex';
+};
+window.actualizarTotalCompraRecurso=function(precioUnit){
+  const cantEl=document.getElementById('compra-rec-cant');
+  const total=document.getElementById('compra-rec-total');
+  const cant=Math.max(1,parseInt(cantEl?cantEl.value:1)||1);
+  if(total) total.textContent='Total: '+(precioUnit*cant)+'¢';
+};
+window.confirmarComprarRecursoTienda=async function(k,precioUnit){
+  const cantEl=document.getElementById('compra-rec-cant');
+  const cant=Math.max(1,parseInt(cantEl?cantEl.value:1)||1);
+  const j=myFicha();
+  const r=RECURSOS_FABRICACION.find(function(x){return x.k===k;}); if(!r) return;
+  const precioTotal=precioUnit*cant;
+  if(j.chapas<precioTotal){ showNotif('Sin chapas suficientes'); return; }
+
+  const sala=getMockSala(APP.salaId);
+  const tiendaIdx=(sala.tiendas||[]).findIndex(function(t){return t.activa;});
+  const tienda=tiendaIdx>=0?sala.tiendas[tiendaIdx]:null;
+  const tieneStock=tienda&&tienda.recursosStock&&tienda.recursosStock[k];
+
+  cerrarDetalle();
+  mostrarEnviando('📡 PROCESANDO COMPRA...');
+
+  if(tieneStock){
+    if(FB_MOCK||!db){
+      const actual=tienda.recursosStock[k].actual||0;
+      if(actual<cant){ ocultarEnviando(); showNotif('No queda stock suficiente'); renderApp(); return; }
+      tienda.recursosStock[k].actual=actual-cant;
+      fbSet('salas/'+APP.salaId+'/tiendas',sala.tiendas);
+    } else {
+      const ruta='salas/'+APP.salaId+'/tiendas/'+tiendaIdx+'/recursosStock/'+k+'/actual';
+      let committed=false, valorFinal=null;
+      try{
+        const res=await db.ref(ruta).transaction(function(actual){
+          actual=(actual==null)?0:actual;
+          if(actual<cant) return;
+          return actual-cant;
+        });
+        committed=res.committed;
+        valorFinal=res.snapshot?res.snapshot.val():null;
+      }catch(e){ committed=false; }
+      if(!committed){
+        ocultarEnviando();
+        showNotif('No se pudo completar la compra: alguien se ha adelantado o no queda stock');
+        renderApp();
+        return;
+      }
+      tienda.recursosStock[k].actual=valorFinal;
+    }
+  }
+
+  j.chapas-=precioTotal;
+  if(!j.recursos) j.recursos={};
+  j.recursos[k]=(j.recursos[k]||0)+cant;
+  saveJ();
+  ocultarEnviando();
+  showNotif(cant+'x '+r.n+' comprado · -'+precioTotal+'¢');
+  renderApp();
+};
 
 /* ═══════════════════════════════════════════
    ACCIONES JUGADOR
@@ -5967,6 +6084,7 @@ function renderMObjetos(){
     +row2({l:'PRECIO (¢) por unidad',h:'<input type="number" id="no-v" value="'+fv('val',0)+'" min="0" '+sm+'>'},
           {l:'PESO (pc) por unidad', h:'<input type="number" id="no-pc" value="'+fv('pc',fv('tipo','misc')==='municion'?0:5)+'" min="0" step="0.1" '+sm+'>'})
     +(fv('tipo','misc')==='misc'?row1('USOS <span style="opacity:.7;">(veces que se puede usar antes de desaparecer del inventario · 0 = ilimitado, nunca desaparece)</span>','<input type="number" id="no-usos" value="'+fv('usosMax',1)+'" min="0" '+sm+'>'):'')
+    +(fv('tipo','misc')==='explosivo'?row1('DAÑO <span style="opacity:.7;">(ej. 5D6)</span>','<input type="text" id="no-exp-daño" value="'+fv('daño','')+'" placeholder="5D6" '+sm+'>'):'')
     +(fv('tipo','misc')==='municion'?('<label style="display:flex;align-items:center;gap:8px;padding:8px;margin-bottom:8px;border:1px solid var(--pip-border);font-size:11px;color:var(--pip-bright);"><input type="checkbox" id="no-muni-fusion" '+(fv('muniId','')==='muni_fusion'?'checked':'')+'> ⚡ Es batería de fusión (munición de armas de energía)</label>'
       +row1('CATEGORÍA DE MUNICIÓN','<select id="no-muni-cat" '+s+'>'+['Pequeña','Media','Grande','Especiales'].map(function(c){return '<option value="'+c+'"'+(fv('categoriaMuni','Pequeña')===c?' selected':'')+'>'+c+'</option>';}).join('')+'</select>')):'')
     +'<div id="arma-extra-fields" style="display:'+(esArma?'block':'none')+';">'    +row1('SUBCATEGORÍA','<select id="no-subcat" onchange="toggleSubcatFields(this.value)" '+s+'>'+      ARMA_SUBCATS.map(function(sc){        return '<option value="'+sc.id+'"'+(fv('subcat','corta')===sc.id?' selected':'')+'>'+sc.n+'</option>';      }).join('')+'</select>')    +(function(){      var sc=fv('subcat','corta');      var esCaC=sc==='cac';      var campos='';      if(!esCaC){        campos+=row1('MUNICIÓN','<select id="no-muni" '+s+'>'          +'<option value="">— Ninguna —</option>'          +getMunicionCatalogo().map(function(m){return '<option value="'+m.muniId+'"'+(fv('muniId','')===m.muniId?' selected':'')+'>'+m.n+'</option>';}).join('')          +'</select>');        campos+=row2({l:'CARGADOR (balas)',h:'<input type="number" id="no-carg" value="'+fv('cargador',0)+'" min="0" '+sm+'>'},                     {l:'ALCANCE (m)',h:'<input type="number" id="no-alc" value="'+fv('alcance',20)+'" min="0" '+sm+'>'});      } else {        campos+='<input type="hidden" id="no-muni" value=""><input type="hidden" id="no-carg" value="0"><input type="hidden" id="no-alc" value="0">';      }      campos+='<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin-bottom:5px;">'+(esCaC?'DADO DE DAÑO':'DADOS DE DAÑO')+'</div>';      if(esCaC){        campos+=row1('Daño TT','<input type="text" id="no-daño" value="'+fv('daño','1D6')+'" placeholder="1D6" '+sm+'>');        campos+='<input type="hidden" id="no-rfdaño" value=""><input type="hidden" id="no-fadaño" value="">';        campos+='<input type="hidden" id="no-tt" value="0"><input type="hidden" id="no-rf" value="0"><input type="hidden" id="no-fa" value="0">';      } else {        campos+=row3({l:'TT',h:'<input type="text" id="no-daño" value="'+fv('daño','1D6')+'" placeholder="1D6" '+sm+'>'},                     {l:'RF',h:'<input type="text" id="no-rfdaño" value="'+fv('rf','')+'" placeholder="2D6" '+sm+'>'},                     {l:'FA',h:'<input type="text" id="no-fadaño" value="'+fv('fa','')+'" placeholder="3D6" '+sm+'>'});        campos+='<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin-bottom:5px;">BALAS CONSUMIDAS</div>';        campos+=row3({l:'Coste TT',h:'<input type="number" id="no-tt" value="'+fv('ttCost',1)+'" min="0" '+sm+'>'},                     {l:'Coste RF',h:'<input type="number" id="no-rf" value="'+fv('rfCost',0)+'" min="0" '+sm+'>'},                     {l:'Coste FA',h:'<input type="number" id="no-fa" value="'+fv('faCost',0)+'" min="0" '+sm+'>'});      }      return campos;    })()    +row2({l:'CALIDAD (suma a Ataque)',h:'<input type="number" id="no-calidad" value="'+fv('calidad',0)+'" min="0" max="6" '+sm+'>'},                  {l:'ESTADO (suma a Daño)',h:'<input type="number" id="no-estado" value="'+fv('estado',0)+'" min="0" max="6" '+sm+'>'})    +row1('MANOS','<select id="no-manos" '+s+'><option value="1"'+(String(fv('manos',1))==='1'?' selected':'')+'>Una mano (permite dos armas equipadas)</option><option value="2"'+(String(fv('manos',1))==='2'?' selected':'')+'>Dos manos (ocupa las dos)</option></select>')    +'</div>'
@@ -6258,14 +6376,17 @@ window.masterSaveObj=function(){
   const extraMisc=tipo==='misc'?{
     usosMax:Math.max(0,parseInt((document.getElementById('no-usos')||{}).value)||0),
   }:{};
+  const extraExplosivo=tipo==='explosivo'?{
+    daño:(document.getElementById('no-exp-daño')||{}).value||'',
+  }:{};
   const sala=getMockSala(APP.salaId);
   const editId=APP._editObjId;
   if(editId!=null){
     const idx=APP.tienda.findIndex(function(o){return o.id===editId;});
-    if(idx>=0){ APP.tienda[idx]=Object.assign({},APP.tienda[idx],{n:n.trim(),tipo,val,pc,desc},extraArma,extraArmadura,extraDroga,extraMunicion,extraMisc); sala.tienda=APP.tienda; showNotif(n+' actualizado'); }
+    if(idx>=0){ APP.tienda[idx]=Object.assign({},APP.tienda[idx],{n:n.trim(),tipo,val,pc,desc},extraArma,extraArmadura,extraDroga,extraMunicion,extraMisc,extraExplosivo); sala.tienda=APP.tienda; showNotif(n+' actualizado'); }
     APP._editObjId=null;
   } else {
-    const o=Object.assign({id:Date.now(),n:n.trim(),tipo,val,pc,desc},extraArma,extraArmadura,extraDroga,extraMunicion,extraMisc);
+    const o=Object.assign({id:Date.now(),n:n.trim(),tipo,val,pc,desc},extraArma,extraArmadura,extraDroga,extraMunicion,extraMisc,extraExplosivo);
     APP.tienda.push(o); sala.tienda=APP.tienda; showNotif(n+' añadido');
   }
   APP._currentFormTipo=null; APP._objTipoSelected=null; APP._objSubcatSelected=null; APP._objSlotArmaduraSelected=null; APP._draftObjEfectos=null; APP._draftObjEfCat=null; APP._draftObjAdicCat=null; APP._draftObjGeneral=null;
@@ -6957,8 +7078,9 @@ function renderMCrearTienda(){
   const editIdx=APP.tiendaEditando;
   const esEd=editIdx!=null;
   const src=esEd?(APP.tiendas[editIdx]||{}):{};
-  const draft=APP._tiendaDraft||{nombre:src.nombre||'',objIds:[...(src.objIds||[])],descuento:src.descuento||0,stock:Object.assign({},src.stock||{})};
+  const draft=APP._tiendaDraft||{nombre:src.nombre||'',objIds:[...(src.objIds||[])],descuento:src.descuento||0,stock:Object.assign({},src.stock||{}),recursosSel:[...(src.recursosSel||[])],recursosStock:Object.assign({},src.recursosStock||{})};
   const selIds=draft.objIds, desc=draft.descuento||0;
+  const valoresRec=getValoresRecursoRecompensa();
   const btnRow='<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px;">'
     +'<button class="btn btn-warn" onclick="cancelarCrearTienda()">✕ CANCELAR</button>'
     +'<button class="btn" onclick="guardarTienda()">'+(esEd?'▸ GUARDAR':'▸ CREAR')+'</button></div>';
@@ -6968,7 +7090,7 @@ function renderMCrearTienda(){
     +'<div style="display:flex;align-items:center;gap:8px;flex:1;"><input type="range" id="tienda-desc" min="0" max="50" step="5" value="'+desc+'" oninput="tiendaDraftDesc(parseInt(this.value))" style="flex:1;">'
     +'<span id="desc-val" style="font-family:VT323,monospace;font-size:18px;color:var(--pip-warn);min-width:40px;">'+desc+'%</span></div></div>'
     +(desc>0?'<div style="font-size:9px;color:var(--pip-warn);">Los jugadores verán los precios con -'+desc+'%</div>':'')
-    +'<div style="font-size:9px;color:var(--pip-dim);margin-top:6px;">Al marcar un objeto puedes ponerle un stock. Vacío = infinito.</div>'
+    +'<div style="font-size:9px;color:var(--pip-dim);margin-top:6px;">Al marcar un objeto o recurso puedes ponerle un stock. Vacío = infinito.</div>'
     +'</div></div>';
   const objBlock='<div class="card"><div class="card-hdr">OBJETOS ('+selIds.length+' seleccionados)</div>'
     +'<div style="padding:0;">'
@@ -6985,8 +7107,37 @@ function renderMCrearTienda(){
         +'</div>';
     }, 'tienda')
     +'</div></div>';
-  return btnRow+header+objBlock+btnRow;
+  const recBlock='<div class="card" style="margin-top:8px;"><div class="card-hdr">RECURSOS DE FABRICACIÓN ('+draft.recursosSel.length+' seleccionados)</div>'
+    +'<div style="padding:0;">'
+    +RECURSOS_FABRICACION.map(function(r){
+      const sel=draft.recursosSel.indexOf(r.k)>=0;
+      const precioUnit=valoresRec[r.k]||1;
+      const pF=desc>0?Math.round(precioUnit*(1-desc/100)):precioUnit;
+      return '<div style="display:flex;align-items:center;padding:7px 10px;border-bottom:1px solid rgba(74,254,130,.08);gap:8px;background:'+(sel?'rgba(74,254,130,.05)':'none')+'">'
+        +'<div style="width:16px;height:16px;border:1px solid '+(sel?'var(--pip)':'var(--pip-border)')+';background:'+(sel?'var(--pip)':'none')+';flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--pip-dark);cursor:pointer;" data-rk="'+r.k+'" onclick="toggleRecursoTienda(this.dataset.rk)">'+(sel?'✓':'')+'</div>'
+        +'<div style="flex:1;cursor:pointer;" data-rk="'+r.k+'" onclick="toggleRecursoTienda(this.dataset.rk)"><div style="font-size:11px;">'+r.icono+' '+r.n+'</div></div>'
+        +(sel?'<input type="number" class="tienda-recstock-inp" data-rk="'+r.k+'" value="'+(draft.recursosStock&&draft.recursosStock[r.k]?draft.recursosStock[r.k]:'')+'" placeholder="∞" min="1" style="width:44px;font-family:VT323,monospace;font-size:13px;padding:3px;background:var(--pip-dark);border:1px solid var(--pip-border);color:var(--pip-bright);text-align:center;" oninput="tiendaDraftStockRecurso(\''+r.k+'\',this.value)">':'')
+        +'<div style="text-align:right;flex-shrink:0;">'+(desc>0?'<div style="font-size:9px;color:var(--pip-dim);text-decoration:line-through;">'+precioUnit+'¢</div>':'')
+        +'<div style="font-family:VT323,monospace;font-size:16px;color:var(--pip-warn);">'+pF+'¢/u</div></div>'
+        +'</div>';
+    }).join('')
+    +'</div></div>';
+  return btnRow+header+objBlock+recBlock+btnRow;
 }
+
+window.toggleRecursoTienda=function(k){
+  if(!APP._tiendaDraft){var src=APP.tiendaEditando!=null?(APP.tiendas[APP.tiendaEditando]||{}):{};APP._tiendaDraft={nombre:src.nombre||'',objIds:[...(src.objIds||[])],descuento:src.descuento||0,stock:Object.assign({},src.stock||{}),recursosSel:[...(src.recursosSel||[])],recursosStock:Object.assign({},src.recursosStock||{})};}
+  if(!APP._tiendaDraft.recursosSel) APP._tiendaDraft.recursosSel=[];
+  const i=APP._tiendaDraft.recursosSel.indexOf(k);
+  if(i>=0) APP._tiendaDraft.recursosSel.splice(i,1); else APP._tiendaDraft.recursosSel.push(k);
+  renderApp();
+};
+window.tiendaDraftStockRecurso=function(k,val){
+  if(!APP._tiendaDraft){var src=APP.tiendaEditando!=null?(APP.tiendas[APP.tiendaEditando]||{}):{};APP._tiendaDraft={nombre:src.nombre||'',objIds:[...(src.objIds||[])],descuento:src.descuento||0,stock:Object.assign({},src.stock||{}),recursosSel:[...(src.recursosSel||[])],recursosStock:Object.assign({},src.recursosStock||{})};}
+  if(!APP._tiendaDraft.recursosStock) APP._tiendaDraft.recursosStock={};
+  var n=parseInt(val);
+  if(n>0) APP._tiendaDraft.recursosStock[k]=n; else delete APP._tiendaDraft.recursosStock[k];
+};
 
 window.tiendaDraftStock=function(oid,val){
   if(!APP._tiendaDraft){var src=APP.tiendaEditando!=null?(APP.tiendas[APP.tiendaEditando]||{}):{};APP._tiendaDraft={nombre:src.nombre||'',objIds:[...(src.objIds||[])],descuento:src.descuento||0,stock:Object.assign({},src.stock||{})};}
@@ -7013,6 +7164,8 @@ window.guardarTienda=function(){
   var objIds=APP._tiendaDraft?APP._tiendaDraft.objIds:[];
   var descuento=APP._tiendaDraft?APP._tiendaDraft.descuento||0:0;
   var stockDraft=APP._tiendaDraft?(APP._tiendaDraft.stock||{}):{};
+  var recursosSel=APP._tiendaDraft?(APP._tiendaDraft.recursosSel||[]):[];
+  var recStockDraft=APP._tiendaDraft?(APP._tiendaDraft.recursosStock||{}):{};
   var sala=getMockSala(APP.salaId); if(!sala.tiendas) sala.tiendas=[];
   // Construir el stock final: {objId:{actual,original}} — conserva el 'actual' ya consumido si el objeto ya tenía stock definido
   var tiendaPrevia=APP.tiendaEditando!=null?sala.tiendas[APP.tiendaEditando]:null;
@@ -7028,19 +7181,32 @@ window.guardarTienda=function(){
       }
     }
   });
-  if(APP.tiendaEditando!=null){sala.tiendas[APP.tiendaEditando].nombre=nombre;sala.tiendas[APP.tiendaEditando].objIds=objIds;sala.tiendas[APP.tiendaEditando].descuento=descuento;sala.tiendas[APP.tiendaEditando].stock=stockFinal;}
-  else sala.tiendas.push({id:'t_'+Date.now(),nombre:nombre,objIds:objIds,activa:false,descuento:descuento,stock:stockFinal});
+  var recStockPrevio=(tiendaPrevia&&tiendaPrevia.recursosStock)||{};
+  var recStockFinal={};
+  recursosSel.forEach(function(k){
+    var cantDraft=recStockDraft[k];
+    if(cantDraft>0){
+      if(recStockPrevio[k]&&recStockPrevio[k].original===cantDraft){
+        recStockFinal[k]=recStockPrevio[k];
+      } else {
+        recStockFinal[k]={actual:cantDraft,original:cantDraft};
+      }
+    }
+  });
+  if(APP.tiendaEditando!=null){sala.tiendas[APP.tiendaEditando].nombre=nombre;sala.tiendas[APP.tiendaEditando].objIds=objIds;sala.tiendas[APP.tiendaEditando].descuento=descuento;sala.tiendas[APP.tiendaEditando].stock=stockFinal;sala.tiendas[APP.tiendaEditando].recursosSel=recursosSel;sala.tiendas[APP.tiendaEditando].recursosStock=recStockFinal;}
+  else sala.tiendas.push({id:'t_'+Date.now(),nombre:nombre,objIds:objIds,activa:false,descuento:descuento,stock:stockFinal,recursosSel:recursosSel,recursosStock:recStockFinal});
   APP.tiendas=sala.tiendas; APP.tiendaEditando=null; APP._tiendaDraft=null; APP.masterSubTab='lista';
   fbSet('salas/'+APP.salaId+'/tiendas',sala.tiendas); showNotif('Tienda guardada'); renderApp();
 };
 window.cancelarCrearTienda=function(){ APP.tiendaEditando=null;APP._tiendaDraft=null;APP.masterSubTab='lista';renderApp(); };
-window.editarTienda=function(idx){ APP.tiendaEditando=idx;var t=APP.tiendas[idx];APP._tiendaDraft={nombre:t.nombre,objIds:[...t.objIds],descuento:t.descuento||0,stock:Object.assign({},t.stock||{})};APP.masterSubTab='crear';APP._gruposAbiertos={};renderApp(); };
+window.editarTienda=function(idx){ APP.tiendaEditando=idx;var t=APP.tiendas[idx];APP._tiendaDraft={nombre:t.nombre,objIds:[...t.objIds],descuento:t.descuento||0,stock:Object.assign({},t.stock||{}),recursosSel:[...(t.recursosSel||[])],recursosStock:Object.assign({},t.recursosStock||{})};APP.masterSubTab='crear';APP._gruposAbiertos={};renderApp(); };
 
 window.masterReabastecerTienda=function(idx){
   const sala=getMockSala(APP.salaId);
-  const t=sala.tiendas[idx]; if(!t||!t.stock) return;
+  const t=sala.tiendas[idx]; if(!t||(!t.stock&&!t.recursosStock)) return;
   if(!confirm('¿Reabastecer "'+t.nombre+'" a las cantidades originales?')) return;
-  Object.keys(t.stock).forEach(function(oid){ t.stock[oid].actual=t.stock[oid].original; });
+  if(t.stock) Object.keys(t.stock).forEach(function(oid){ t.stock[oid].actual=t.stock[oid].original; });
+  if(t.recursosStock) Object.keys(t.recursosStock).forEach(function(k){ t.recursosStock[k].actual=t.recursosStock[k].original; });
   APP.tiendas=sala.tiendas;
   fbSet('salas/'+APP.salaId+'/tiendas',sala.tiendas);
   showNotif('Tienda reabastecida');
