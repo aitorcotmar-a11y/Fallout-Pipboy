@@ -6151,6 +6151,19 @@ window.switchForjaSub=function(k){
   limpiarDraftRasgo(); limpiarDraftExtra();
   renderApp();
 };
+window.masterBuscarObjLista=function(v){
+  APP._objListaBusqueda=v;
+  guardarCamposGeneralesObj();
+  const mc=document.getElementById('main-content');
+  if(mc) mc.innerHTML=renderMForja();
+  const inp=document.getElementById('obj-lista-buscar');
+  if(inp){ inp.focus(); inp.setSelectionRange(inp.value.length,inp.value.length); }
+};
+window.masterOrdenObjLista=function(modo){
+  APP._objListaModo=modo;
+  guardarCamposGeneralesObj();
+  renderApp();
+};
 function guardarCamposGeneralesObj(){
   if(!APP._draftObjGeneral) APP._draftObjGeneral={};
   var g=APP._draftObjGeneral;
@@ -6304,20 +6317,40 @@ function renderMObjetos(){
       :'<button class="btn btn-block" onclick="masterSaveObj()" style="grid-column:1/-1;">▸ AÑADIR A LISTA</button>')
     +'</div></div></div>';
 
-  const listaHtml='<div class="card"><div class="card-hdr">LISTA ('+APP.tienda.length+')</div>'
+  function renderFilaObjeto(o){
+    if(!o||!o.tipo) return ''; const tl=o.tipo==='arma'?'ARMA':o.tipo==='med'?'MED':o.tipo==='droga'?'DROGA':o.tipo==='armadura'?'ARM':o.tipo==='municion'?'MUNI':o.tipo==='explosivo'?'EXP':o.tipo==='ropa'?'ROPA':o.tipo==='herramienta'?'TOOL':o.tipo==='holotape'?'HOLO':'MISC';
+    return '<div class="shop-item">'
+      +'<div class="shop-info"><div class="shop-name">'+o.n+' <span class="tag tag-'+o.tipo+'">'+tl+'</span></div>'
+      +'<div class="shop-desc" style="font-size:11px;color:#7ddb8e;">'+o.desc+' · '+o.pc+'pc</div></div>'
+      +'<div style="text-align:right;flex-shrink:0;"><div class="shop-price">'+o.val+'¢</div>'
+      +'<div style="display:flex;gap:3px;margin-top:3px;justify-content:flex-end;">'
+      +'<button class="chip chip-g" data-oid="'+o.id+'" onclick="abrirEnviarMaster(parseInt(this.dataset.oid))">ENV.</button>'
+      +'<button class="chip chip-g" style="border-color:var(--pip-warn);color:var(--pip-warn);" data-oid="'+o.id+'" onclick="masterEditObj(parseInt(this.dataset.oid))">EDIT.</button>'
+      +'<button class="chip chip-r" data-oid="'+o.id+'" onclick="masterDelObj(parseInt(this.dataset.oid))">×</button>'
+      +'</div></div></div>';
+  }
+  const objListaModo=APP._objListaModo||'tipo';
+  const objBusqueda=(APP._objListaBusqueda||'').toLowerCase().trim();
+  const objFiltrados=APP.tienda.filter(function(o){return o&&(!objBusqueda||o.n.toLowerCase().indexOf(objBusqueda)>=0);});
+  const toolbarHtml='<div style="padding:8px 10px;border-bottom:1px solid var(--pip-border);">'
+    +'<input type="text" id="obj-lista-buscar" value="'+(APP._objListaBusqueda||'')+'" placeholder="🔍 Buscar por nombre..." oninput="masterBuscarObjLista(this.value)" style="width:100%;font-family:VT323,monospace;font-size:15px;padding:6px 8px;background:var(--pip-dark);border:1px solid var(--pip-border);color:var(--pip-bright);margin-bottom:6px;">'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;">'
+    +[{k:'tipo',l:'POR TIPO'},{k:'alfa',l:'A-Z'},{k:'valor',l:'POR VALOR'}].map(function(m){
+      return '<button class="btn btn-sm" style="'+(objListaModo===m.k?'border-color:var(--pip);color:var(--pip-bright);':'')+'" onclick="masterOrdenObjLista(\''+m.k+'\')">'+m.l+'</button>';
+    }).join('')
+    +'</div></div>';
+  var listaContenidoHtml;
+  if(objListaModo==='alfa'){
+    listaContenidoHtml=ordenarObjetos(objFiltrados).map(renderFilaObjeto).join('')||'<div class="empty">Sin objetos que coincidan</div>';
+  } else if(objListaModo==='valor'){
+    listaContenidoHtml=objFiltrados.slice().sort(function(a,b){return (b.val||0)-(a.val||0);}).map(renderFilaObjeto).join('')||'<div class="empty">Sin objetos que coincidan</div>';
+  } else {
+    listaContenidoHtml=renderObjGrupos(objFiltrados, renderFilaObjeto, 'objetos', true);
+  }
+  const listaHtml='<div class="card"><div class="card-hdr">LISTA ('+objFiltrados.length+(objFiltrados.length!==APP.tienda.length?'/'+APP.tienda.length:'')+')</div>'
+    +toolbarHtml
     +'<div style="padding:0;">'
-    +renderObjGrupos(APP.tienda, function(o){
-      if(!o||!o.tipo) return ''; const tl=o.tipo==='arma'?'ARMA':o.tipo==='med'?'MED':o.tipo==='droga'?'DROGA':o.tipo==='armadura'?'ARM':o.tipo==='municion'?'MUNI':o.tipo==='explosivo'?'EXP':o.tipo==='ropa'?'ROPA':o.tipo==='herramienta'?'TOOL':o.tipo==='holotape'?'HOLO':'MISC';
-      return '<div class="shop-item">'
-        +'<div class="shop-info"><div class="shop-name">'+o.n+' <span class="tag tag-'+o.tipo+'">'+tl+'</span></div>'
-        +'<div class="shop-desc" style="font-size:11px;color:#7ddb8e;">'+o.desc+' · '+o.pc+'pc</div></div>'
-        +'<div style="text-align:right;flex-shrink:0;"><div class="shop-price">'+o.val+'¢</div>'
-        +'<div style="display:flex;gap:3px;margin-top:3px;justify-content:flex-end;">'
-        +'<button class="chip chip-g" data-oid="'+o.id+'" onclick="abrirEnviarMaster(parseInt(this.dataset.oid))">ENV.</button>'
-        +'<button class="chip chip-g" style="border-color:var(--pip-warn);color:var(--pip-warn);" data-oid="'+o.id+'" onclick="masterEditObj(parseInt(this.dataset.oid))">EDIT.</button>'
-        +'<button class="chip chip-r" data-oid="'+o.id+'" onclick="masterDelObj(parseInt(this.dataset.oid))">×</button>'
-        +'</div></div></div>';
-    }, 'objetos', true)
+    +listaContenidoHtml
     +'</div></div>';
 
   const cofreBlockHtml='<div class="card" style="border-color:'+(APP.enCiudad?'rgba(100,200,255,.5)':'rgba(255,140,0,.4)')+';margin-bottom:8px;">'
