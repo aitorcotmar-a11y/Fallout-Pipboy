@@ -354,7 +354,8 @@ input:focus,select:focus{border-color:var(--pip);box-shadow:0 0 4px rgba(74,254,
   <div class="login-box">
     <div class="login-title">¿QUIÉN ERES?</div>
     <button class="btn btn-block" onclick="goMasterPW()" style="margin-bottom:8px;font-size:16px;">▸ SOY EL MASTER</button>
-    <button class="btn btn-block" onclick="goSelector()" style="font-size:16px;">▸ SOY UN JUGADOR</button>
+    <button class="btn btn-block" onclick="goSelector()" style="margin-bottom:8px;font-size:16px;">▸ SOY UN JUGADOR</button>
+    <button class="btn btn-block" onclick="entrarCofreQuick()" style="font-size:16px;border-color:var(--pip-warn);color:var(--pip-warn);">▸ COFRE</button>
   </div>
   <div style="font-size:9px;color:var(--pip-dim);text-align:center;margin-top:8px;letter-spacing:1px;">VAULT-TEC DOCUMENTATION DEPT. · ENERO 2077</div>
 </div>
@@ -1634,14 +1635,14 @@ function salirApp(){
     if(j){ j.online=false; saveJ(); }
     if(!FB_MOCK&&db) db.ref('salas/'+APP.salaId+'/jugadores/'+APP.jugadorId+'/online').set(false);
   }
-  if(APP.rol==='master'&&APP.salaId){
+  if(APP.rol==='master'&&APP.salaId&&!APP._modoCofre){
     if(!FB_MOCK&&db) db.ref('salas/'+APP.salaId+'/config/masterOnline').set(false);
     getMockSala(APP.salaId).config.masterOnline=false;
   }
   // Desconectar listener Firebase
   if(!FB_MOCK&&db&&APP.salaId) db.ref('salas/'+APP.salaId).off();
   // Reset completo del estado
-  APP.rol=null; APP.jugadorId=null; APP.salaId=null;
+  APP.rol=null; APP.jugadorId=null; APP.salaId=null; APP._modoCofre=false;
   APP.masterTab='fichas'; APP.fichaInner='estado';
   APP.jugadores={}; APP.tienda=[]; APP.enemigos=[]; APP.combate=[]; APP.rasgosCustom=[]; APP.extrasCustom=[]; APP.rasgosOverride={}; APP.extrasOverride={}; APP.radZona={activo:false,radsHora:60,jugadoresIds:[],ultimoTick:0}; APP.cofre={chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0}; APP.cofreObjetos={}; APP.recetasPendientes=[]; APP.enCiudad=false;
   APP.tiendas=[]; APP.notificaciones={}; APP._gruposAbiertos={};
@@ -1742,6 +1743,33 @@ window.goSelector=function(){
 };
 
 ;
+
+window.entrarCofreQuick=function(){
+  APP.salaId=SALA_ID;
+  APP.rol='master';
+  APP._modoCofre=true; // acceso rápido sin PIN: solo Forja, sin bloqueo de "master ya conectado", sin panel de admin
+  APP.masterTab='forja';
+  document.getElementById('hdr-sala').textContent=APP.salaId;
+  document.getElementById('hdr-badge').innerHTML='<span class="rbadge master">🗃 COFRE</span>';
+  var bp=document.getElementById('btn-personaje'); if(bp) bp.style.display='none';
+  var ba=document.getElementById('btn-admin'); if(ba) ba.style.display='none'; // sin acceso a la zona peligrosa desde aquí
+  buildTabs();
+  showScreen('shell');
+  if(!FB_MOCK&&db){
+    db.ref('salas/'+APP.salaId).once('value', function(snap){
+      const data=snap.val();
+      if(data) MOCK.salas[APP.salaId]=Object.assign(getMockSala(APP.salaId), data);
+      const s=getMockSala(APP.salaId);
+      APP.jugadores=s.jugadores||{}; APP.tienda=s.tienda||[]; APP.rasgosCustom=s.rasgosCustom||[]; APP.extrasCustom=s.extrasCustom||[]; APP.rasgosOverride=s.rasgosOverride||{}; APP.extrasOverride=s.extrasOverride||{}; APP.setsArmadura=s.setsArmadura||[]; APP.recompensaValores=s.recompensaValores||{}; APP.recompensaObjIds=s.recompensaObjIds||null; APP.radZona=s.radZona||{cantidad:20,jugadoresIds:[]}; APP.cofre=s.cofre||{chatarra:0,medicinas:0,quimicos:0,electronica:0,comida_irr:0,agua_irr:0,raciones:0,agua:0}; APP.cofreObjetos=normalizarCofreObjetos(s.cofreObjetos); APP.cofreMunicion=normalizarCofreObjetos(s.cofreMunicion); APP.recetasPendientes=s.recetasPendientes||[]; APP.enCiudad=s.enCiudad||false; aplicarOverridesContenido();
+      APP.enemigos=s.enemigos||[]; APP.combate=s.combate||[];
+      APP.tiendas=s.tiendas||[]; APP.notificaciones=s.notificaciones||{};
+      renderApp();
+      startRealtime(APP.salaId);
+    }, function(err){ console.error('Firebase error:',err); entrarMasterLocal(); });
+  } else {
+    entrarMasterLocal();
+  }
+};
 
 function entrarMaster(){
   APP.rol='master';
@@ -1973,6 +2001,10 @@ function entrarJugador(id){ entrarJugadorConPin(id); }
    ═══════════════════════════════════════════ */
 function buildTabs(){
   const el=document.getElementById('main-tabs');
+  if(APP._modoCofre){
+    el.innerHTML='<button class="tab active" style="flex:1;">🗃 FORJA (COFRE)</button><button class="tab" style="flex:0 0 auto;color:var(--pip-danger);" onclick="salirApp()">◂ SALIR</button>';
+    return;
+  }
   if(APP.rol==='master'){
     el.innerHTML=[{k:'fichas',l:'JUGADORES'},{k:'forja',l:'FORJA'},{k:'tiendas',l:'TIENDAS'},{k:'combate',l:'COMBATE'},{k:'recompensas',l:'RECOMPENSAS'}]
       .map(function(t){return '<button class="tab '+(APP.masterTab===t.k?'active':'')+'" data-k="'+t.k+'" onclick="switchMT(this.dataset.k)">'+t.l+'</button>';}).join('');
@@ -2989,6 +3021,26 @@ window.masterToggleCiudad=function(){
   renderApp();
 };
 
+window.masterCofreModChapas=async function(signo){
+  const cantEl=document.getElementById('m-cofre-chapas-cant');
+  const cant=Math.max(1,parseInt(cantEl?cantEl.value:10)||10);
+  mostrarEnviando('📡 ACTUALIZANDO COFRE...');
+  await esperarConfirmacion(fetchCofreFresco(),4000);
+  if(!APP.cofre) APP.cofre={};
+  APP.cofre.chapas=Math.max(0,(APP.cofre.chapas||0)+(signo*cant));
+  await esperarConfirmacion(saveCofre(),5000);
+  ocultarEnviando();
+  renderApp();
+};
+window.masterCofreModChapasFija=async function(delta){
+  mostrarEnviando('📡 ACTUALIZANDO COFRE...');
+  await esperarConfirmacion(fetchCofreFresco(),4000);
+  if(!APP.cofre) APP.cofre={};
+  APP.cofre.chapas=Math.max(0,(APP.cofre.chapas||0)+delta);
+  await esperarConfirmacion(saveCofre(),5000);
+  ocultarEnviando();
+  renderApp();
+};
 window.masterCofreMod=async function(k,delta){
   const cantEl=document.getElementById('m-cofre-cant');
   const cant=Math.max(1,parseInt(cantEl?cantEl.value:1)||1);
@@ -6273,25 +6325,29 @@ function renderMObjetos(){
     +'<div style="padding:10px 12px;">'
     +'<div style="font-size:9px;color:var(--pip-dim);margin-bottom:8px;">Mientras esté EN CIUDAD, los jugadores pueden guardar y sacar recursos del Cofre común desde su inventario.</div>'
     +'<button class="btn btn-block '+(APP.enCiudad?'btn-danger':'btn-warn')+'" onclick="masterToggleCiudad()">'+(APP.enCiudad?'⏸ SALIR DE CIUDAD':'▶ ENTRAR EN CIUDAD / REFUGIO')+'</button>'
+    +'<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin:12px 0 4px;border-bottom:1px solid var(--pip-border);padding-bottom:3px;">¢ CHAPAS EN EL COFRE</div>'
+    +'<div style="display:flex;align-items:center;gap:8px;padding:6px 0;flex-wrap:wrap;">'
+    +'<span style="font-family:VT323,monospace;font-size:26px;color:var(--pip-warn);min-width:60px;">'+((APP.cofre&&APP.cofre.chapas)||0)+'</span>'
+    +'<button class="chip chip-r" style="padding:8px 16px;font-size:18px;" onclick="masterCofreModChapas(-1)">−</button>'
+    +'<input type="number" id="m-cofre-chapas-cant" value="10" min="1" style="width:60px;font-family:VT323,monospace;font-size:16px;padding:6px;background:var(--pip-dark);border:1px solid var(--pip-border);color:var(--pip-bright);text-align:center;">'
+    +'<button class="chip chip-g" style="padding:8px 16px;font-size:18px;" onclick="masterCofreModChapas(1)">+</button>'
+    +'<span style="width:12px;"></span>'
+    +'<button class="chip chip-r" style="padding:8px 14px;font-size:16px;" onclick="masterCofreModChapasFija(-10)">−10</button>'
+    +'<button class="chip chip-r" style="padding:8px 14px;font-size:16px;" onclick="masterCofreModChapasFija(-5)">−5</button>'
+    +'<button class="chip chip-r" style="padding:8px 14px;font-size:16px;" onclick="masterCofreModChapasFija(-1)">−1</button>'
+    +'<button class="chip chip-g" style="padding:8px 14px;font-size:16px;" onclick="masterCofreModChapasFija(1)">+1</button>'
+    +'<button class="chip chip-g" style="padding:8px 14px;font-size:16px;" onclick="masterCofreModChapasFija(5)">+5</button>'
+    +'<button class="chip chip-g" style="padding:8px 14px;font-size:16px;" onclick="masterCofreModChapasFija(10)">+10</button>'
+    +'</div>'
     +'<div style="font-size:9px;color:var(--pip-dim);letter-spacing:1px;margin:12px 0 4px;border-bottom:1px solid var(--pip-border);padding-bottom:3px;">🗃 COFRE COMÚN — RECURSOS DE FABRICACIÓN</div>'
-    +'<div style="font-size:9px;color:var(--pip-dim);margin-bottom:6px;">Los recursos solo los entrega el Master. Ajusta cuánto quieres enviar de cada uno y pulsa ENVIAR para elegir a quién (uno o varios jugadores y/o el Cofre): esa cantidad se suma entera a cada destino marcado.</div>'
-    +'<div style="display:flex;align-items:center;gap:4px;padding:4px 0 6px;border-bottom:1px solid var(--pip-border);">'
-      +'<span style="flex:1;font-size:8px;color:var(--pip-dim);letter-spacing:1px;"></span>'
-      +'<span style="font-size:8px;color:var(--pip-dim);letter-spacing:1px;min-width:52px;text-align:center;">ACTUAL</span>'
-      +'<span style="font-size:8px;color:var(--pip-dim);letter-spacing:1px;min-width:72px;text-align:center;">CANTIDAD A ENVIAR</span>'
-      +'<span style="min-width:88px;"></span>'
-      +'</div>'
+    +'<div style="font-size:9px;color:var(--pip-dim);margin-bottom:6px;">Los recursos solo los entrega el Master.</div>'
     +RECURSOS_FABRICACION.map(function(r){
       var cant=(APP.cofre&&APP.cofre[r.k])||0;
-      var envCant=(APP._cantEnviarRecurso&&APP._cantEnviarRecurso[r.k])||0;
-      return '<div style="display:flex;align-items:center;gap:4px;padding:5px 0;border-bottom:1px solid rgba(74,254,130,.08);flex-wrap:wrap;">'
-        +'<span style="flex:1;font-size:12px;color:var(--pip-bright);">'+r.icono+' '+r.n+'</span>'
-        +'<span style="font-family:VT323,monospace;font-size:18px;color:var(--pip-warn);min-width:22px;text-align:right;">'+cant+'</span>'
-        +'<button class="chip chip-r" data-k="'+r.k+'" onclick="masterCofreMod(this.dataset.k,-1)">−</button>'
-        +'<span style="font-family:VT323,monospace;font-size:18px;color:var(--pip-bright);min-width:22px;text-align:right;margin-left:10px;">'+envCant+'</span>'
-        +'<button class="chip chip-r" data-k="'+r.k+'" onclick="ajustarCantEnviarRecurso(this.dataset.k,-1)">−</button>'
-        +'<button class="chip chip-g" data-k="'+r.k+'" onclick="ajustarCantEnviarRecurso(this.dataset.k,1)">+</button>'
-        +'<button class="chip" style="border-color:var(--pip-warn);color:var(--pip-warn);margin-left:8px;" data-k="'+r.k+'" '+(envCant<1?'disabled':'')+' onclick="abrirEnviarRecursoVarios(this.dataset.k)">📤 ENVIAR</button>'
+      return '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid rgba(74,254,130,.08);">'
+        +'<span style="flex:1;font-size:13px;color:var(--pip-bright);">'+r.icono+' '+r.n+'</span>'
+        +'<span style="font-family:VT323,monospace;font-size:24px;color:var(--pip-warn);min-width:34px;text-align:right;">'+cant+'</span>'
+        +'<button class="chip chip-r" style="padding:10px 18px;font-size:20px;" data-k="'+r.k+'" onclick="masterCofreMod(this.dataset.k,-1)">−</button>'
+        +'<button class="chip chip-g" style="padding:10px 18px;font-size:20px;" data-k="'+r.k+'" onclick="masterCofreMod(this.dataset.k,1)">+</button>'
         +'</div>';
     }).join('')
     +(function(){
