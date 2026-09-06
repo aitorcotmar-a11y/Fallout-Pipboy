@@ -2697,6 +2697,45 @@ function saveCofreMunicion(){
   return fbSet('salas/'+APP.salaId+'/cofreMunicion',APP.cofreMunicion);
 }
 
+window.masterCofreObjMod=async function(k,delta){
+  mostrarEnviando('📡 ACTUALIZANDO COFRE...');
+  await esperarConfirmacion(fetchCofreFresco(),4000);
+  if(!APP.cofreObjetos) APP.cofreObjetos={};
+  APP.cofreObjetos[k]=Math.max(0,(APP.cofreObjetos[k]||0)+delta);
+  await esperarConfirmacion(saveCofreObjetos(),5000);
+  ocultarEnviando();
+  renderApp();
+};
+window.masterCofreObjQuitarTodo=async function(k){
+  if(!confirm('¿Quitar del Cofre todas las unidades de este objeto?')) return;
+  mostrarEnviando('📡 ACTUALIZANDO COFRE...');
+  await esperarConfirmacion(fetchCofreFresco(),4000);
+  if(!APP.cofreObjetos) APP.cofreObjetos={};
+  delete APP.cofreObjetos[k];
+  await esperarConfirmacion(saveCofreObjetos(),5000);
+  ocultarEnviando();
+  renderApp();
+};
+window.masterCofreMuniMod=async function(muniId,delta){
+  mostrarEnviando('📡 ACTUALIZANDO COFRE...');
+  await esperarConfirmacion(fetchCofreFresco(),4000);
+  if(!APP.cofreMunicion) APP.cofreMunicion={};
+  APP.cofreMunicion[muniId]=Math.max(0,(APP.cofreMunicion[muniId]||0)+delta);
+  await esperarConfirmacion(saveCofreMunicion(),5000);
+  ocultarEnviando();
+  renderApp();
+};
+window.masterCofreMuniQuitarTodo=async function(muniId){
+  if(!confirm('¿Quitar del Cofre toda esta munición?')) return;
+  mostrarEnviando('📡 ACTUALIZANDO COFRE...');
+  await esperarConfirmacion(fetchCofreFresco(),4000);
+  if(!APP.cofreMunicion) APP.cofreMunicion={};
+  delete APP.cofreMunicion[muniId];
+  await esperarConfirmacion(saveCofreMunicion(),5000);
+  ocultarEnviando();
+  renderApp();
+};
+
 /* ── Recetas: resolución de coste (compartido jugador/master) ── */
 function detalleIngrediente(ing){
   if(ing.tipo==='chapas') return {label:'Chapas',cant:ing.cantidad};
@@ -6390,7 +6429,11 @@ function renderMObjetos(){
             :claves.map(function(k){
               var objId=cofreKeyToObjId(k);
               var o=getObjById(objId);
-              return '<div style="font-size:11px;color:var(--pip-bright);padding:3px 0;">'+(o?o.n:'(objeto #'+objId+', ya no existe en la tienda)')+' — x'+APP.cofreObjetos[k]+'</div>';
+              return '<div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid rgba(74,254,130,.08);">'
+                +'<span style="flex:1;font-size:11px;color:var(--pip-bright);">'+(o?o.n:'(objeto #'+objId+', ya no existe en la tienda)')+' — x'+APP.cofreObjetos[k]+'</span>'
+                +'<button class="chip chip-r" style="padding:6px 12px;font-size:14px;" data-k="'+k+'" onclick="masterCofreObjMod(this.dataset.k,-1)">−1</button>'
+                +'<button class="chip chip-r" style="padding:6px 10px;font-size:11px;" data-k="'+k+'" onclick="masterCofreObjQuitarTodo(this.dataset.k)">🗑 TODO</button>'
+                +'</div>';
             }).join(''));
       })()
     +(function(){
@@ -6399,7 +6442,11 @@ function renderMObjetos(){
           +(!clavesMuni.length?'<div style="font-size:10px;color:var(--pip-dim);padding:4px 0;">Vacío</div>'
             :clavesMuni.map(function(muniId){
               var m=getMuniById(muniId);
-              return '<div style="font-size:11px;color:var(--pip-bright);padding:3px 0;">'+(m?m.n:'(munición ya no existe en la tienda)')+' — x'+APP.cofreMunicion[muniId]+'</div>';
+              return '<div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid rgba(74,254,130,.08);">'
+                +'<span style="flex:1;font-size:11px;color:var(--pip-bright);">'+(m?m.n:'(munición ya no existe en la tienda)')+' — x'+APP.cofreMunicion[muniId]+'</span>'
+                +'<button class="chip chip-r" style="padding:6px 12px;font-size:14px;" data-k="'+muniId+'" onclick="masterCofreMuniMod(this.dataset.k,-1)">−1</button>'
+                +'<button class="chip chip-r" style="padding:6px 10px;font-size:11px;" data-k="'+muniId+'" onclick="masterCofreMuniQuitarTodo(this.dataset.k)">🗑 TODO</button>'
+                +'</div>';
             }).join(''));
       })()
     +'</div></div>';
